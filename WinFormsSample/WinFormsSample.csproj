@@ -5,18 +5,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Vimes.SignSDK" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.ViewModels" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.MySign" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.SmartCA" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.BCY" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.CMC" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.InTrust" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.Self" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.SIM" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.Softdream" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.USB" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.VNPT" Version="1.0.7" />
+    <PackageReference Include="Vimes.SignSDK" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.ViewModels" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.MySign" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.SmartCA" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.BCY" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.CMC" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.InTrust" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.Self" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.SIM" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.Softdream" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.USB" Version="1.0.10" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.VNPT" Version="1.0.10" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,4 +44,6 @@
   </PropertyGroup>
 
 </Project>
+
+
 
