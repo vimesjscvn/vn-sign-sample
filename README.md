@@ -9,6 +9,14 @@ Mẫu ứng dụng Windows Forms này minh họa cách tích hợp và sử dụ
 
 ---
 
+## Giao Diện Ứng Dụng
+
+![Giao diện WinForms Sample - Vimes SignSDK](docs/screenshot_main.png)
+
+> Giao diện chính của ứng dụng mẫu với sidebar điều hướng, header chọn Merchant, bảng cấu hình ký số và khu vực nhật ký (log).
+
+---
+
 ## 1. Yêu Cầu Hệ Thống
 
 *   **.NET 9.0 SDK** trở lên.
