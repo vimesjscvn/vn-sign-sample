@@ -11,6 +11,7 @@
 *.pdf
 *.log
 *.tmp
+logs/
 wwwroot/export/
 wwwroot/certs/*.p12
 wwwroot/certs/*.pfx

@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Core.Config.Settings;
 using Signature.Domain.API;
@@ -122,10 +123,20 @@ public partial class MainForm : Form
         {
             FileDatas = new List<XmlFileDataItem> { new XmlFileDataItem { FileName = "sample.xml", XmlData = "PEV4YW1wbGU+RGF0YTwvRXhhbXBsZT4=" } }
         };
-        pgXmlRequest.SelectedObject = _xmlRequest;
-
         // Configure grids styling
         SetupBatchFilesGridColumns();
+
+        // Bidirectional synchronization for Username
+        txtUserName.TextChanged += (s, e) => { if (txtUserNameXml.Text != txtUserName.Text) txtUserNameXml.Text = txtUserName.Text; };
+        txtUserNameXml.TextChanged += (s, e) => { if (txtUserName.Text != txtUserNameXml.Text) txtUserName.Text = txtUserNameXml.Text; };
+
+        // Bidirectional synchronization for Password
+        txtPassword.TextChanged += (s, e) => { if (txtPasswordXml.Text != txtPassword.Text) txtPasswordXml.Text = txtPassword.Text; };
+        txtPasswordXml.TextChanged += (s, e) => { if (txtPassword.Text != txtPasswordXml.Text) txtPassword.Text = txtPasswordXml.Text; };
+
+        // Bidirectional synchronization for Certificates Combobox index selection
+        cboCerts.SelectedIndexChanged += (s, e) => { if (cboCertsXml.SelectedIndex != cboCerts.SelectedIndex) cboCertsXml.SelectedIndex = cboCerts.SelectedIndex; };
+        cboCertsXml.SelectedIndexChanged += (s, e) => { if (cboCerts.SelectedIndex != cboCertsXml.SelectedIndex) cboCerts.SelectedIndex = cboCertsXml.SelectedIndex; };
 
         Log("Dashboard Initialized. Welcome to Vimes SignSDK Showcase Studio!", Color.FromArgb(56, 189, 248));
 
@@ -141,6 +152,14 @@ public partial class MainForm : Form
                 // splitContainerDirectLeft: credentials+sig image 52%, config 48%
                 if (splitContainerDirectLeft.Height > 100)
                     splitContainerDirectLeft.SplitterDistance = (int)(splitContainerDirectLeft.Height * 0.52);
+
+                // splitContainerXml: left panel 45%, right panel 55%
+                if (splitContainerXml.Width > 100)
+                    splitContainerXml.SplitterDistance = (int)(splitContainerXml.Width * 0.45);
+
+                // splitContainerXmlLeft: credentials 190, configuration remainder
+                if (splitContainerXmlLeft.Height > 190)
+                    splitContainerXmlLeft.SplitterDistance = 190;
             }
             catch { /* Ignore layout issues during init */ }
         };
@@ -251,6 +270,7 @@ public partial class MainForm : Form
 
             LogSystem($"Attempting authentication with [{merchantId}] as {userName}...");
             btnLogin.Enabled = false;
+            btnLoginXml.Enabled = false;
 
             var result = await _signClient.LoginAsync(userName, password, merchantId, "", "");
 
@@ -284,6 +304,7 @@ public partial class MainForm : Form
         finally
         {
             btnLogin.Enabled = true;
+            btnLoginXml.Enabled = true;
         }
     }
 
@@ -296,6 +317,7 @@ public partial class MainForm : Form
 
             LogWarning($"Bypassing caches. Requesting direct certificate registration retrieval from {merchantId} server...");
             btnSyncCertificates.Enabled = false;
+            btnSyncCertificatesXml.Enabled = false;
 
             var certs = await _signClient.DownloadCertificatesAsync(userName, merchantId);
             PopulateCertificatesControls(certs, userName, merchantId);
@@ -308,21 +330,35 @@ public partial class MainForm : Form
         finally
         {
             btnSyncCertificates.Enabled = true;
+            btnSyncCertificatesXml.Enabled = true;
         }
+    }
+
+    private void btnLoginXml_Click(object sender, EventArgs e)
+    {
+        btnLogin_Click(btnLogin, e);
+    }
+
+    private void btnSyncCertificatesXml_Click(object sender, EventArgs e)
+    {
+        btnSyncCertificates_Click(btnSyncCertificates, e);
     }
 
     private void PopulateCertificatesControls(List<BaseCertificateInfo>? certs, string userName, string merchantId)
     {
         cboCerts.Items.Clear();
+        cboCertsXml.Items.Clear();
 
         if (certs != null && certs.Count > 0)
         {
             foreach (var cert in certs)
             {
                 cboCerts.Items.Add(cert.credentialID);
+                cboCertsXml.Items.Add(cert.credentialID);
             }
             
             cboCerts.SelectedIndex = 0;
+            cboCertsXml.SelectedIndex = 0;
             LogSuccess($"Parsed and loaded {certs.Count} verified certificates into local registry.");
 
             // Sync with Advanced options
@@ -1068,11 +1104,192 @@ public partial class MainForm : Form
     #endregion
 
     #region Tab 4: XML Signing Preview (Mock showcase)
-    private void btnSignXml_Click(object sender, EventArgs e)
+    private string _selectedXmlFilePath = "";
+    private string _xmlFileContent = "";
+
+    private void btnBrowseXml_Click(object sender, EventArgs e)
     {
-        LogWarning("XML signing is currently a preview feature. Initiating mock XML schema packaging workflow...");
-        LogSystem($"Packaging {_xmlRequest.FileDatas?.Count ?? 0} files. Signing mode: ENVELOPED.");
-        LogSuccess("Mock XML signature envelope injected. Transaction: MOCK_XML_TX_890123");
+        using (OpenFileDialog ofd = new OpenFileDialog())
+        {
+            ofd.Filter = "XML Files (*.xml)|*.xml";
+            ofd.Multiselect = true;
+            if (ofd.ShowDialog() == DialogResult.OK)
+            {
+                lstXmlFilePath.Items.Clear();
+                lstXmlFilePath.Items.AddRange(ofd.FileNames);
+                if (lstXmlFilePath.Items.Count > 0)
+                {
+                    lstXmlFilePath.SelectedIndex = 0;
+                }
+
+                if (ofd.FileNames.Length > 1)
+                {
+                    LogSystem($"Loaded XML Files: {ofd.FileNames.Length} files.");
+                }
+                else if (ofd.FileNames.Length == 1)
+                {
+                    LogSystem($"Loaded XML File: {Path.GetFileName(ofd.FileName)} ({new FileInfo(ofd.FileName).Length / 1024.0:F2} KB)");
+                }
+            }
+        }
+    }
+
+    private void lstXmlFilePath_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (lstXmlFilePath.SelectedItem != null)
+        {
+            string filePath = lstXmlFilePath.SelectedItem.ToString()!;
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    _selectedXmlFilePath = filePath;
+                    _xmlFileContent = File.ReadAllText(filePath);
+                    rtbXmlPreview.Text = _xmlFileContent;
+
+                    // Parse some basic info to populate text fields as defaults
+                    txtXmlSignatureName.Text = "Signature_" + Guid.NewGuid().ToString().Substring(0, 8);
+                }
+                catch (Exception ex)
+                {
+                    LogError($"Failed to read XML file: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    private async void btnSignXml_Click(object sender, EventArgs e)
+    {
+        if (lstXmlFilePath.Items.Count == 0)
+        {
+            LogError("Vui lòng chọn tệp XML cần ký trước.");
+            return;
+        }
+
+        if (cboCertsXml.SelectedItem == null)
+        {
+            LogError("Vui lòng đăng nhập và chọn chứng thư số trước khi ký.");
+            return;
+        }
+
+        try
+        {
+            btnSignXml.Enabled = false;
+
+            string userName = txtUserNameXml.Text;
+            string credentialId = cboCertsXml.SelectedItem.ToString()!;
+            string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+
+            string signTag = txtXmlSignTag.Text;
+
+            var fileDatas = new List<XmlFileDataItem>();
+            foreach (var item in lstXmlFilePath.Items)
+            {
+                string filePath = item.ToString()!;
+                if (File.Exists(filePath))
+                {
+                    string fileContent = await File.ReadAllTextAsync(filePath);
+                    string signatureName = "Signature_" + Guid.NewGuid().ToString().Substring(0, 8);
+                    fileDatas.Add(new XmlFileDataItem
+                    {
+                        FileName = Path.GetFileName(filePath),
+                        XmlData = Convert.ToBase64String(Encoding.UTF8.GetBytes(fileContent)),
+                        SignTag = signTag,
+                        SignatureName = signatureName
+                    });
+                }
+            }
+
+            LogSystem($"Packaging {fileDatas.Count} XML file(s) for signing...");
+            LogSystem($"Parameters -> SignTag: '{signTag}'");
+            LogSystem("Invoking SignSDK client XML signing workflow...");
+
+            var request = new XmlMultiSignRequest
+            {
+                UserName = userName,
+                CredentialID = credentialId,
+                MID = merchantId,
+                FileDatas = fileDatas
+            };
+
+            var results = await _signClient.SignXmlDocumentsAsync(request);
+            if (results == null || results.Count == 0)
+            {
+                LogError("Signature failed: No response from XML signing engine.");
+                return;
+            }
+
+            int successCount = 0;
+            string? lastSignedXml = null;
+            string? lastSignedPath = null;
+
+            foreach (var result in results)
+            {
+                // Find matching original file path from ListBox
+                string? originalFilePath = null;
+                foreach (var item in lstXmlFilePath.Items)
+                {
+                    string path = item.ToString()!;
+                    if (Path.GetFileName(path) == result.FileName)
+                    {
+                        originalFilePath = path;
+                        break;
+                    }
+                }
+
+                if (originalFilePath == null)
+                {
+                    // Fallback to first if there's only 1
+                    if (lstXmlFilePath.Items.Count == 1)
+                    {
+                        originalFilePath = lstXmlFilePath.Items[0].ToString();
+                    }
+                }
+
+                if (result.Success && originalFilePath != null)
+                {
+                    successCount++;
+                    byte[] signedBytes = Convert.FromBase64String(result.SignedXmlBase64);
+                    string signedXml = Encoding.UTF8.GetString(signedBytes);
+
+                    string directory = Path.GetDirectoryName(originalFilePath) ?? "";
+                    string baseName = Path.GetFileNameWithoutExtension(originalFilePath);
+                    string signedPath = Path.Combine(directory, $"{baseName}_signed.xml");
+
+                    await File.WriteAllBytesAsync(signedPath, signedBytes);
+                    
+                    lastSignedXml = signedXml;
+                    lastSignedPath = signedPath;
+
+                    LogSuccess($"Ký XML thành công! File: {result.FileName} -> {Path.GetFileName(signedPath)}");
+                }
+                else
+                {
+                    LogError($"Ký XML thất bại cho file: {result.FileName}. Lỗi: {result.ErrorMessage}");
+                }
+            }
+
+            if (successCount > 0 && lastSignedXml != null && lastSignedPath != null)
+            {
+                rtbXmlPreview.Text = lastSignedXml;
+                if (successCount == lstXmlFilePath.Items.Count)
+                {
+                    LogSuccess($"Đã ký thành công toàn bộ {successCount} tệp XML!");
+                }
+                else
+                {
+                    LogWarning($"Đã ký thành công {successCount}/{lstXmlFilePath.Items.Count} tệp XML.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError($"Lỗi trong quá trình ký XML: {ex.Message}");
+        }
+        finally
+        {
+            btnSignXml.Enabled = true;
+        }
     }
     #endregion
 
@@ -1393,7 +1610,6 @@ public partial class MainForm : Form
         if (_xmlRequest != null)
         {
             _xmlRequest.MID = selectedMerchant;
-            pgXmlRequest.Refresh();
         }
 
         // Adaptive Credentials fields based on selected merchant
@@ -1407,6 +1623,10 @@ public partial class MainForm : Form
             txtPassword.Text = "";
             txtUserName.Enabled = false;
             txtPassword.Enabled = false;
+            txtUserNameXml.Text = "N/A (Local CA)";
+            txtPasswordXml.Text = "";
+            txtUserNameXml.Enabled = false;
+            txtPasswordXml.Enabled = false;
             // Enable Local/USB CA fields
             // Sync with Batch Local CA fields
             txtBatchCertPath.Text = "";
@@ -1420,6 +1640,10 @@ public partial class MainForm : Form
             txtPassword.Text = "";
             txtUserName.Enabled = true;
             txtPassword.Enabled = true;
+            txtUserNameXml.Text = "";
+            txtPasswordXml.Text = "";
+            txtUserNameXml.Enabled = true;
+            txtPasswordXml.Enabled = true;
 
             // Disable Local/USB CA fields
 
