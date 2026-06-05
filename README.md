@@ -5,6 +5,16 @@ Mẫu ứng dụng Windows Forms này minh họa cách tích hợp và sử dụ
 *   **Local CA / USB Token**: Ký số bằng USB Token hoặc file chứng thư số (.p12, .pfx) cục bộ.
 *   **Thiết lập vị trí và ghi chú (Note)**: Hỗ trợ người dùng kéo thả, di chuyển và tùy biến ghi chú đính kèm chữ ký.
 
+![Giao diện Vimes SignSDK WinForms Sample](docs/images/winforms_screenshot.png)
+
+---
+
+## Giao Diện Ứng Dụng
+
+![Giao diện WinForms Sample - Vimes SignSDK](docs/screenshot_main.png)
+
+> Giao diện chính của ứng dụng mẫu với sidebar điều hướng, header chọn Merchant, bảng cấu hình ký số và khu vực nhật ký (log).
+
 ---
 
 ## 1. Yêu Cầu Hệ Thống
