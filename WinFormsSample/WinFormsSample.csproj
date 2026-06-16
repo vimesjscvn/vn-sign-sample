@@ -5,10 +5,10 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- DEV (default): build against the SDK source in sign-sdk-nuget directly via ProjectReference.
-         No pack / restore / version-bump / NuGet-cache dance — any SDK change is picked up on rebuild.
-         RELEASE: build with -p:UseSdkSource=false to consume the published NuGet packages instead. -->
-    <UseSdkSource Condition="'$(UseSdkSource)' == ''">true</UseSdkSource>
+    <!-- Default: consume published NuGet packages from nuget.org (UseSdkSource=false).
+         SDK developers only: build with -p:UseSdkSource=true to reference local SDK source directly,
+         requires sign-sdk-nuget checked out at ..\..\sign-sdk-nuget relative to this project. -->
+    <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
     <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
     <SdkPkgVersion>1.0.17</SdkPkgVersion>
   </PropertyGroup>
