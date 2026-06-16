@@ -16,3 +16,4 @@ logs/
 
 # Local secrets — real credentials live here; use appsettings.example.json as the template
 **/appsettings.json
+test-data/
