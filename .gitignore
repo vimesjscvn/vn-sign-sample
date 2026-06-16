@@ -12,6 +12,11 @@
 *.log
 *.tmp
 logs/
+**/wwwroot/
+
+# Local secrets — real credentials live here; use appsettings.example.json as the template
+**/appsettings.json
+test-data/
 wwwroot/export/
 wwwroot/certs/*.p12
 wwwroot/certs/*.pfx

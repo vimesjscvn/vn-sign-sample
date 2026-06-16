@@ -603,30 +603,36 @@ public partial class MainForm : Form
     {
         try
         {
-            using var reader = new iTextSharp.text.pdf.PdfReader(signedPdfPath);
-            var fields = reader.AcroFields;
-            var sigNames = fields.GetSignatureNames();
+            using var reader = new iText.Kernel.Pdf.PdfReader(signedPdfPath);
+            using var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader);
+            var sigUtil = new iText.Signatures.SignatureUtil(pdfDoc);
+            var sigNames = sigUtil.GetSignatureNames();
             if (sigNames == null || sigNames.Count == 0)
             {
                 LogWarning("[AFTER SIGN] No signature widgets found in signed PDF.");
                 return;
             }
             var latest = sigNames[sigNames.Count - 1];
-            var positions = fields.GetFieldPositions(latest);
-            if (positions == null || positions.Count == 0)
+            var acro = iText.Forms.PdfAcroForm.GetAcroForm(pdfDoc, false);
+            var field = acro?.GetField(latest);
+            var widgets = field?.GetWidgets();
+            if (widgets == null || widgets.Count == 0)
             {
                 LogWarning($"[AFTER SIGN] Signature '{latest}' has no widget rectangle (invisible signature).");
                 return;
             }
-            foreach (var p in positions)
+            iText.Kernel.Geom.Rectangle first = null;
+            foreach (var w in widgets)
             {
-                var r = p.position;
-                LogSystem($"[AFTER SIGN] Placement → Page={p.page}, X={r.Left:0.##}, Y={r.Bottom:0.##}, W={r.Width:0.##}, H={r.Height:0.##} (field '{latest}')");
+                var r = w.GetRectangle().ToRectangle();
+                int page = pdfDoc.GetPageNumber(w.GetPage());
+                if (first == null) first = r;
+                LogSystem($"[AFTER SIGN] Placement → Page={page}, X={r.GetLeft():0.##}, Y={r.GetBottom():0.##}, W={r.GetWidth():0.##}, H={r.GetHeight():0.##} (field '{latest}')");
             }
-            float dx = (float)(positions[0].position.Left - (request.X ?? 0));
-            float dy = (float)(positions[0].position.Bottom - (request.Y ?? 0));
-            float dw = (float)(positions[0].position.Width - (request.Width ?? 0));
-            float dh = (float)(positions[0].position.Height - (request.Height ?? 0));
+            float dx = (float)(first.GetLeft() - (request.X ?? 0));
+            float dy = (float)(first.GetBottom() - (request.Y ?? 0));
+            float dw = (float)(first.GetWidth() - (request.Width ?? 0));
+            float dh = (float)(first.GetHeight() - (request.Height ?? 0));
             if (Math.Abs(dx) < 0.5 && Math.Abs(dy) < 0.5 && Math.Abs(dw) < 0.5 && Math.Abs(dh) < 0.5)
                 LogSuccess("[DELTA] Placement matches request exactly (within 0.5 pt).");
             else
