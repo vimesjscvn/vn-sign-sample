@@ -1,0 +1,79 @@
+name: Release WinFormsSample
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+  PROJECT: WinFormsSample/WinFormsSample.csproj
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish self-contained exe
+        shell: bash
+        run: |
+          dotnet publish "${{ env.PROJECT }}" \
+            -c Release \
+            -r win-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:PublishReadyToRun=true \
+            -o ./publish
+
+      - name: Add config template
+        shell: pwsh
+        run: Copy-Item WinFormsSample\appsettings.example.json publish\appsettings.json
+
+      - name: Zip release
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.VERSION }}"
+          Compress-Archive -Path publish\* -DestinationPath "VimesSignSDK-WinForms-$ver.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.VERSION }}
+          name: "Vimes SignSDK WinForms Sample ${{ steps.ver.outputs.VERSION }}"
+          files: VimesSignSDK-WinForms-*.zip
+          body: |
+            ## Hướng dẫn cài đặt
+
+            1. **Tải file zip** bên dưới và giải nén vào thư mục bất kỳ.
+            2. Mở file **`appsettings.json`** và điền thông tin tài khoản nhà cung cấp chữ ký số của bạn (thay thế các giá trị `[YOUR_...]`).
+            3. Chạy **`WinFormsSample.exe`**.
+
+            > Ứng dụng đã tích hợp sẵn .NET runtime — không cần cài thêm phần mềm nào khác.
+
+            ## Các nhà cung cấp được hỗ trợ
+            MySign · SmartCA · BCY · CMC · InTrust · SIM · USB Token · Self (file .p12/.pfx)
