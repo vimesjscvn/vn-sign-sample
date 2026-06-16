@@ -1,22 +1,44 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <PackageReference Include="Docnet.Core" Version="2.6.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Vimes.SignSDK" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.ViewModels" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.MySign" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.SmartCA" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.BCY" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.CMC" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.InTrust" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.Self" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.SIM" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.Softdream" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.USB" Version="1.0.7" />
-    <PackageReference Include="Vimes.SignSDK.Merchants.VNPT" Version="1.0.7" />
+  <PropertyGroup>
+    <!-- Default: consume published NuGet packages from nuget.org (UseSdkSource=false).
+         SDK developers only: build with -p:UseSdkSource=true to reference local SDK source directly,
+         requires sign-sdk-nuget checked out at ..\..\sign-sdk-nuget relative to this project. -->
+    <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
+    <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
+    <SdkPkgVersion>1.0.17</SdkPkgVersion>
+  </PropertyGroup>
+
+  <!-- Development: direct source references -->
+  <ItemGroup Condition="'$(UseSdkSource)' == 'true'">
+    <ProjectReference Include="$(SdkSrc)\SignSDK\Vimes.SignSDK.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Core\Signature.ViewModels\Vimes.SignSDK.ViewModels.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\MySign\Signature.Merchant.MySign\Vimes.SignSDK.Merchants.MySign.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\SmartCA\Signature.Merchant.SmartCA\Vimes.SignSDK.Merchants.SmartCA.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\BCY\Signature.Merchant.BCY\Vimes.SignSDK.Merchants.BCY.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\CMC\Signature.Merchant.CMC\Vimes.SignSDK.Merchants.CMC.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\InTrust\Signature.Merchant.InTrust\Vimes.SignSDK.Merchants.InTrust.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\Self\Signature.Merchant.Self\Vimes.SignSDK.Merchants.Self.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\SIM\Signature.Merchant.SIM\Vimes.SignSDK.Merchants.SIM.csproj" />
+    <ProjectReference Include="$(SdkSrc)\Merchants\USB\Signature.Merchant.USB\Vimes.SignSDK.Merchants.USB.csproj" />
+  </ItemGroup>
+
+  <!-- Release: consume the published NuGet packages -->
+  <ItemGroup Condition="'$(UseSdkSource)' != 'true'">
+    <PackageReference Include="Vimes.SignSDK" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.ViewModels" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.MySign" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.SmartCA" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.BCY" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.CMC" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.InTrust" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.Self" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.SIM" Version="$(SdkPkgVersion)" />
+    <PackageReference Include="Vimes.SignSDK.Merchants.USB" Version="$(SdkPkgVersion)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +55,9 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="wwwroot\certs\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <PropertyGroup>
@@ -44,4 +69,6 @@
   </PropertyGroup>
 
 </Project>
+
+
 

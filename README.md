@@ -1,92 +1,206 @@
-# Hướng Dẫn Sử Dụng WinFormsSample - Vimes SignSDK
+# Vimes SignSDK — WinForms Sample
 
-Mẫu ứng dụng Windows Forms này minh họa cách tích hợp và sử dụng bộ thư viện **Vimes SignSDK** để ký số tài liệu PDF bằng nhiều hình thức khác nhau bao gồm:
-*   **Remote CA (Cloud CA)**: Viettel MySign, VNPT SmartCA, BKAV, CMC, v.v...
-*   **Local CA / USB Token**: Ký số bằng USB Token hoặc file chứng thư số (.p12, .pfx) cục bộ.
-*   **Thiết lập vị trí và ghi chú (Note)**: Hỗ trợ người dùng kéo thả, di chuyển và tùy biến ghi chú đính kèm chữ ký.
+Ứng dụng Windows Forms minh họa toàn bộ tính năng của **Vimes SignSDK**: ký số PDF, ký số XML, đặt vị trí chữ ký trực quan, ký hàng loạt và tích hợp với tất cả các nhà cung cấp chữ ký số được hỗ trợ.
 
 ---
 
-## 1. Yêu Cầu Hệ Thống
+## Tải Xuống & Chạy Ngay
 
-*   **.NET 9.0 SDK** trở lên.
-*   Hệ điều hành Windows (hỗ trợ Windows Forms).
-*   Visual Studio 2022 hoặc VS Code hỗ trợ C# / .NET.
+> Không cần cài đặt, không cần build — tải về, cấu hình và chạy.
+
+1. Vào trang **[Releases](https://github.com/vimesjscvn/vn-sign-sample/releases/latest)** và tải file `VimesSignSDK-WinForms-vX.X.X.zip`.
+2. Giải nén vào thư mục bất kỳ.
+3. Mở `appsettings.json`, điền thông tin tài khoản nhà cung cấp chữ ký số (thay thế các giá trị `[YOUR_...]`).
+4. Chạy `WinFormsSample.exe`.
+
+> Ứng dụng đã tích hợp sẵn .NET runtime — **không cần cài thêm phần mềm nào khác**.
 
 ---
 
-## 2. Hướng Dẫn Cấu Hình `appsettings.json`
+## Nhà Cung Cấp Được Hỗ Trợ
 
-Trước khi chạy ứng dụng, bạn cần cấu hình thông tin tài khoản ký số của đơn vị mình trong file `appsettings.json`. Hãy thay thế các phần nằm trong dấu ngoặc vuông `[...]` bằng thông tin thực tế:
+| Merchant | Loại | Mô tả |
+|----------|------|-------|
+| **MySign** | Remote CA | Ký số đám mây Viettel MySign |
+| **SmartCA** | Remote CA | Ký số đám mây VNPT SmartCA |
+| **BCY** | Remote CA | Ký số đám mây BKAV (HSM) |
+| **CMC** | Remote CA | Ký số đám mây CMC CA |
+| **InTrust** | Remote CA | Ký số đám mây InTrust CA |
+| **SIM** | Remote CA | Ký số qua SIM/MSSP (OTP SMS) |
+| **USB** | Local | Ký số bằng USB Token / Smart Card |
+| **Self** | Local | Ký số bằng file chứng thư cục bộ (.p12 / .pfx) |
+
+---
+
+## Yêu Cầu Hệ Thống
+
+- **Windows** (WinForms yêu cầu Windows)
+- **.NET 9.0 SDK** trở lên — [tải tại đây](https://dotnet.microsoft.com/download)
+- Visual Studio 2022 **hoặc** VS Code với extension C#
+- Thông tin tài khoản từ nhà cung cấp chữ ký số (xem phần [Cấu Hình](#cấu-hình) bên dưới)
+
+---
+
+## Bắt Đầu Nhanh
+
+### 1. Tải mã nguồn và cấu hình
+
+```bash
+git clone https://github.com/vimesjscvn/vn-sign-sample.git
+cd vn-sign-sample/WinFormsSample
+```
+
+Sao chép file cấu hình mẫu và điền thông tin thực tế:
+
+```bash
+copy appsettings.example.json appsettings.json
+```
+
+Mở `appsettings.json` và thay thế tất cả các giá trị `[YOUR_...]` bằng thông tin tài khoản thực (xem [Cấu Hình](#cấu-hình) bên dưới).
+
+### 2. Chạy ứng dụng
+
+```bash
+dotnet run
+```
+
+Hoặc mở `WinFormsSample.sln` trong Visual Studio 2022 và nhấn **F5**.
+
+---
+
+## Cấu Hình
+
+File `appsettings.json` bị loại khỏi git (chứa thông tin xác thực thực tế). Dùng `appsettings.example.json` làm mẫu.
+
+### Các mục cấu hình chính
 
 ```json
 {
   "AppSettings": {
-    "TerminalSetting": {
-      "BaseUrl": "https://mpki2.ca.gov.vn/mpki/v2/",
-      "RelyingParty": "[TÊN_RELYING_PARTY_CỦA_BẠN]",
-      "RelyingPartyUser": "[USER_RELYING_PARTY]",
-      "RelyingPartyPassword": "[MẬT_KHẨU_RELYING_PARTY]",
-      "RelyingPartySignature": "[CHỮ_KÝ_RELYING_PARTY_MÃ_HÓA_BASE64]",
-      "RelyingPartyKeyStore": "[FILE_CHỨNG_THƯ].p12",
-      "RelyingPartyKeyStorePassword": "[MẬT_KHẨU_CHỨNG_THƯ_P12]"
+    "InternalSetting": {
+      "HospitalName": "Tên đơn vị",
+      "CompanyName": "Tên công ty",
+      "DefaultMerchantId": "MYSIGN"
     },
     "MySignSetting": {
       "BaseUrl": "https://remotesigning.viettel.vn",
-      "ProfileId": "[RAS_PROFILE_ID_VIETTEL]",
-      "ClientId": "[CLIENT_ID_MYSIGN]",
-      "ClientSecret": "[CLIENT_SECRET_MYSIGN]"
+      "ProfileId": "[YOUR_MYSIGN_PROFILE_ID]",
+      "ClientId": "[YOUR_MYSIGN_CLIENT_ID]",
+      "ClientSecret": "[YOUR_MYSIGN_CLIENT_SECRET]"
     },
     "SmartCASetting": {
       "BaseUrl": "https://gwsca.vnpt.vn",
-      "ProfileId": "[RAS_PROFILE_ID_VNPT]",
-      "ClientId": "[CLIENT_ID_SMARTCA]",
-      "ClientSecret": "[CLIENT_SECRET_SMARTCA]"
+      "ProfileId": "[YOUR_SMARTCA_PROFILE_ID]",
+      "ClientId": "[YOUR_SMARTCA_CLIENT_ID]",
+      "ClientSecret": "[YOUR_SMARTCA_CLIENT_SECRET]"
+    },
+    "BCYSetting": {
+      "BaseUrl": "[YOUR_BCY_BASE_URL]",
+      "ClientId": "[YOUR_BCY_CLIENT_ID]",
+      "ClientSecret": "[YOUR_BCY_CLIENT_SECRET]"
+    },
+    "MsspSetting": {
+      "ApId": "[YOUR_AP_ID]",
+      "ApPassword": "[YOUR_AP_PASSWORD]",
+      "ServiceUrl": "[YOUR_MSSP_SERVICE_URL]"
     }
   }
 }
 ```
 
-> [!IMPORTANT]
-> Không commit các thông tin mật khẩu, ClientSecret, hoặc API Key thực tế lên các repository công khai như GitHub.
+> **Không bao giờ commit `appsettings.json`** — file này đã được thêm vào `.gitignore`.
 
 ---
 
-## 3. Khôi Phục NuGet Packages
+## Tính Năng
 
-Ứng dụng mẫu này sử dụng các package được phát hành trên registry **nuget.org**:
-*   `Vimes.SignSDK`
-*   `Vimes.SignSDK.ViewModels`
-*   `Vimes.SignSDK.Merchants.MySign`
-*   `Vimes.SignSDK.Merchants.SmartCA`
-*   ... và các thư viện hỗ trợ tương ứng.
+### Ký Số PDF
 
-Bạn có thể khôi phục package thông qua Visual Studio (chọn **Restore NuGet Packages**) hoặc chạy lệnh sau trong Terminal tại thư mục `WinFormsSample`:
+1. Chọn nhà cung cấp (merchant) và đăng nhập bằng thông tin tài khoản.
+2. Nhấn **Lấy chứng thư** để hiển thị danh sách chứng thư số khả dụng.
+3. Mở file PDF cần ký.
+4. Đặt vị trí chữ ký bằng cách kéo vẽ hình chữ nhật trực tiếp trên PDF, hoặc nhập tọa độ X/Y/Chiều rộng/Chiều cao thủ công.
+5. Chọn số trang và nhấn **Ký Số**.
 
-```bash
-dotnet restore
+Các tùy chọn hỗ trợ:
+- Chữ ký hiển thị hoặc ẩn
+- Ảnh chữ ký tùy chỉnh (PNG/JPG)
+- Thông tin người ký: tên, lý do, vị trí địa lý
+- Hỗ trợ PDF nhiều trang với xem trước từng trang
+
+### Ký Số XML
+
+1. Chuyển sang tab **XML**.
+2. Tải một hoặc nhiều file XML.
+3. Cấu hình thẻ chữ ký và namespace.
+4. Nhấn **Ký XML** — SDK tính hash nội dung, gửi lên merchant và nhúng chữ ký ECDSA vào file.
+
+### Ký Hàng Loạt PDF
+
+1. Chuyển sang tab **Batch**.
+2. Chọn thư mục chứa các file PDF cần ký.
+3. Cấu hình vị trí chữ ký và tùy chọn ký dùng chung cho toàn bộ.
+4. Nhấn **Ký Tất Cả** — tiến trình hiển thị theo từng file trong bảng.
+
+### Đặt Ghi Chú (Note)
+
+- Chọn **Loại chữ ký** là `Ghi chú`.
+- Vẽ hoặc nhập tọa độ để đặt chú thích văn bản lên PDF mà không cần chữ ký mã hóa.
+
+### Ký Nhanh (Quick Sign)
+
+- Cấu hình thông tin đăng nhập và chứng thư một lần.
+- Nhấn một nút để ký bất kỳ PDF nào đang mở với cài đặt đã lưu.
+
+---
+
+## Chế Độ Build
+
+Dự án hỗ trợ hai chế độ build được điều khiển bởi tham số `UseSdkSource`:
+
+| Chế độ | Lệnh | Sử dụng |
+|--------|------|---------|
+| **Mặc định (NuGet)** | `dotnet build` | Các package đã phát hành từ nuget.org |
+| **Source SDK** | `dotnet build -p:UseSdkSource=true` | Mã nguồn SDK cục bộ tại `..\..\sign-sdk-nuget\src` |
+
+**Dành cho developer thông thường**: chỉ cần `dotnet build` — không cần clone SDK về máy.
+
+### Danh sách NuGet Package
+
+Tất cả các package SDK được phát hành tại phiên bản `1.0.17`:
+
+| Package | Mô tả |
+|---------|-------|
+| `Vimes.SignSDK` | SDK client chính |
+| `Vimes.SignSDK.ViewModels` | View model dùng chung |
+| `Vimes.SignSDK.Merchants.MySign` | Viettel MySign |
+| `Vimes.SignSDK.Merchants.SmartCA` | VNPT SmartCA |
+| `Vimes.SignSDK.Merchants.BCY` | Ban Cơ Yếu  |
+| `Vimes.SignSDK.Merchants.CMC` | CMC CA |
+| `Vimes.SignSDK.Merchants.InTrust` | InTrust CA |
+| `Vimes.SignSDK.Merchants.SIM` | SIM/MSSP mobile |
+| `Vimes.SignSDK.Merchants.USB` | USB Token |
+| `Vimes.SignSDK.Merchants.Self` | Ký số điện tử |
+
+---
+
+## Cấu Trúc Dự Án
+
+```
+WinFormsSample/
+├── appsettings.example.json   # File cấu hình mẫu (commit file này)
+├── appsettings.json           # Thông tin xác thực thực tế (bị gitignore)
+├── Program.cs                 # Cấu hình DI, đăng ký merchant
+├── MainForm.cs                # Giao diện chính và các luồng ký số
+├── wwwroot/
+│   └── certs/                 # File chứng thư cục bộ (bị gitignore)
+└── WinFormsSample.csproj
 ```
 
 ---
 
-## 4. Hướng Dẫn Chạy & Sử Dụng
+## Bảo Mật
 
-1.  Mở solution `WinFormsSample.sln` bằng Visual Studio 2022.
-2.  Chạy ứng dụng bằng cách nhấn **F5** (hoặc nhấn nút **Start**).
-3.  **Ký qua Cloud CA (Viettel MySign, VNPT SmartCA...)**:
-    *   Chọn Merchant tương ứng trên giao diện ứng dụng.
-    *   Nhập **Số điện thoại/Tên đăng nhập** và **Mật khẩu/Mã PIN** tài khoản của bạn.
-    *   Nhấp **Đăng Nhập** để lấy danh sách chứng thư số có sẵn.
-    *   Chọn file PDF cần ký, tùy chọn vị trí hiển thị chữ ký trên tài liệu và bấm **Ký Số**.
-4.  **Ký qua Local CA / USB Token**:
-    *   Chọn Merchant là **LOCAL** hoặc **USB**.
-    *   Chọn file chứng thư `.p12` hoặc thiết bị USB Token được kết nối.
-    *   Nhập mật khẩu/Mã PIN và thực hiện ký tài liệu trực tiếp.
-
----
-
-## 5. Tùy Chọn Vị Trí Ghi Chú (Note Placement)
-
-Ứng dụng có tích hợp cơ chế cấu hình loại chữ ký và ghi chú:
-*   Chọn loại chữ ký là `Ghi chú` (`SignatureType.NOTE`).
-*   Bạn có thể nhập tọa độ X, Y hoặc sử dụng giao diện trực quan trực tiếp trên PDF Viewer để xác định vùng vẽ ghi chú cho người dùng cuối.
+- `appsettings.json` đã có trong `.gitignore` — tuyệt đối không commit file này.
+- Các file chứng thư (`*.p12`, `*.pfx`, `*.cer`) trong `wwwroot/certs/` cũng bị gitignore.
+- Chỉ commit `appsettings.example.json` với các giá trị `[YOUR_...]` làm mẫu cho người dùng mới.
