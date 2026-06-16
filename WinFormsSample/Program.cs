@@ -8,8 +8,6 @@ using Vimes.SignSDK.Merchants.SmartCA;
 using Vimes.SignSDK.Merchants.USB;
 using Vimes.SignSDK.Merchants.Self;
 using Vimes.SignSDK.Merchants.BCY;
-using Vimes.SignSDK.Merchants.Softdream;
-using Vimes.SignSDK.Merchants.VNPT;
 using Vimes.SignSDK.Merchants.SIM;
 using Vimes.SignSDK.Merchants.InTrust;
 using Vimes.SignSDK.Merchants.CMC;
@@ -84,8 +82,6 @@ static class Program
                 services.AddSignSDKUSB();
                 services.AddSignSDKSelf();
                 services.AddSignSDKBCY();
-                services.AddSignSDKSoftdream();
-                services.AddSignSDKVNPT();
                 services.AddSignSDKSIM();
                 services.AddSignSDKInTrust();
                 services.AddSignSDKCMC();
