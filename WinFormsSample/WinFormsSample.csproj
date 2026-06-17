@@ -10,7 +10,7 @@
          requires sign-sdk-nuget checked out at ..\..\sign-sdk-nuget relative to this project. -->
     <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
     <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
-    <SdkPkgVersion>1.0.17</SdkPkgVersion>
+    <SdkPkgVersion>1.0.18</SdkPkgVersion>
   </PropertyGroup>
 
   <!-- Development: direct source references -->

@@ -72,6 +72,8 @@ partial class MainForm
         this.lblNoteY = new System.Windows.Forms.Label();
         this.txtNoteY = new System.Windows.Forms.TextBox();
         this.chkShowSignatureTime = new System.Windows.Forms.CheckBox();
+        this.lblSignAlgorithm = new System.Windows.Forms.Label();
+        this.cboSignAlgorithm = new System.Windows.Forms.ComboBox();
         this.btnSign = new System.Windows.Forms.Button();
         this.gbDirectPreview = new System.Windows.Forms.GroupBox();
         this.lblSigImage = new System.Windows.Forms.Label();
@@ -280,6 +282,8 @@ partial class MainForm
         this.panelHeader.BackColor = System.Drawing.Color.White;
         this.panelHeader.Controls.Add(this.lblMerchant);
         this.panelHeader.Controls.Add(this.cboMerchant);
+        this.panelHeader.Controls.Add(this.lblSignAlgorithm);
+        this.panelHeader.Controls.Add(this.cboSignAlgorithm);
         this.panelHeader.Controls.Add(this.lblSessionStatus);
         this.panelHeader.Controls.Add(this.panelStatusDot);
         this.panelHeader.Dock = System.Windows.Forms.DockStyle.Top;
@@ -752,9 +756,30 @@ partial class MainForm
         this.chkShowSignatureTime.TabIndex = 8;
         this.chkShowSignatureTime.Text = "Hiển Thị Nhãn Thời Gian Trên Chữ Ký";
         this.chkShowSignatureTime.UseVisualStyleBackColor = true;
-        // 
+        //
+        // lblSignAlgorithm  (in panelHeader, right of cboMerchant)
+        //
+        this.lblSignAlgorithm.AutoSize = true;
+        this.lblSignAlgorithm.Font = new System.Drawing.Font("Segoe UI Semibold", 9.75F, System.Drawing.FontStyle.Bold);
+        this.lblSignAlgorithm.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
+        this.lblSignAlgorithm.Location = new System.Drawing.Point(405, 20);
+        this.lblSignAlgorithm.Name = "lblSignAlgorithm";
+        this.lblSignAlgorithm.Size = new System.Drawing.Size(85, 23);
+        this.lblSignAlgorithm.Text = "Thuật Toán:";
+        this.lblSignAlgorithm.Visible = false;
+        //
+        // cboSignAlgorithm  (in panelHeader)
+        //
+        this.cboSignAlgorithm.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+        this.cboSignAlgorithm.Font = new System.Drawing.Font("Segoe UI", 9.75F);
+        this.cboSignAlgorithm.Location = new System.Drawing.Point(496, 16);
+        this.cboSignAlgorithm.Name = "cboSignAlgorithm";
+        this.cboSignAlgorithm.Size = new System.Drawing.Size(100, 29);
+        this.cboSignAlgorithm.TabIndex = 2;
+        this.cboSignAlgorithm.Visible = false;
+        //
         // btnSign
-        // 
+        //
         this.btnSign.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(43)))), ((int)(((byte)(87)))), ((int)(((byte)(154)))));
         this.btnSign.FlatAppearance.BorderSize = 0;
         this.btnSign.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -1804,6 +1829,8 @@ partial class MainForm
     private System.Windows.Forms.Label lblNoteY;
     private System.Windows.Forms.TextBox txtNoteY;
     private System.Windows.Forms.CheckBox chkShowSignatureTime;
+    private System.Windows.Forms.Label lblSignAlgorithm;
+    private System.Windows.Forms.ComboBox cboSignAlgorithm;
     private System.Windows.Forms.Button btnSign;
     private System.Windows.Forms.GroupBox gbDirectPreview;
     private System.Windows.Forms.Label lblSigImage;

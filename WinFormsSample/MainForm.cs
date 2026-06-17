@@ -86,6 +86,10 @@ public partial class MainForm : Form
         });
         cboDisplayNameMode.SelectedIndex = 0;
 
+        // Populate Sign Algorithm combobox (shown only for BCY)
+        cboSignAlgorithm.Items.AddRange(new object[] { "ECDSA", "RSA" });
+        cboSignAlgorithm.SelectedIndex = 0;
+
         // Bind settings to property grid based on initially selected merchant
         if (cboMerchant.SelectedItem != null)
         {
@@ -532,7 +536,8 @@ public partial class MainForm : Form
                 Height = _sigH,
                 NotePointX = _noteX,
                 NotePointY = _noteY,
-                SignatureImage = _customSignatureImageBase64
+                SignatureImage = _customSignatureImageBase64,
+                SignAlgorithm = cboSignAlgorithm.Visible ? cboSignAlgorithm.SelectedItem?.ToString() : null
             };
 
             var batchRequest = new SignDocumentsRequest
@@ -1215,7 +1220,8 @@ public partial class MainForm : Form
                 UserName = userName,
                 CredentialID = credentialId,
                 MID = merchantId,
-                FileDatas = fileDatas
+                FileDatas = fileDatas,
+                SignAlgorithm = cboSignAlgorithm.Visible ? cboSignAlgorithm.SelectedItem?.ToString() : null
             };
 
             var results = await _signClient.SignXmlDocumentsAsync(request);
@@ -1698,6 +1704,10 @@ public partial class MainForm : Form
 
         pgSettings.SelectedObject = selectedSetting;
         pgSettings.Refresh();
+
+        bool isBcy = string.Equals(selectedMerchant, "BCY", StringComparison.OrdinalIgnoreCase);
+        lblSignAlgorithm.Visible = isBcy;
+        cboSignAlgorithm.Visible = isBcy;
     }
 
     private void cboCerts_SelectedIndexChanged(object? sender, EventArgs e)
