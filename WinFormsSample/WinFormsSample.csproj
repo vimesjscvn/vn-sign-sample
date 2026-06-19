@@ -8,7 +8,7 @@
     <!-- Default: consume published NuGet packages from nuget.org (UseSdkSource=false).
          SDK developers only: build with -p:UseSdkSource=true to reference local SDK source directly,
          requires sign-sdk-nuget checked out at ..\..\sign-sdk-nuget relative to this project. -->
-    <UseSdkSource Condition="'$(UseSdkSource)' == ''">true</UseSdkSource>
+    <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
     <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
     <SdkPkgVersion>1.0.19</SdkPkgVersion>
   </PropertyGroup>
