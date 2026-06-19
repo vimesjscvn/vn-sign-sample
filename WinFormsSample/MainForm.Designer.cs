@@ -106,6 +106,11 @@ partial class MainForm
         this.txtXmlSignatureName = new System.Windows.Forms.TextBox();
         this.lblXmlSignTag = new System.Windows.Forms.Label();
         this.txtXmlSignTag = new System.Windows.Forms.TextBox();
+        this.lblXmlReferenceId = new System.Windows.Forms.Label();
+        this.txtXmlReferenceId = new System.Windows.Forms.TextBox();
+        this.pnlXmlHelp = new System.Windows.Forms.Panel();
+        this.rtbXmlHelp = new System.Windows.Forms.RichTextBox();
+        this.toolTipXml = new System.Windows.Forms.ToolTip();
         this.btnSignXml = new System.Windows.Forms.Button();
         this.gbXmlPreview = new System.Windows.Forms.GroupBox();
         this.rtbXmlPreview = new System.Windows.Forms.RichTextBox();
@@ -1455,13 +1460,16 @@ partial class MainForm
         this.gbXmlAction.Controls.Add(this.txtXmlSignatureName);
         this.gbXmlAction.Controls.Add(this.lblXmlSignTag);
         this.gbXmlAction.Controls.Add(this.txtXmlSignTag);
+        this.gbXmlAction.Controls.Add(this.lblXmlReferenceId);
+        this.gbXmlAction.Controls.Add(this.txtXmlReferenceId);
+        this.gbXmlAction.Controls.Add(this.pnlXmlHelp);
         this.gbXmlAction.Controls.Add(this.btnSignXml);
         this.gbXmlAction.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbXmlAction.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbXmlAction.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
         this.gbXmlAction.Location = new System.Drawing.Point(0, 0);
         this.gbXmlAction.Name = "gbXmlAction";
-        this.gbXmlAction.Size = new System.Drawing.Size(500, 317);
+        this.gbXmlAction.Size = new System.Drawing.Size(500, 450);
         this.gbXmlAction.TabIndex = 0;
         this.gbXmlAction.TabStop = false;
         this.gbXmlAction.Text = "Cấu Hình Ký XML";
@@ -1539,17 +1547,61 @@ partial class MainForm
         this.txtXmlSignTag.Size = new System.Drawing.Size(220, 27);
         this.txtXmlSignTag.TabIndex = 6;
         this.txtXmlSignTag.Text = "CHUKYDONVI";
-        // 
+        //
+        // lblXmlReferenceId
+        //
+        this.lblXmlReferenceId.AutoSize = true;
+        this.lblXmlReferenceId.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
+        this.lblXmlReferenceId.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblXmlReferenceId.Location = new System.Drawing.Point(15, 184);
+        this.lblXmlReferenceId.Name = "lblXmlReferenceId";
+        this.lblXmlReferenceId.Size = new System.Drawing.Size(200, 17);
+        this.lblXmlReferenceId.Text = "Reference ID (ký theo phần tử):";
+        //
+        // txtXmlReferenceId
+        //
+        this.txtXmlReferenceId.Font = new System.Drawing.Font("Segoe UI", 9F);
+        this.txtXmlReferenceId.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+        this.txtXmlReferenceId.Location = new System.Drawing.Point(15, 202);
+        this.txtXmlReferenceId.Name = "txtXmlReferenceId";
+        this.txtXmlReferenceId.PlaceholderText = "để trống = ký toàn bộ tài liệu (URI=\"\")";
+        this.txtXmlReferenceId.Size = new System.Drawing.Size(460, 27);
+        this.txtXmlReferenceId.TabIndex = 7;
+        //
+        // pnlXmlHelp
+        //
+        this.pnlXmlHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
+        this.pnlXmlHelp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
+        this.pnlXmlHelp.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+        this.pnlXmlHelp.Controls.Add(this.rtbXmlHelp);
+        this.pnlXmlHelp.Location = new System.Drawing.Point(15, 240);
+        this.pnlXmlHelp.Name = "pnlXmlHelp";
+        this.pnlXmlHelp.Size = new System.Drawing.Size(460, 150);
+        //
+        // rtbXmlHelp
+        //
+        this.rtbXmlHelp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
+        this.rtbXmlHelp.BorderStyle = System.Windows.Forms.BorderStyle.None;
+        this.rtbXmlHelp.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.rtbXmlHelp.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.rtbXmlHelp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
+        this.rtbXmlHelp.Name = "rtbXmlHelp";
+        this.rtbXmlHelp.ReadOnly = true;
+        this.rtbXmlHelp.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical;
+        this.rtbXmlHelp.TabStop = false;
+        this.rtbXmlHelp.Text = "";
+        //
         // btnSignXml
-        // 
-        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+        //
+        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
         this.btnSignXml.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(43)))), ((int)(((byte)(87)))), ((int)(((byte)(154)))));
         this.btnSignXml.FlatAppearance.BorderSize = 0;
         this.btnSignXml.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSignXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
         this.btnSignXml.ForeColor = System.Drawing.Color.White;
-        this.btnSignXml.Location = new System.Drawing.Point(15, 197);
+        this.btnSignXml.Location = new System.Drawing.Point(15, 398);
         this.btnSignXml.Name = "btnSignXml";
         this.btnSignXml.Size = new System.Drawing.Size(460, 45);
         this.btnSignXml.TabIndex = 7;
@@ -1888,6 +1940,11 @@ partial class MainForm
     private System.Windows.Forms.TextBox txtXmlSignatureName;
     private System.Windows.Forms.Label lblXmlSignTag;
     private System.Windows.Forms.TextBox txtXmlSignTag;
+    private System.Windows.Forms.Label lblXmlReferenceId;
+    private System.Windows.Forms.TextBox txtXmlReferenceId;
+    private System.Windows.Forms.Panel pnlXmlHelp;
+    private System.Windows.Forms.RichTextBox rtbXmlHelp;
+    private System.Windows.Forms.ToolTip toolTipXml;
     private System.Windows.Forms.Button btnSignXml;
     private System.Windows.Forms.GroupBox gbXmlPreview;
     private System.Windows.Forms.RichTextBox rtbXmlPreview;

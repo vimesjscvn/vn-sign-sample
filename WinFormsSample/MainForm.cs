@@ -142,6 +142,46 @@ public partial class MainForm : Form
         cboCerts.SelectedIndexChanged += (s, e) => { if (cboCertsXml.SelectedIndex != cboCerts.SelectedIndex) cboCertsXml.SelectedIndex = cboCerts.SelectedIndex; };
         cboCertsXml.SelectedIndexChanged += (s, e) => { if (cboCerts.SelectedIndex != cboCertsXml.SelectedIndex) cboCerts.SelectedIndex = cboCertsXml.SelectedIndex; };
 
+        // XML tab: tooltips
+        toolTipXml.SetToolTip(txtXmlSignTag,
+            "Tên thẻ XML chứa chữ ký (SignTag).\r\n" +
+            "Ví dụ:\r\n" +
+            "  CHUKYDONVI   → thẻ tùy chọn cho đơn vị\r\n" +
+            "  KY_PHAT_HANH → slot phát hành HOC BA\r\n" +
+            "  THONG_TIN    → dùng cho Lý Lịch");
+        toolTipXml.SetToolTip(txtXmlReferenceId,
+            "Giá trị Id=\"...\" của phần tử cần ký (Reference URI).\r\n" +
+            "Để trống → ký toàn bộ tài liệu (URI=\"\").\r\n" +
+            "Điền giá trị → ký theo phần tử cụ thể (URI=\"#id\").\r\n" +
+            "Ví dụ:\r\n" +
+            "  lyLich  → <THONG_TIN Id=\"lyLich\">\r\n" +
+            "  data    → <DU_LIEU_HOC_BA Id=\"data\">");
+        toolTipXml.SetToolTip(txtXmlSignatureName,
+            "Tên định danh của chữ ký trong file XML.\r\n" +
+            "Thường để hệ thống tự tạo (UUID). Không bắt buộc.");
+        toolTipXml.AutoPopDelay = 10000;
+        toolTipXml.InitialDelay = 400;
+
+        // XML tab: help panel content
+        rtbXmlHelp.SelectionFont = new System.Drawing.Font("Segoe UI Semibold", 8.5f, System.Drawing.FontStyle.Bold);
+        rtbXmlHelp.SelectionColor = System.Drawing.Color.FromArgb(30, 64, 175);
+        rtbXmlHelp.AppendText("Hướng dẫn điền thông tin\r\n");
+        rtbXmlHelp.SelectionFont = new System.Drawing.Font("Segoe UI", 8.5f);
+        rtbXmlHelp.SelectionColor = System.Drawing.Color.FromArgb(51, 65, 85);
+        rtbXmlHelp.AppendText(
+            "Thẻ Ký: tên thẻ XML chứa <Signature> (hover để xem ví dụ).\r\n" +
+            "Reference ID: Id=\"...\" của phần tử cần ký; để trống = ký cả file.\r\n\r\n");
+        rtbXmlHelp.SelectionFont = new System.Drawing.Font("Segoe UI Semibold", 8.5f, System.Drawing.FontStyle.Bold);
+        rtbXmlHelp.SelectionColor = System.Drawing.Color.FromArgb(30, 64, 175);
+        rtbXmlHelp.AppendText("Ví dụ nhanh:\r\n");
+        rtbXmlHelp.SelectionFont = new System.Drawing.Font("Courier New", 8f);
+        rtbXmlHelp.SelectionColor = System.Drawing.Color.FromArgb(51, 65, 85);
+        rtbXmlHelp.AppendText(
+            "  HOC BA – phát hành : SignTag=KY_PHAT_HANH   RefID=(trống)\r\n" +
+            "  HOC BA – đơn vị    : SignTag=CHUKYDONVI     RefID=(trống)\r\n" +
+            "  Lý Lịch            : SignTag=THONG_TIN       RefID=lyLich\r\n" +
+            "  BHXH GIAMDINHHS    : SignTag=CHUKYDONVI     RefID=(trống)");
+
         Log("Dashboard Initialized. Welcome to Vimes SignSDK Showcase Studio!", Color.FromArgb(56, 189, 248));
 
         // Dynamically adjust splitter distances when form is shown maximized
@@ -1192,6 +1232,7 @@ public partial class MainForm : Form
             string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
 
             string signTag = txtXmlSignTag.Text;
+            string? referenceId = string.IsNullOrWhiteSpace(txtXmlReferenceId.Text) ? null : txtXmlReferenceId.Text.Trim();
 
             var fileDatas = new List<XmlFileDataItem>();
             foreach (var item in lstXmlFilePath.Items)
@@ -1206,13 +1247,14 @@ public partial class MainForm : Form
                         FileName = Path.GetFileName(filePath),
                         XmlData = Convert.ToBase64String(Encoding.UTF8.GetBytes(fileContent)),
                         SignTag = signTag,
-                        SignatureName = signatureName
+                        SignatureName = signatureName,
+                        ReferenceId = referenceId
                     });
                 }
             }
 
             LogSystem($"Packaging {fileDatas.Count} XML file(s) for signing...");
-            LogSystem($"Parameters -> SignTag: '{signTag}'");
+            LogSystem($"Parameters -> SignTag: '{signTag}', ReferenceId: '{referenceId ?? "(whole doc)"}'");
             LogSystem("Invoking SignSDK client XML signing workflow...");
 
             var request = new XmlMultiSignRequest
@@ -1221,7 +1263,7 @@ public partial class MainForm : Form
                 CredentialID = credentialId,
                 MID = merchantId,
                 FileDatas = fileDatas,
-                SignAlgorithm = cboSignAlgorithm.Visible ? cboSignAlgorithm.SelectedItem?.ToString() : null
+                SignAlgorithm = null  // SDK auto-detects ECDSA vs RSA from the certificate
             };
 
             var results = await _signClient.SignXmlDocumentsAsync(request);
