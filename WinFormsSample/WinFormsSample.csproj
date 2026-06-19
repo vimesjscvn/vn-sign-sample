@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <PackageReference Include="Docnet.Core" Version="2.6.0" />
@@ -10,7 +10,7 @@
          requires sign-sdk-nuget checked out at ..\..\sign-sdk-nuget relative to this project. -->
     <UseSdkSource Condition="'$(UseSdkSource)' == ''">true</UseSdkSource>
     <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
-    <SdkPkgVersion>1.0.18</SdkPkgVersion>
+    <SdkPkgVersion>1.0.19</SdkPkgVersion>
   </PropertyGroup>
 
   <!-- Development: direct source references -->
