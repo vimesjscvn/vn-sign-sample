@@ -21,3 +21,6 @@ wwwroot/export/
 wwwroot/certs/*.p12
 wwwroot/certs/*.pfx
 wwwroot/certs/*.cer
+
+# UsbTokenAgent release download cache
+.usb-agent-cache/

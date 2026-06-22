@@ -21,6 +21,7 @@ public partial class MainForm : Form
     // Identity resolved at login. For USB this is the token serial (no username typed);
     // used for cert retrieval and signing so the session routes to the right cert.
     private string? _activeUserName;
+    private System.Diagnostics.Process? _agentProcess;
 
     private readonly AppSettings _appSettings;
     private SignDocumentRequest _advancedRequest = new();
@@ -1728,7 +1729,8 @@ public partial class MainForm : Form
             txtBatchCertPath.Text = "";
             txtBatchCertPass.Text = "";
 
-            LogWarning("[USB Selected] Enter the token PIN in the Password field to sign without the token's PIN dialog.");
+                LogWarning("[USB Selected] Enter the token PIN in the Password field to sign without the token's PIN dialog.");
+            EnsureAgentRunning();
         }
         else if (isLocalOrUsb)
         {
@@ -1761,6 +1763,7 @@ public partial class MainForm : Form
             // Disable Local/USB CA fields
 
             LogSystem($"[{selectedMerchant} Selected] Cloud CA enabled. Username & Password input required.");
+            StopAgent();
         }
 
         // Dynamically bind settings property grid to the active merchant configuration
@@ -1820,6 +1823,67 @@ public partial class MainForm : Form
             LogSystem($"[Sync] Advanced Request Credential ID updated to: {_advancedRequest.CredentialID}");
         }
     }
+    #endregion
+
+    #region USB Agent process management
+
+    private void EnsureAgentRunning()
+    {
+        // Already running and healthy — nothing to do.
+        if (_agentProcess is { HasExited: false }) return;
+
+        // Locate UsbTokenAgent.exe: next to this exe (distribution), or via config (dev).
+        string agentExe = _appSettings?.UsbSetting?.UsbAgentExePath ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(agentExe))
+        {
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            agentExe = Path.Combine(appDir, "UsbTokenAgent.exe");
+        }
+
+        if (!File.Exists(agentExe))
+        {
+            LogWarning($"[USB Agent] UsbTokenAgent.exe not found at '{agentExe}'. " +
+                       "Start it manually, or set AppSettings:UsbSetting:UsbAgentExePath in appsettings.json.");
+            return;
+        }
+
+        try
+        {
+            _agentProcess = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName               = agentExe,
+                WorkingDirectory       = Path.GetDirectoryName(agentExe)!,
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
+                RedirectStandardOutput = false,
+            });
+            LogSystem($"[USB Agent] Started UsbTokenAgent.exe (PID {_agentProcess?.Id}).");
+        }
+        catch (Exception ex)
+        {
+            LogError($"[USB Agent] Failed to start UsbTokenAgent.exe: {ex.Message}");
+        }
+    }
+
+    private void StopAgent()
+    {
+        if (_agentProcess is null || _agentProcess.HasExited) return;
+        try
+        {
+            _agentProcess.Kill(entireProcessTree: true);
+            _agentProcess.Dispose();
+            LogSystem("[USB Agent] UsbTokenAgent.exe stopped.");
+        }
+        catch { /* process may have already exited */ }
+        finally { _agentProcess = null; }
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        StopAgent();
+        base.OnFormClosing(e);
+    }
+
     #endregion
 
     private class ComboboxItem<T>
