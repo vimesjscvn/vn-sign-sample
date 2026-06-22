@@ -18,6 +18,9 @@ public partial class MainForm : Form
     private readonly ISignSDKClient _signClient;
     private readonly ILogger<MainForm> _logger;
     private string? _bearerToken;
+    // Identity resolved at login. For USB this is the token serial (no username typed);
+    // used for cert retrieval and signing so the session routes to the right cert.
+    private string? _activeUserName;
 
     private readonly AppSettings _appSettings;
     private SignDocumentRequest _advancedRequest = new();
@@ -306,13 +309,16 @@ public partial class MainForm : Form
     {
         try
         {
-            string userName = txtUserName.Text;
-            string password = txtPassword.Text;
             string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
-            
-            // Check for Local/USB CA details
+            bool isLocalOrUsb = merchantId.Equals("LOCAL", StringComparison.OrdinalIgnoreCase)
+                             || merchantId.Equals("USB",   StringComparison.OrdinalIgnoreCase)
+                             || merchantId.Equals("SELF",  StringComparison.OrdinalIgnoreCase);
+            // For LOCAL/USB/SELF the username field shows a disabled placeholder — pass empty
+            // so the agent falls back to the first available cert in the store.
+            string userName = isLocalOrUsb ? "" : txtUserName.Text;
+            string password = isLocalOrUsb ? "" : txtPassword.Text;
 
-            LogSystem($"Attempting authentication with [{merchantId}] as {userName}...");
+            LogSystem($"Attempting authentication with [{merchantId}] as {(isLocalOrUsb ? "local cert" : userName)}...");
             btnLogin.Enabled = false;
             btnLoginXml.Enabled = false;
 
@@ -321,17 +327,21 @@ public partial class MainForm : Form
             if (result.Success)
             {
                 _bearerToken = result.BearerToken;
+                // Resolved identity (USB → token serial). Reused for cert retrieval and signing.
+                _activeUserName = string.IsNullOrWhiteSpace(result.UserName) ? userName : result.UserName;
                 LogSuccess("Authentication Successful. Session established.");
-                
+                if (isLocalOrUsb && !string.IsNullOrWhiteSpace(_activeUserName))
+                    LogSystem($"Resolved token identity (serial): {_activeUserName}");
+
                 // Color status bar indicators
-                lblSessionStatus.Text = $"Active Session: {userName} ({merchantId})";
+                lblSessionStatus.Text = $"Active Session: {_activeUserName} ({merchantId})";
                 lblSessionStatus.ForeColor = Color.FromArgb(16, 185, 129);
                 panelStatusDot.BackColor = Color.FromArgb(16, 185, 129);
 
                 LogSystem("Retrieving merchant registration certificates...");
-                var certs = await _signClient.GetCertificatesAsync(userName, _bearerToken ?? "", merchantId: merchantId);
-                
-                PopulateCertificatesControls(certs, userName, merchantId);
+                var certs = await _signClient.GetCertificatesAsync(_activeUserName, _bearerToken ?? "", merchantId: merchantId);
+
+                PopulateCertificatesControls(certs, _activeUserName, merchantId);
             }
             else
             {
@@ -388,6 +398,26 @@ public partial class MainForm : Form
         btnSyncCertificates_Click(btnSyncCertificates, e);
     }
 
+    // Builds "CN — serial" (falls back to subject/serial) for the certificate dropdowns.
+    private static string CertDisplayText(BaseCertificateInfo cert)
+    {
+        string subject = cert.subjectDN ?? "";
+        string cn = subject;
+        int i = subject.IndexOf("CN=", StringComparison.OrdinalIgnoreCase);
+        if (i >= 0)
+        {
+            int start = i + 3;
+            int end = subject.IndexOf(',', start);
+            cn = (end > start ? subject.Substring(start, end - start) : subject.Substring(start)).Trim();
+        }
+        var serial = cert.serialNumber ?? cert.credentialID;
+        return string.IsNullOrWhiteSpace(cn) ? serial : $"{cn} — {serial}";
+    }
+
+    // Extracts the credentialID from the selected combobox item (item value, not display text).
+    private static string? SelectedCredentialId(ComboBox combo)
+        => (combo.SelectedItem as ComboboxItem<string>)?.Value ?? combo.SelectedItem?.ToString();
+
     private void PopulateCertificatesControls(List<BaseCertificateInfo>? certs, string userName, string merchantId)
     {
         cboCerts.Items.Clear();
@@ -397,10 +427,13 @@ public partial class MainForm : Form
         {
             foreach (var cert in certs)
             {
-                cboCerts.Items.Add(cert.credentialID);
-                cboCertsXml.Items.Add(cert.credentialID);
+                // Show a human-readable identity (subject CN + serial) but keep credentialID as
+                // the value, so the user can pick the right token among several certs.
+                var item = new ComboboxItem<string>(CertDisplayText(cert), cert.credentialID);
+                cboCerts.Items.Add(item);
+                cboCertsXml.Items.Add(new ComboboxItem<string>(CertDisplayText(cert), cert.credentialID));
             }
-            
+
             cboCerts.SelectedIndex = 0;
             cboCertsXml.SelectedIndex = 0;
             LogSuccess($"Parsed and loaded {certs.Count} verified certificates into local registry.");
@@ -549,9 +582,10 @@ public partial class MainForm : Form
                 return null;
             }
 
-            string credentialId = cboCerts.SelectedItem.ToString()!;
+            string credentialId = SelectedCredentialId(cboCerts)!;
             string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
-            string userName = txtUserName.Text;
+            // Use the identity resolved at login (USB → token serial), not the (disabled) textbox.
+            string userName = _activeUserName ?? txtUserName.Text;
 
             LogSystem($"Constructing signature request for {Path.GetFileName(filePath)}...");
             
@@ -585,6 +619,8 @@ public partial class MainForm : Form
                 UserName = userName,
                 CredentialID = credentialId,
                 MerchantId = merchantId,
+                // USB token PIN (entered in the Password field) → agent signs via PKCS#11, no dialog.
+                Pin = txtPassword.Text,
                 Documents = new List<SignDocumentRequest> { request }
             };
 
@@ -1099,9 +1135,11 @@ public partial class MainForm : Form
 
             var batchRequest = new SignDocumentsRequest
             {
-                UserName = txtUserName.Text,
-                CredentialID = cboCerts.SelectedItem.ToString()!,
+                UserName = _activeUserName ?? txtUserName.Text,
+                CredentialID = SelectedCredentialId(cboCerts)!,
                 MerchantId = cboMerchant.SelectedItem?.ToString() ?? "",
+                // USB token PIN (entered in the Password field) → agent signs via PKCS#11, no dialog.
+                Pin = txtPassword.Text,
                 Documents = new List<SignDocumentRequest> { _advancedRequest }
             };
 
@@ -1227,8 +1265,8 @@ public partial class MainForm : Form
         {
             btnSignXml.Enabled = false;
 
-            string userName = txtUserNameXml.Text;
-            string credentialId = cboCertsXml.SelectedItem.ToString()!;
+            string userName = _activeUserName ?? txtUserNameXml.Text;
+            string credentialId = SelectedCredentialId(cboCertsXml)!;
             string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
 
             string signTag = txtXmlSignTag.Text;
@@ -1263,6 +1301,8 @@ public partial class MainForm : Form
                 CredentialID = credentialId,
                 MID = merchantId,
                 FileDatas = fileDatas,
+                // USB token PIN (Password field) → agent signs via PKCS#11, no token PIN dialog.
+                Pin = txtPassword.Text,
                 SignAlgorithm = null  // SDK auto-detects ECDSA vs RSA from the certificate
             };
 
@@ -1450,9 +1490,10 @@ public partial class MainForm : Form
             progressBar.Maximum = selectedRows.Count;
             lblBatchStatus.Text = $"Processing 0 / {selectedRows.Count}...";
 
-            string credentialId = cboCerts.SelectedItem.ToString()!;
+            string credentialId = SelectedCredentialId(cboCerts)!;
             string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
-            string userName = txtUserName.Text;
+            // Use the identity resolved at login (USB → token serial), not the (disabled) textbox.
+            string userName = _activeUserName ?? txtUserName.Text;
 
             // Retrieve batch configurations
             string outputDir = txtBatchOutput.Text;
@@ -1667,11 +1708,29 @@ public partial class MainForm : Form
         }
 
         // Adaptive Credentials fields based on selected merchant
-        bool isLocalOrUsb = selectedMerchant.Equals("LOCAL", StringComparison.OrdinalIgnoreCase) || 
-                            selectedMerchant.Equals("USB", StringComparison.OrdinalIgnoreCase) ||
+        bool isUsb = selectedMerchant.Equals("USB", StringComparison.OrdinalIgnoreCase);
+        bool isLocalOrUsb = selectedMerchant.Equals("LOCAL", StringComparison.OrdinalIgnoreCase) ||
+                            isUsb ||
                             selectedMerchant.Equals("SELF", StringComparison.OrdinalIgnoreCase);
 
-        if (isLocalOrUsb)
+        if (isUsb)
+        {
+            // USB token: username comes from the certificate, but the PIN is entered here so
+            // the agent can sign via PKCS#11 WITHOUT the token's interactive PIN dialog.
+            txtUserName.Text = "N/A (USB Token)";
+            txtPassword.Text = "";
+            txtUserName.Enabled = false;
+            txtPassword.Enabled = true;   // ← PIN entry
+            txtUserNameXml.Text = "N/A (USB Token)";
+            txtPasswordXml.Text = "";
+            txtUserNameXml.Enabled = false;
+            txtPasswordXml.Enabled = true;
+            txtBatchCertPath.Text = "";
+            txtBatchCertPass.Text = "";
+
+            LogWarning("[USB Selected] Enter the token PIN in the Password field to sign without the token's PIN dialog.");
+        }
+        else if (isLocalOrUsb)
         {
             txtUserName.Text = "N/A (Local CA)";
             txtPassword.Text = "";

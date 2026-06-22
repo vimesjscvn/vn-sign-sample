@@ -5,10 +5,11 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- Default: consume published NuGet packages from nuget.org (UseSdkSource=false).
-         SDK developers only: build with -p:UseSdkSource=true to reference local SDK source directly,
-         requires sign-sdk-nuget checked out at ..\..\sign-sdk-nuget relative to this project. -->
-    <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
+    <!-- Default while developing the SDK: reference local SDK source projects directly so
+         Visual Studio picks up SDK edits instantly (requires sign-sdk-nuget checked out at
+         ..\..\sign-sdk-nuget). For release/package consumption, build with -p:UseSdkSource=false
+         (consumes the published NuGet packages at $(SdkPkgVersion)). REVERT TO false BEFORE SHIPPING. -->
+    <UseSdkSource Condition="'$(UseSdkSource)' == ''">true</UseSdkSource>
     <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
     <SdkPkgVersion>1.0.19</SdkPkgVersion>
   </PropertyGroup>
@@ -62,7 +63,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
