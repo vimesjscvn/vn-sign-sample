@@ -48,6 +48,7 @@ jobs:
             --self-contained true \
             -p:PublishSingleFile=true \
             -p:PublishReadyToRun=true \
+            -p:UseSdkSource=false \
             -o ./publish
 
       - name: Add config template
