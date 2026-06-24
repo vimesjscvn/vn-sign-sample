@@ -511,6 +511,7 @@ public partial class MainForm : Form
 
             string? lastSignedPath = null;
             int successCount = 0;
+            var allSignedPaths = new List<string>();
 
             foreach (var filePath in filePaths)
             {
@@ -520,6 +521,7 @@ public partial class MainForm : Form
                 {
                     successCount++;
                     lastSignedPath = signedPath;
+                    allSignedPaths.Add(signedPath);
                 }
             }
 
@@ -538,13 +540,7 @@ public partial class MainForm : Form
                 lstFilePath.Items.Clear();
                 if (filePaths.Length > 1)
                 {
-                    var signedPaths = filePaths.Select(fp => {
-                        var parentDir = Path.GetDirectoryName(fp)!;
-                        var outFolder = string.Equals(Path.GetFileName(parentDir), "Signed", StringComparison.OrdinalIgnoreCase)
-                            ? parentDir
-                            : Path.Combine(parentDir, "Signed");
-                        return Path.Combine(outFolder, Path.GetFileName(fp));
-                    }).ToArray();
+                    var signedPaths = allSignedPaths.ToArray();
                     
                     lstFilePath.Items.AddRange(signedPaths);
                     lstFilePath.SelectedIndex = 0;
@@ -646,7 +642,8 @@ public partial class MainForm : Form
                     : Path.Combine(parentDir, "Signed");
                 if (!Directory.Exists(outFolder)) Directory.CreateDirectory(outFolder);
                 
-                var outPath = Path.Combine(outFolder, Path.GetFileName(filePath));
+                var ts = DateTime.Now.ToString("yyMMddHHmmss");
+                var outPath = Path.Combine(outFolder, $"{ts}_{Path.GetFileNameWithoutExtension(filePath)}_signed{Path.GetExtension(filePath)}");
                 byte[] signedBytes;
                 
                 if (!string.IsNullOrEmpty(result.SignedFileUrl) && File.Exists(result.SignedFileUrl))
@@ -1157,7 +1154,8 @@ public partial class MainForm : Form
             if (result.Success)
             {
                 LogSuccess($"Advanced Signature Completed! Transaction: {result.TransactionId}");
-                var outPath = Path.Combine(Path.GetDirectoryName(txtAdvancedFilePath.Text)!, "Signed_Advanced_" + _advancedRequest.FileName);
+                var ts = DateTime.Now.ToString("yyMMddHHmmss");
+                var outPath = Path.Combine(Path.GetDirectoryName(txtAdvancedFilePath.Text)!, $"{ts}_{Path.GetFileNameWithoutExtension(_advancedRequest.FileName)}_signed{Path.GetExtension(_advancedRequest.FileName)}");
                 byte[] signedBytes;
                 
                 if (!string.IsNullOrEmpty(result.SignedFileUrl) && File.Exists(result.SignedFileUrl))
@@ -1237,14 +1235,124 @@ public partial class MainForm : Form
                     _xmlFileContent = File.ReadAllText(filePath);
                     rtbXmlPreview.Text = _xmlFileContent;
 
-                    // Parse some basic info to populate text fields as defaults
                     txtXmlSignatureName.Text = "Signature_" + Guid.NewGuid().ToString().Substring(0, 8);
+
+                    // Warn if the file already contains a Signature element
+                    try
+                    {
+                        var doc = new System.Xml.XmlDocument();
+                        doc.LoadXml(_xmlFileContent);
+                        var nsmgr = new System.Xml.XmlNamespaceManager(doc.NameTable);
+                        nsmgr.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
+                        var sigs = doc.SelectNodes("//ds:Signature", nsmgr);
+                        if (sigs?.Count > 0)
+                            LogWarning($"Tệp đã có {sigs.Count} chữ ký — ký lại sẽ THÊM chữ ký mới (không xóa cũ).");
+                    }
+                    catch { }
                 }
                 catch (Exception ex)
                 {
                     LogError($"Failed to read XML file: {ex.Message}");
                 }
             }
+        }
+    }
+
+    private void btnAnalyzeXml_Click(object sender, EventArgs e)
+    {
+        if (lstXmlFilePath.SelectedItem == null)
+        {
+            LogWarning("Chọn một tệp XML trong danh sách trước khi phân tích.");
+            return;
+        }
+
+        string filePath = lstXmlFilePath.SelectedItem.ToString()!;
+        if (!File.Exists(filePath)) { LogError($"Tệp không tồn tại: {filePath}"); return; }
+
+        try
+        {
+            var doc = new System.Xml.XmlDocument();
+            doc.Load(filePath);
+            var nsmgr = new System.Xml.XmlNamespaceManager(doc.NameTable);
+            nsmgr.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
+
+            LogSystem($"=== Phân tích: {Path.GetFileName(filePath)} ===");
+
+            // List all elements carrying an Id attribute
+            var idNodes = doc.SelectNodes("//*[@Id]");
+            if (idNodes?.Count > 0)
+            {
+                LogSystem($"Phần tử có Id=\"...\" ({idNodes.Count} tìm thấy) — dùng làm ReferenceId:");
+                foreach (System.Xml.XmlElement el in idNodes)
+                {
+                    string id = el.GetAttribute("Id");
+                    // Skip Signature elements — those are existing sigs, not reference targets
+                    if (el.LocalName == "Signature") continue;
+                    LogSystem($"  <{el.LocalName} Id=\"{id}\">");
+                    // Auto-fill ReferenceId with the first data element found
+                    if (string.IsNullOrWhiteSpace(txtXmlReferenceId.Text))
+                        txtXmlReferenceId.Text = id;
+                }
+            }
+            else
+            {
+                LogWarning("  Không tìm thấy phần tử nào có Id=\"...\" — ReferenceId để trống sẽ ký cả tài liệu.");
+            }
+
+            // Detect document type and suggest SignTag
+            bool isHocBa  = doc.SelectSingleNode("//*[local-name()='DANH_SACH_THONG_TIN_KY']") != null;
+            bool isTongKet = doc.SelectSingleNode("//*[local-name()='TONG_KET_CA_NAM']") != null;
+            bool isLyLich  = doc.SelectSingleNode("//*[local-name()='THONG_TIN'][@Id='lyLich']") != null
+                          || doc.SelectSingleNode("//*[local-name()='THONG_TIN' and @Id]") != null;
+
+            if (isHocBa)
+            {
+                LogSystem("Loại: HOC_BA — nhiều người ký, cần đặt SignTag đúng vị trí (GVBM/GVCN/CBQL).");
+            }
+            else if (isTongKet)
+            {
+                LogSystem("Loại: BCY (TONG_KET_CA_NAM) → Thẻ Ký để TRỐNG, Signature gắn vào gốc DU_LIEU.");
+                txtXmlSignTag.Text = "";
+            }
+            else if (isLyLich)
+            {
+                LogSystem("Loại: Lý Lịch (THONG_TIN) → Thẻ Ký để TRỐNG, Signature gắn vào gốc DU_LIEU.");
+                txtXmlSignTag.Text = "";
+            }
+            else
+            {
+                LogWarning("Không nhận diện được loại tài liệu — kiểm tra SignTag thủ công.");
+            }
+
+            // Report existing signatures
+            var existingSigs = doc.SelectNodes("//ds:Signature", nsmgr);
+            if (existingSigs?.Count > 0)
+            {
+                LogWarning($"Cảnh báo: tệp đã có {existingSigs.Count} chữ ký — ký lại sẽ THÊM chữ ký mới, không xóa chữ ký cũ.");
+                foreach (System.Xml.XmlElement sig in existingSigs)
+                {
+                    string sigId = sig.GetAttribute("Id");
+                    var signerNode = sig.SelectSingleNode(".//ds:X509SubjectName", nsmgr) as System.Xml.XmlElement;
+                    string signerInfo = signerNode?.InnerText ?? "(không rõ)";
+                    // Extract CN= from subject
+                    int cnIdx = signerInfo.IndexOf("CN=", StringComparison.OrdinalIgnoreCase);
+                    if (cnIdx >= 0)
+                    {
+                        int start = cnIdx + 3;
+                        int end = signerInfo.IndexOf(',', start);
+                        signerInfo = end > start ? signerInfo.Substring(start, end - start) : signerInfo.Substring(start);
+                    }
+                    LogWarning($"  Chữ ký [{(string.IsNullOrEmpty(sigId) ? "?" : sigId.Substring(0, Math.Min(8, sigId.Length)))}...] — người ký: {signerInfo}");
+                }
+            }
+            else
+            {
+                LogSuccess("Chưa có chữ ký — tệp sẵn sàng ký.");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError($"Lỗi phân tích XML: {ex.Message}");
         }
     }
 
@@ -1349,14 +1457,48 @@ public partial class MainForm : Form
 
                     string directory = Path.GetDirectoryName(originalFilePath) ?? "";
                     string baseName = Path.GetFileNameWithoutExtension(originalFilePath);
-                    string signedPath = Path.Combine(directory, $"{baseName}_signed.xml");
+                    var ts = DateTime.Now.ToString("yyMMddHHmmss");
+                    string signedPath = Path.Combine(directory, $"{ts}_{baseName}_signed.xml");
 
                     await File.WriteAllBytesAsync(signedPath, signedBytes);
-                    
+
                     lastSignedXml = signedXml;
                     lastSignedPath = signedPath;
 
                     LogSuccess($"Ký XML thành công! File: {result.FileName} -> {Path.GetFileName(signedPath)}");
+
+                    // Quick structural verify using .NET built-in SignedXml
+                    try
+                    {
+                        var verifyDoc = new System.Xml.XmlDocument { PreserveWhitespace = true };
+                        verifyDoc.LoadXml(signedXml);
+                        var vnsm = new System.Xml.XmlNamespaceManager(verifyDoc.NameTable);
+                        vnsm.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
+                        var sigNodes = verifyDoc.SelectNodes("//ds:Signature", vnsm);
+                        if (sigNodes?.Count > 0)
+                        {
+                            bool allValid = true;
+                            for (int si = 0; si < sigNodes.Count; si++)
+                            {
+                                var sv = new System.Security.Cryptography.Xml.SignedXml(verifyDoc);
+                                sv.LoadXml((System.Xml.XmlElement)sigNodes[si]!);
+                                bool ok = sv.CheckSignature();
+                                if (ok)
+                                    LogSuccess($"  Xác minh chữ ký [{si}]: PASS");
+                                else
+                                {
+                                    LogError($"  Xác minh chữ ký [{si}]: FAIL — kiểm tra lại tham số SignTag/ReferenceId");
+                                    allValid = false;
+                                }
+                            }
+                            if (!allValid)
+                                LogWarning("Gợi ý: Dùng công cụ NEAC hoặc XmlVerify.exe để xem chi tiết lỗi DigestValue/SignatureValue.");
+                        }
+                    }
+                    catch (Exception vex)
+                    {
+                        LogWarning($"  Không thể xác minh tự động: {vex.Message}");
+                    }
                 }
                 else
                 {

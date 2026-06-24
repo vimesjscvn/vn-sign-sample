@@ -11,7 +11,7 @@
          (consumes the published NuGet packages at $(SdkPkgVersion)). REVERT TO false BEFORE SHIPPING. -->
     <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
     <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
-    <SdkPkgVersion>1.0.20</SdkPkgVersion>
+    <SdkPkgVersion>1.0.21</SdkPkgVersion>
   </PropertyGroup>
 
   <!-- Development: direct source references -->

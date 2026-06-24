@@ -111,6 +111,7 @@ partial class MainForm
         this.pnlXmlHelp = new System.Windows.Forms.Panel();
         this.rtbXmlHelp = new System.Windows.Forms.RichTextBox();
         this.toolTipXml = new System.Windows.Forms.ToolTip();
+        this.btnAnalyzeXml = new System.Windows.Forms.Button();
         this.btnSignXml = new System.Windows.Forms.Button();
         this.gbXmlPreview = new System.Windows.Forms.GroupBox();
         this.rtbXmlPreview = new System.Windows.Forms.RichTextBox();
@@ -1456,6 +1457,7 @@ partial class MainForm
         this.gbXmlAction.Controls.Add(this.lblXmlFile);
         this.gbXmlAction.Controls.Add(this.lstXmlFilePath);
         this.gbXmlAction.Controls.Add(this.btnBrowseXml);
+        this.gbXmlAction.Controls.Add(this.btnAnalyzeXml);
         this.gbXmlAction.Controls.Add(this.lblXmlSignatureName);
         this.gbXmlAction.Controls.Add(this.txtXmlSignatureName);
         this.gbXmlAction.Controls.Add(this.lblXmlSignTag);
@@ -1508,7 +1510,19 @@ partial class MainForm
         this.btnBrowseXml.Text = "Duyệt...";
         this.btnBrowseXml.UseVisualStyleBackColor = true;
         this.btnBrowseXml.Click += new System.EventHandler(this.btnBrowseXml_Click);
-        // 
+        //
+        // btnAnalyzeXml
+        //
+        this.btnAnalyzeXml.Font = new System.Drawing.Font("Segoe UI", 8F);
+        this.btnAnalyzeXml.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+        this.btnAnalyzeXml.Location = new System.Drawing.Point(395, 77);
+        this.btnAnalyzeXml.Name = "btnAnalyzeXml";
+        this.btnAnalyzeXml.Size = new System.Drawing.Size(90, 38);
+        this.btnAnalyzeXml.TabIndex = 3;
+        this.btnAnalyzeXml.Text = "Phân tích";
+        this.btnAnalyzeXml.UseVisualStyleBackColor = true;
+        this.btnAnalyzeXml.Click += new System.EventHandler(this.btnAnalyzeXml_Click);
+        //
         // lblXmlSignatureName
         // 
         this.lblXmlSignatureName.AutoSize = true;
@@ -1945,6 +1959,7 @@ partial class MainForm
     private System.Windows.Forms.Panel pnlXmlHelp;
     private System.Windows.Forms.RichTextBox rtbXmlHelp;
     private System.Windows.Forms.ToolTip toolTipXml;
+    private System.Windows.Forms.Button btnAnalyzeXml;
     private System.Windows.Forms.Button btnSignXml;
     private System.Windows.Forms.GroupBox gbXmlPreview;
     private System.Windows.Forms.RichTextBox rtbXmlPreview;
