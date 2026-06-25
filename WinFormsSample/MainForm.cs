@@ -51,6 +51,10 @@ public partial class MainForm : Form
     private int _activePageNum = 1;
     private int _totalPdfPages = 1;
 
+    // HOC_BA: maps each XPath dropdown entry to its recommended ReferenceId.
+    // Populated by Analyze and consumed by the txtXmlParentXPath SelectedIndexChanged handler.
+    private readonly Dictionary<string, string> _xpathRefMap = new();
+
     // Actual PDF page dimensions in PDF points (defaults to A4 until a file is loaded).
     private float _pageW = 595f;
     private float _pageH = 842f;
@@ -145,6 +149,13 @@ public partial class MainForm : Form
         // Bidirectional synchronization for Certificates Combobox index selection
         cboCerts.SelectedIndexChanged += (s, e) => { if (cboCertsXml.SelectedIndex != cboCerts.SelectedIndex) cboCertsXml.SelectedIndex = cboCerts.SelectedIndex; };
         cboCertsXml.SelectedIndexChanged += (s, e) => { if (cboCerts.SelectedIndex != cboCertsXml.SelectedIndex) cboCerts.SelectedIndex = cboCertsXml.SelectedIndex; };
+
+        // Auto-set ReferenceId when the user picks a known XPath from the HOC_BA pairing map
+        txtXmlParentXPath.SelectedIndexChanged += (s, e) =>
+        {
+            if (txtXmlParentXPath.SelectedItem is string xpath && _xpathRefMap.TryGetValue(xpath, out var refId))
+                txtXmlReferenceId.Text = refId;
+        };
 
         // XML tab: tooltips
         toolTipXml.SetToolTip(txtXmlSignTag,
@@ -1278,50 +1289,142 @@ public partial class MainForm : Form
 
             LogSystem($"=== Phân tích: {Path.GetFileName(filePath)} ===");
 
-            // List all elements carrying an Id attribute
+            // Detect document type first — needed to decide how to handle ReferenceId below
+            bool isHocBa   = doc.SelectSingleNode("//*[local-name()='DANH_SACH_THONG_TIN_KY']") != null;
+            bool isTongKet = doc.SelectSingleNode("//*[local-name()='TONG_KET_CA_NAM']") != null;
+            bool isLyLich  = doc.SelectSingleNode("//*[local-name()='THONG_TIN'][@Id='lyLich']") != null
+                           || doc.SelectSingleNode("//*[local-name()='THONG_TIN' and @Id]") != null;
+
+            // Populate ReferenceId dropdown with all @Id values found, and
+            // SignTag dropdown with unique element names that have @Id (likely containers).
             var idNodes = doc.SelectNodes("//*[@Id]");
+            var seenIds = new System.Collections.Generic.HashSet<string>();
+            var seenTags = new System.Collections.Generic.HashSet<string>();
+            string? firstDataId = null;
+
+            txtXmlReferenceId.Items.Clear();
+            txtXmlReferenceId.Items.Add(""); // empty = whole document URI=""
+
+            // Preserve common signing container names in SignTag dropdown regardless of file type
+            var knownTags = new[] { "", "CHUKYDONVI", "GVBM", "GVCN", "CBQL", "KY_PHAT_HANH" };
+            txtXmlSignTag.Items.Clear();
+            foreach (var t in knownTags) txtXmlSignTag.Items.Add(t);
+
+            txtXmlParentXPath.Items.Clear();
+            txtXmlParentXPath.Items.Add(""); // empty = use SignTag logic
+            _xpathRefMap.Clear();
+
             if (idNodes?.Count > 0)
             {
-                LogSystem($"Phần tử có Id=\"...\" ({idNodes.Count} tìm thấy) — dùng làm ReferenceId:");
+                LogSystem($"Phần tử có Id=\"...\" ({idNodes.Count} tìm thấy) — chọn làm ReferenceId:");
                 foreach (System.Xml.XmlElement el in idNodes)
                 {
                     string id = el.GetAttribute("Id");
-                    // Skip Signature elements — those are existing sigs, not reference targets
                     if (el.LocalName == "Signature") continue;
                     LogSystem($"  <{el.LocalName} Id=\"{id}\">");
-                    // Auto-fill ReferenceId with the first data element found
-                    if (string.IsNullOrWhiteSpace(txtXmlReferenceId.Text))
-                        txtXmlReferenceId.Text = id;
+
+                    if (seenIds.Add(id))
+                        txtXmlReferenceId.Items.Add(id);
+                    if (seenTags.Add(el.LocalName) && !knownTags.Contains(el.LocalName))
+                        txtXmlSignTag.Items.Add(el.LocalName);
+
+                    if (firstDataId == null) firstDataId = id;
                 }
+
+                // For known types, always override to the correct ReferenceId.
+                // For unknown types, fill only when the field is currently empty.
+                if ((isTongKet || isLyLich || isHocBa) && firstDataId != null)
+                    txtXmlReferenceId.Text = firstDataId;
+                else if (string.IsNullOrWhiteSpace(txtXmlReferenceId.Text) && firstDataId != null)
+                    txtXmlReferenceId.Text = firstDataId;
             }
             else
             {
                 LogWarning("  Không tìm thấy phần tử nào có Id=\"...\" — ReferenceId để trống sẽ ký cả tài liệu.");
+                txtXmlReferenceId.Text = "";
             }
-
-            // Detect document type and suggest SignTag
-            bool isHocBa  = doc.SelectSingleNode("//*[local-name()='DANH_SACH_THONG_TIN_KY']") != null;
-            bool isTongKet = doc.SelectSingleNode("//*[local-name()='TONG_KET_CA_NAM']") != null;
-            bool isLyLich  = doc.SelectSingleNode("//*[local-name()='THONG_TIN'][@Id='lyLich']") != null
-                          || doc.SelectSingleNode("//*[local-name()='THONG_TIN' and @Id]") != null;
 
             if (isHocBa)
             {
-                LogSystem("Loại: HOC_BA — nhiều người ký, cần đặt SignTag đúng vị trí (GVBM/GVCN/CBQL).");
+                LogSystem("Loại: HOC_BA — chọn XPath vị trí theo vai trò ký:");
+                // Suggest role-specific XPaths that target the signing slot (empty elements
+                // in DANH_SACH_THONG_TIN_KY), not the content elements in BANG_DIEM.
+                var xpathGvbm      = "//*[local-name()='DANH_SACH_THONG_TIN_KY']//*[local-name()='GVBM'][not(*)][1]";
+                var xpathGvcn      = "//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='GVCN']";
+                var xpathCbql      = "//*[local-name()='PHAT_HANH_HOC_BA']//*[local-name()='CBQL'][not(*)][1]";
+                var xpathKyPhatHanh = "//*[local-name()='PHAT_HANH_HOC_BA']/*[local-name()='KY_PHAT_HANH']";
+                txtXmlParentXPath.Items.Add(xpathCbql);
+                txtXmlParentXPath.Items.Add(xpathKyPhatHanh);
+                txtXmlParentXPath.Items.Add(xpathGvcn);
+                txtXmlParentXPath.Items.Add(xpathGvbm);
+                // Map role-level XPaths to their correct ReferenceId for auto-sync on selection
+                _xpathRefMap[xpathGvcn]       = "thongtinhocba";
+                _xpathRefMap[xpathCbql]       = "data";
+                _xpathRefMap[xpathKyPhatHanh] = "data";
+
+                // Build per-GVBM XPath entries: for each signing-slot GVBM in DANH_SACH_THONG_TIN_KY,
+                // find the matching DIEM_TONG_KET by searching for a nested GVBM with the same teacher Id.
+                // XPath MUST be anchored to DANH_SACH_THONG_TIN_KY — the document also has DANH_SACH_GVBM/GVBM
+                // elements INSIDE each DIEM_TONG_KET (teacher-info, same Id), so an unanchored XPath like
+                // //*[DANH_SACH_GVBM]//*[GVBM][@Id='X'] would hit the wrong node first (inside the referenced
+                // element itself), placing the Signature there and corrupting the hash NEAC checks.
+                var gvbmSlotNodes = doc.SelectNodes(
+                    "//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='DANH_SACH_GVBM']/*[local-name()='GVBM']");
+                var gvbmPairList = new System.Collections.Generic.List<(string teacherId, string diemId)>();
+                if (gvbmSlotNodes?.Count > 0)
+                {
+                    foreach (System.Xml.XmlNode gvbmNode in gvbmSlotNodes)
+                    {
+                        var gvbmEl = gvbmNode as System.Xml.XmlElement;
+                        if (gvbmEl == null) continue;
+                        string teacherId = gvbmEl.GetAttribute("Id");
+                        if (string.IsNullOrEmpty(teacherId)) continue;
+                        var diemEl = doc.SelectSingleNode(
+                            $"//*[local-name()='DIEM_TONG_KET'][@Id][.//*[local-name()='GVBM'][@Id='{teacherId}']]")
+                            as System.Xml.XmlElement;
+                        if (diemEl == null) continue;
+                        string diemId = diemEl.GetAttribute("Id");
+                        if (string.IsNullOrEmpty(diemId)) continue;
+                        string xpathSlot = $"//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='DANH_SACH_GVBM']/*[local-name()='GVBM'][@Id='{teacherId}']";
+                        txtXmlParentXPath.Items.Add(xpathSlot);
+                        _xpathRefMap[xpathSlot] = diemId;
+                        gvbmPairList.Add((teacherId, diemId));
+                    }
+                }
+
+                // Default to CBQL — NEAC-safe for #data reference (Signature outside DU_LIEU_HOC_BA)
+                txtXmlParentXPath.Text = xpathCbql;
+                txtXmlSignTag.Text = "CBQL";
+
+                LogSystem($"  CBQL (cán bộ quản lý)   : {xpathCbql}  → RefID=data  ← mặc định (NEAC-safe)");
+                LogSystem($"  KY_PHAT_HANH (phát hành): {xpathKyPhatHanh}  → RefID=data");
+                LogSystem($"  GVCN (chủ nhiệm)        : {xpathGvcn}  → RefID=thongtinhocba");
+                LogSystem($"  GVBM (giáo viên bộ môn) : {xpathGvbm}  → RefID=Id học sinh (chọn cụ thể bên dưới)");
+                if (gvbmPairList.Count > 0)
+                {
+                    LogSystem($"  GVBM cá nhân ({gvbmPairList.Count} cặp — chọn từ dropdown XPath, RefID tự động cập nhật):");
+                    int gi = 1;
+                    foreach (var (tId, dId) in gvbmPairList)
+                        LogSystem($"    [{gi++}] GVBM Id={tId}  →  RefID={dId}");
+                }
+                LogWarning("Lưu ý NEAC: Chữ ký phải đặt NGOÀI phần tử được tham chiếu. CBQL nằm ngoài DU_LIEU_HOC_BA (#data) → NEAC xác minh được.");
             }
             else if (isTongKet)
             {
-                LogSystem("Loại: BCY (TONG_KET_CA_NAM) → Thẻ Ký để TRỐNG, Signature gắn vào gốc DU_LIEU.");
+                LogSystem("Loại: BCY (TONG_KET_CA_NAM) → Thẻ Ký để TRỐNG, ReferenceId = Id của TONG_KET_CA_NAM.");
                 txtXmlSignTag.Text = "";
+                txtXmlParentXPath.Text = "";
             }
             else if (isLyLich)
             {
-                LogSystem("Loại: Lý Lịch (THONG_TIN) → Thẻ Ký để TRỐNG, Signature gắn vào gốc DU_LIEU.");
+                LogSystem("Loại: Lý Lịch (THONG_TIN) → Thẻ Ký để TRỐNG, ReferenceId = Id của THONG_TIN.");
                 txtXmlSignTag.Text = "";
+                txtXmlParentXPath.Text = "";
             }
             else
             {
-                LogWarning("Không nhận diện được loại tài liệu — kiểm tra SignTag thủ công.");
+                LogWarning("Không nhận diện được loại tài liệu — tự chọn SignTag và ReferenceId phù hợp.");
+                txtXmlParentXPath.Text = "";
             }
 
             // Report existing signatures
@@ -1380,6 +1483,7 @@ public partial class MainForm : Form
 
             string signTag = txtXmlSignTag.Text;
             string? referenceId = string.IsNullOrWhiteSpace(txtXmlReferenceId.Text) ? null : txtXmlReferenceId.Text.Trim();
+            string? parentXPath = string.IsNullOrWhiteSpace(txtXmlParentXPath.Text) ? null : txtXmlParentXPath.Text.Trim();
 
             var fileDatas = new List<XmlFileDataItem>();
             foreach (var item in lstXmlFilePath.Items)
@@ -1395,13 +1499,14 @@ public partial class MainForm : Form
                         XmlData = Convert.ToBase64String(Encoding.UTF8.GetBytes(fileContent)),
                         SignTag = signTag,
                         SignatureName = signatureName,
-                        ReferenceId = referenceId
+                        ReferenceId = referenceId,
+                        ParentXPath = parentXPath
                     });
                 }
             }
 
             LogSystem($"Packaging {fileDatas.Count} XML file(s) for signing...");
-            LogSystem($"Parameters -> SignTag: '{signTag}', ReferenceId: '{referenceId ?? "(whole doc)"}'");
+            LogSystem($"Parameters -> SignTag: '{signTag}', ReferenceId: '{referenceId ?? "(whole doc)"}', XPath: '{parentXPath ?? "(none)"}'");
             LogSystem("Invoking SignSDK client XML signing workflow...");
 
             var request = new XmlMultiSignRequest

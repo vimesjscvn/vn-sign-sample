@@ -105,9 +105,11 @@ partial class MainForm
         this.lblXmlSignatureName = new System.Windows.Forms.Label();
         this.txtXmlSignatureName = new System.Windows.Forms.TextBox();
         this.lblXmlSignTag = new System.Windows.Forms.Label();
-        this.txtXmlSignTag = new System.Windows.Forms.TextBox();
+        this.txtXmlSignTag = new System.Windows.Forms.ComboBox();
         this.lblXmlReferenceId = new System.Windows.Forms.Label();
-        this.txtXmlReferenceId = new System.Windows.Forms.TextBox();
+        this.txtXmlReferenceId = new System.Windows.Forms.ComboBox();
+        this.lblXmlParentXPath = new System.Windows.Forms.Label();
+        this.txtXmlParentXPath = new System.Windows.Forms.ComboBox();
         this.pnlXmlHelp = new System.Windows.Forms.Panel();
         this.rtbXmlHelp = new System.Windows.Forms.RichTextBox();
         this.toolTipXml = new System.Windows.Forms.ToolTip();
@@ -1464,6 +1466,8 @@ partial class MainForm
         this.gbXmlAction.Controls.Add(this.txtXmlSignTag);
         this.gbXmlAction.Controls.Add(this.lblXmlReferenceId);
         this.gbXmlAction.Controls.Add(this.txtXmlReferenceId);
+        this.gbXmlAction.Controls.Add(this.lblXmlParentXPath);
+        this.gbXmlAction.Controls.Add(this.txtXmlParentXPath);
         this.gbXmlAction.Controls.Add(this.pnlXmlHelp);
         this.gbXmlAction.Controls.Add(this.btnSignXml);
         this.gbXmlAction.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1553,7 +1557,7 @@ partial class MainForm
         this.lblXmlSignTag.Text = "Thẻ Ký (Sign Tag):";
         // 
         // txtXmlSignTag
-        // 
+        //
         this.txtXmlSignTag.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.txtXmlSignTag.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
         this.txtXmlSignTag.Location = new System.Drawing.Point(255, 148);
@@ -1561,6 +1565,8 @@ partial class MainForm
         this.txtXmlSignTag.Size = new System.Drawing.Size(220, 27);
         this.txtXmlSignTag.TabIndex = 6;
         this.txtXmlSignTag.Text = "CHUKYDONVI";
+        this.txtXmlSignTag.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDown;
+        this.txtXmlSignTag.Items.AddRange(new object[] { "CHUKYDONVI", "GVBM", "GVCN", "CBQL", "" });
         //
         // lblXmlReferenceId
         //
@@ -1578,9 +1584,30 @@ partial class MainForm
         this.txtXmlReferenceId.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
         this.txtXmlReferenceId.Location = new System.Drawing.Point(15, 202);
         this.txtXmlReferenceId.Name = "txtXmlReferenceId";
-        this.txtXmlReferenceId.PlaceholderText = "để trống = ký toàn bộ tài liệu (URI=\"\")";
         this.txtXmlReferenceId.Size = new System.Drawing.Size(460, 27);
         this.txtXmlReferenceId.TabIndex = 7;
+        this.txtXmlReferenceId.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDown;
+        this.txtXmlReferenceId.Items.Add("");
+        //
+        // lblXmlParentXPath
+        //
+        this.lblXmlParentXPath.AutoSize = true;
+        this.lblXmlParentXPath.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
+        this.lblXmlParentXPath.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblXmlParentXPath.Location = new System.Drawing.Point(15, 237);
+        this.lblXmlParentXPath.Name = "lblXmlParentXPath";
+        this.lblXmlParentXPath.Text = "XPath vị trí đặt chữ ký (tùy chọn):";
+        //
+        // txtXmlParentXPath
+        //
+        this.txtXmlParentXPath.Font = new System.Drawing.Font("Segoe UI", 9F);
+        this.txtXmlParentXPath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+        this.txtXmlParentXPath.Location = new System.Drawing.Point(15, 255);
+        this.txtXmlParentXPath.Name = "txtXmlParentXPath";
+        this.txtXmlParentXPath.Size = new System.Drawing.Size(460, 27);
+        this.txtXmlParentXPath.TabIndex = 8;
+        this.txtXmlParentXPath.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDown;
+        this.txtXmlParentXPath.Items.Add("");
         //
         // pnlXmlHelp
         //
@@ -1589,9 +1616,9 @@ partial class MainForm
         this.pnlXmlHelp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
         this.pnlXmlHelp.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
         this.pnlXmlHelp.Controls.Add(this.rtbXmlHelp);
-        this.pnlXmlHelp.Location = new System.Drawing.Point(15, 240);
+        this.pnlXmlHelp.Location = new System.Drawing.Point(15, 292);
         this.pnlXmlHelp.Name = "pnlXmlHelp";
-        this.pnlXmlHelp.Size = new System.Drawing.Size(460, 150);
+        this.pnlXmlHelp.Size = new System.Drawing.Size(460, 98);
         //
         // rtbXmlHelp
         //
@@ -1953,9 +1980,11 @@ partial class MainForm
     private System.Windows.Forms.Label lblXmlSignatureName;
     private System.Windows.Forms.TextBox txtXmlSignatureName;
     private System.Windows.Forms.Label lblXmlSignTag;
-    private System.Windows.Forms.TextBox txtXmlSignTag;
+    private System.Windows.Forms.ComboBox txtXmlSignTag;
     private System.Windows.Forms.Label lblXmlReferenceId;
-    private System.Windows.Forms.TextBox txtXmlReferenceId;
+    private System.Windows.Forms.ComboBox txtXmlReferenceId;
+    private System.Windows.Forms.Label lblXmlParentXPath;
+    private System.Windows.Forms.ComboBox txtXmlParentXPath;
     private System.Windows.Forms.Panel pnlXmlHelp;
     private System.Windows.Forms.RichTextBox rtbXmlHelp;
     private System.Windows.Forms.ToolTip toolTipXml;
