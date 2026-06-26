@@ -396,8 +396,7 @@ partial class MainForm
         this.gbCredentials.Controls.Add(this.pbSigImage);
         this.gbCredentials.Controls.Add(this.btnBrowseSigImage);
         this.gbCredentials.Controls.Add(this.btnClearSigImage);
-        this.gbCredentials.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+        this.gbCredentials.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbCredentials.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbCredentials.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbCredentials.Location = new System.Drawing.Point(0, 0);
@@ -570,8 +569,7 @@ partial class MainForm
         this.gbDirectConfig.Controls.Add(this.txtNoteY);
         this.gbDirectConfig.Controls.Add(this.chkShowSignatureTime);
         this.gbDirectConfig.Controls.Add(this.btnSign);
-        this.gbDirectConfig.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+        this.gbDirectConfig.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbDirectConfig.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbDirectConfig.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbDirectConfig.Location = new System.Drawing.Point(0, 0);
@@ -799,7 +797,7 @@ partial class MainForm
         // btnSign
         //
         this.btnSign.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
-        this.btnSign.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+        this.btnSign.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
         this.btnSign.Location = new System.Drawing.Point(15, 305);
         this.btnSign.Name = "btnSign";
         this.btnSign.Size = new System.Drawing.Size(460, 40);
@@ -1621,7 +1619,7 @@ partial class MainForm
         //
         // btnSignXml
         //
-        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
         this.btnSignXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
         this.btnSignXml.Location = new System.Drawing.Point(15, 398);
