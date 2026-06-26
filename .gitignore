@@ -24,3 +24,7 @@ wwwroot/certs/*.cer
 
 # UsbTokenAgent release download cache
 .usb-agent-cache/
+
+# Ignore publish output folders and temporary mockups
+[Pp]ublish/
+mockup.html

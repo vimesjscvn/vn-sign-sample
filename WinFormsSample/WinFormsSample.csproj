@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <PackageReference Include="Docnet.Core" Version="2.6.0" />
@@ -77,6 +77,14 @@
       <_AgentOutDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(OutDir)').TrimEnd('\'))</_AgentOutDir>
     </PropertyGroup>
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(_DownloadScript)&quot; -Version &quot;$(UsbAgentVersion)&quot; -CacheDir &quot;$(UsbAgentCacheDir)&quot; -OutDir &quot;$(_AgentOutDir)&quot;"
+          IgnoreStandardErrorWarningFormat="true" />
+  </Target>
+
+  <Target Name="CopyUsbAgentToPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <PropertyGroup>
+      <_AgentPublishDir>$([System.IO.Path]::GetFullPath('$(PublishDir)').TrimEnd('\'))</_AgentPublishDir>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(_DownloadScript)&quot; -Version &quot;$(UsbAgentVersion)&quot; -CacheDir &quot;$(UsbAgentCacheDir)&quot; -OutDir &quot;$(_AgentPublishDir)&quot;"
           IgnoreStandardErrorWarningFormat="true" />
   </Target>
 
