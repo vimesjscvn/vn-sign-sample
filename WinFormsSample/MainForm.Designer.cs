@@ -1346,8 +1346,7 @@ partial class MainForm
         this.gbCredentialsXml.Controls.Add(this.lblActiveCertLabelXml);
         this.gbCredentialsXml.Controls.Add(this.cboCertsXml);
         this.gbCredentialsXml.Controls.Add(this.btnSyncCertificatesXml);
-        this.gbCredentialsXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+        this.gbCredentialsXml.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbCredentialsXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbCredentialsXml.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbCredentialsXml.Location = new System.Drawing.Point(0, 0);
@@ -1457,8 +1456,7 @@ partial class MainForm
         this.gbXmlAction.Controls.Add(this.txtXmlParentXPath);
         this.gbXmlAction.Controls.Add(this.pnlXmlHelp);
         this.gbXmlAction.Controls.Add(this.btnSignXml);
-        this.gbXmlAction.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+        this.gbXmlAction.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbXmlAction.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbXmlAction.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbXmlAction.Location = new System.Drawing.Point(0, 0);
