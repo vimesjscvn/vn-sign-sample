@@ -197,31 +197,8 @@ public partial class MainForm : Form
             "  Lý Lịch            : SignTag=THONG_TIN       RefID=lyLich\r\n" +
             "  BHXH GIAMDINHHS    : SignTag=CHUKYDONVI     RefID=(trống)");
 
+        // Let design-time split container settings and auto-scroll panels handle the layout.
         Log("Dashboard Initialized. Welcome to Vimes SignSDK Showcase Studio!", Color.FromArgb(56, 189, 248));
-
-        // Dynamically adjust splitter distances when form is shown maximized
-        this.Load += (s, e) =>
-        {
-            try
-            {
-                // splitContainerDirect: left panel 45%, right panel 55% (PDF preview gets more space)
-                if (splitContainerDirect.Width > 100)
-                    splitContainerDirect.SplitterDistance = (int)(splitContainerDirect.Width * 0.45);
-
-                // splitContainerDirectLeft: credentials+sig image 52%, config 48%
-                if (splitContainerDirectLeft.Height > 100)
-                    splitContainerDirectLeft.SplitterDistance = (int)(splitContainerDirectLeft.Height * 0.52);
-
-                // splitContainerXml: left panel 45%, right panel 55%
-                if (splitContainerXml.Width > 100)
-                    splitContainerXml.SplitterDistance = (int)(splitContainerXml.Width * 0.45);
-
-                // splitContainerXmlLeft: credentials 148, configuration remainder
-                if (splitContainerXmlLeft.Height > 148)
-                    splitContainerXmlLeft.SplitterDistance = 148;
-            }
-            catch { /* Ignore layout issues during init */ }
-        };
     }
 
     #region Formatting & Logging Helpers

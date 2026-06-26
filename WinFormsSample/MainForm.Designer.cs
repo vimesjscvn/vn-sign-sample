@@ -396,7 +396,8 @@ partial class MainForm
         this.gbCredentials.Controls.Add(this.pbSigImage);
         this.gbCredentials.Controls.Add(this.btnBrowseSigImage);
         this.gbCredentials.Controls.Add(this.btnClearSigImage);
-        this.gbCredentials.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbCredentials.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbCredentials.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbCredentials.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbCredentials.Location = new System.Drawing.Point(0, 0);
@@ -438,7 +439,7 @@ partial class MainForm
         // 
         // txtPassword
         //
-        this.txtPassword.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+        this.txtPassword.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
         this.txtPassword.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.txtPassword.Location = new System.Drawing.Point(255, 45);
         this.txtPassword.Name = "txtPassword";
@@ -522,7 +523,8 @@ partial class MainForm
         // 
         this.splitContainerDirect.Panel2.Controls.Add(this.gbDirectPreview);
         this.splitContainerDirect.Size = new System.Drawing.Size(950, 560);
-        this.splitContainerDirect.SplitterDistance = 500;
+        this.splitContainerDirect.SplitterDistance = 520;
+        this.splitContainerDirect.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
         this.splitContainerDirect.TabIndex = 0;
         // 
         // 
@@ -540,6 +542,7 @@ partial class MainForm
         // splitContainerDirectLeft.Panel2
         // 
         this.splitContainerDirectLeft.Panel2.Controls.Add(this.gbDirectConfig);
+        this.splitContainerDirectLeft.Panel2.AutoScroll = true;
         this.splitContainerDirectLeft.Size = new System.Drawing.Size(500, 560);
         this.splitContainerDirectLeft.SplitterDistance = 235;
         this.splitContainerDirectLeft.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
@@ -569,12 +572,13 @@ partial class MainForm
         this.gbDirectConfig.Controls.Add(this.txtNoteY);
         this.gbDirectConfig.Controls.Add(this.chkShowSignatureTime);
         this.gbDirectConfig.Controls.Add(this.btnSign);
-        this.gbDirectConfig.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbDirectConfig.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbDirectConfig.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbDirectConfig.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbDirectConfig.Location = new System.Drawing.Point(0, 0);
         this.gbDirectConfig.Name = "gbDirectConfig";
-        this.gbDirectConfig.Size = new System.Drawing.Size(500, 320);
+        this.gbDirectConfig.Size = new System.Drawing.Size(500, 360);
         this.gbDirectConfig.TabIndex = 0;
         this.gbDirectConfig.TabStop = false;
         this.gbDirectConfig.Text = "Cấu Hình Ký Số Đơn Tệp";
@@ -797,7 +801,8 @@ partial class MainForm
         // btnSign
         //
         this.btnSign.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
-        this.btnSign.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+        this.btnSign.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.btnSign.Location = new System.Drawing.Point(15, 305);
         this.btnSign.Name = "btnSign";
         this.btnSign.Size = new System.Drawing.Size(460, 40);
@@ -1298,6 +1303,7 @@ partial class MainForm
         // splitContainerXml
         // 
         this.splitContainerXml.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.splitContainerXml.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
         this.splitContainerXml.Location = new System.Drawing.Point(15, 15);
         this.splitContainerXml.Name = "splitContainerXml";
         // 
@@ -1309,7 +1315,7 @@ partial class MainForm
         // 
         this.splitContainerXml.Panel2.Controls.Add(this.gbXmlPreview);
         this.splitContainerXml.Size = new System.Drawing.Size(792, 401);
-        this.splitContainerXml.SplitterDistance = 500;
+        this.splitContainerXml.SplitterDistance = 520;
         this.splitContainerXml.TabIndex = 0;
         // 
         // splitContainerXmlLeft
@@ -1326,6 +1332,7 @@ partial class MainForm
         // splitContainerXmlLeft.Panel2
         // 
         this.splitContainerXmlLeft.Panel2.Controls.Add(this.gbXmlAction);
+        this.splitContainerXmlLeft.Panel2.AutoScroll = true;
         this.splitContainerXmlLeft.Size = new System.Drawing.Size(500, 401);
         this.splitContainerXmlLeft.SplitterDistance = 148;
         this.splitContainerXmlLeft.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
@@ -1344,7 +1351,8 @@ partial class MainForm
         this.gbCredentialsXml.Controls.Add(this.lblActiveCertLabelXml);
         this.gbCredentialsXml.Controls.Add(this.cboCertsXml);
         this.gbCredentialsXml.Controls.Add(this.btnSyncCertificatesXml);
-        this.gbCredentialsXml.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbCredentialsXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbCredentialsXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbCredentialsXml.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbCredentialsXml.Location = new System.Drawing.Point(0, 0);
@@ -1384,7 +1392,7 @@ partial class MainForm
         // 
         // txtPasswordXml
         //
-        this.txtPasswordXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+        this.txtPasswordXml.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
         this.txtPasswordXml.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.txtPasswordXml.Location = new System.Drawing.Point(255, 45);
         this.txtPasswordXml.Name = "txtPasswordXml";
@@ -1454,12 +1462,13 @@ partial class MainForm
         this.gbXmlAction.Controls.Add(this.txtXmlParentXPath);
         this.gbXmlAction.Controls.Add(this.pnlXmlHelp);
         this.gbXmlAction.Controls.Add(this.btnSignXml);
-        this.gbXmlAction.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbXmlAction.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbXmlAction.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
         this.gbXmlAction.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbXmlAction.Location = new System.Drawing.Point(0, 0);
         this.gbXmlAction.Name = "gbXmlAction";
-        this.gbXmlAction.Size = new System.Drawing.Size(500, 450);
+        this.gbXmlAction.Size = new System.Drawing.Size(500, 460);
         this.gbXmlAction.TabIndex = 0;
         this.gbXmlAction.TabStop = false;
         this.gbXmlAction.Text = "Cấu Hình Ký XML";
@@ -1619,7 +1628,7 @@ partial class MainForm
         //
         // btnSignXml
         //
-        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
         this.btnSignXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
         this.btnSignXml.Location = new System.Drawing.Point(15, 398);
