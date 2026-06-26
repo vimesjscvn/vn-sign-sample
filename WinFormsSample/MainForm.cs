@@ -216,9 +216,9 @@ public partial class MainForm : Form
                 if (splitContainerXml.Width > 100)
                     splitContainerXml.SplitterDistance = (int)(splitContainerXml.Width * 0.45);
 
-                // splitContainerXmlLeft: credentials 190, configuration remainder
-                if (splitContainerXmlLeft.Height > 190)
-                    splitContainerXmlLeft.SplitterDistance = 190;
+                // splitContainerXmlLeft: credentials 148, configuration remainder
+                if (splitContainerXmlLeft.Height > 148)
+                    splitContainerXmlLeft.SplitterDistance = 148;
             }
             catch { /* Ignore layout issues during init */ }
         };
@@ -248,32 +248,38 @@ public partial class MainForm : Form
     private void LogSystem(string message) => Log(message, Color.FromArgb(56, 189, 248));
     #endregion
 
-    #region Left Navigation Selection Panel
-    private void btnNav_Click(object sender, EventArgs e)
+    #region Top MenuStrip Navigation Selection
+    private void menuPdfSign_Click(object sender, EventArgs e)
     {
-        if (sender is not Button btn) return;
+        tabControl.SelectedIndex = 0;
+        LogSystem("Switched context view to: Ký PDF");
+    }
 
-        if (btn == btnNavDirect) tabControl.SelectedIndex = 0;
-        else if (btn == btnNavXml) tabControl.SelectedIndex = 2;
-        else if (btn == btnNavSettings) tabControl.SelectedIndex = 3;
+    private void menuXmlSign_Click(object sender, EventArgs e)
+    {
+        tabControl.SelectedIndex = 2;
+        LogSystem("Switched context view to: Ký XML");
+    }
 
-        // Reset and highlight active buttons
-        var navButtons = new[] { btnNavDirect, btnNavXml, btnNavSettings };
-        foreach (var nav in navButtons)
-        {
-            if (nav == btn)
-            {
-                nav.BackColor = Color.FromArgb(30, 41, 59); // highlighted slate background
-                nav.ForeColor = Color.White;
-            }
-            else
-            {
-                nav.BackColor = Color.Transparent;
-                nav.ForeColor = Color.FromArgb(148, 163, 184); // muted text color
-            }
-        }
+    private void menuSettings_Click(object sender, EventArgs e)
+    {
+        tabControl.SelectedIndex = 3;
+        LogSystem("Switched context view to: Cài Đặt SDK");
+    }
 
-        LogSystem($"Switched context view to: {btn.Text.Substring(3)}");
+    private void menuExit_Click(object sender, EventArgs e)
+    {
+        this.Close();
+    }
+
+    private void menuHelpDoc_Click(object sender, EventArgs e)
+    {
+        LogSystem("Mở tài liệu hướng dẫn sử dụng...");
+    }
+
+    private void menuAbout_Click(object sender, EventArgs e)
+    {
+        LogSystem("VIMES SignSDK Showcase Studio v2.1.0 (WinForms)");
     }
     #endregion
 

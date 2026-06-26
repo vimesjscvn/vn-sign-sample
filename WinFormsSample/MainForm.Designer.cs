@@ -19,12 +19,16 @@ partial class MainForm
         System.Windows.Forms.DataGridViewCellStyle dgvRowStyle = new System.Windows.Forms.DataGridViewCellStyle();
         
         this.txtLogs = new System.Windows.Forms.RichTextBox();
-        this.panelSidebar = new System.Windows.Forms.Panel();
-        this.lblSidebarTitle = new System.Windows.Forms.Label();
-        this.btnNavDirect = new System.Windows.Forms.Button();
-
-        this.btnNavXml = new System.Windows.Forms.Button();
-        this.btnNavSettings = new System.Windows.Forms.Button();
+        this.menuStripMain = new System.Windows.Forms.MenuStrip();
+        this.menuFunctions = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuPdfSign = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuXmlSign = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuSystem = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuSettings = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuExit = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuHelp = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuHelpDoc = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuAbout = new System.Windows.Forms.ToolStripMenuItem();
         
         this.panelHeader = new System.Windows.Forms.Panel();
         this.lblMerchant = new System.Windows.Forms.Label();
@@ -165,7 +169,7 @@ partial class MainForm
         this.btnClearLogs = new System.Windows.Forms.Button();
         this.btnCopyLogs = new System.Windows.Forms.Button();
 
-        this.panelSidebar.SuspendLayout();
+        this.menuStripMain.SuspendLayout();
         this.panelHeader.SuspendLayout();
         this.tabControl.SuspendLayout();
         this.gbCredentials.SuspendLayout();
@@ -212,82 +216,91 @@ partial class MainForm
         this.SuspendLayout();
 
         // 
-        // panelSidebar
+        // menuStripMain
         // 
-        this.panelSidebar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
-        this.panelSidebar.Controls.Add(this.lblSidebarTitle);
-        this.panelSidebar.Controls.Add(this.btnNavDirect);
-
-        this.panelSidebar.Controls.Add(this.btnNavXml);
-        this.panelSidebar.Controls.Add(this.btnNavSettings);
-        this.panelSidebar.Dock = System.Windows.Forms.DockStyle.Left;
-        this.panelSidebar.Location = new System.Drawing.Point(0, 0);
-        this.panelSidebar.Name = "panelSidebar";
-        this.panelSidebar.Size = new System.Drawing.Size(220, 680);
-        this.panelSidebar.TabIndex = 0;
+        this.menuStripMain.ImageScalingSize = new System.Drawing.Size(20, 20);
+        this.menuStripMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuFunctions,
+            this.menuSystem,
+            this.menuHelp});
+        this.menuStripMain.Location = new System.Drawing.Point(0, 0);
+        this.menuStripMain.Name = "menuStripMain";
+        this.menuStripMain.Size = new System.Drawing.Size(1200, 28);
+        this.menuStripMain.TabIndex = 0;
+        this.menuStripMain.Text = "menuStripMain";
         // 
-        // lblSidebarTitle
+        // menuFunctions
         // 
-        this.lblSidebarTitle.Font = new System.Drawing.Font("Segoe UI Semibold", 14F, System.Drawing.FontStyle.Bold);
-        this.lblSidebarTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(56)))), ((int)(((byte)(189)))), ((int)(((byte)(248)))));
-        this.lblSidebarTitle.Location = new System.Drawing.Point(15, 20);
-        this.lblSidebarTitle.Name = "lblSidebarTitle";
-        this.lblSidebarTitle.Size = new System.Drawing.Size(190, 45);
-        this.lblSidebarTitle.Text = "VIMES SignSDK";
-        this.lblSidebarTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+        this.menuFunctions.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuPdfSign,
+            this.menuXmlSign});
+        this.menuFunctions.Name = "menuFunctions";
+        this.menuFunctions.Size = new System.Drawing.Size(117, 24);
+        this.menuFunctions.Text = "Chức Năng (&F)";
         // 
-        // btnNavDirect
+        // menuPdfSign
         // 
-        this.btnNavDirect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
-        this.btnNavDirect.FlatAppearance.BorderSize = 0;
-        this.btnNavDirect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-        this.btnNavDirect.Font = new System.Drawing.Font("Segoe UI Semibold", 10F);
-        this.btnNavDirect.ForeColor = System.Drawing.Color.White;
-        this.btnNavDirect.Location = new System.Drawing.Point(10, 80);
-        this.btnNavDirect.Name = "btnNavDirect";
-        this.btnNavDirect.Size = new System.Drawing.Size(200, 45);
-        this.btnNavDirect.TabIndex = 1;
-        this.btnNavDirect.Text = "🎨 Ký PDF";
-        this.btnNavDirect.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-        this.btnNavDirect.UseVisualStyleBackColor = true;
-        this.btnNavDirect.Click += new System.EventHandler(this.btnNav_Click);
+        this.menuPdfSign.Name = "menuPdfSign";
+        this.menuPdfSign.Size = new System.Drawing.Size(224, 26);
+        this.menuPdfSign.Text = "Ký PDF (tabDirect)";
+        this.menuPdfSign.Click += new System.EventHandler(this.menuPdfSign_Click);
         // 
-
+        // menuXmlSign
         // 
-        // btnNavXml
+        this.menuXmlSign.Name = "menuXmlSign";
+        this.menuXmlSign.Size = new System.Drawing.Size(224, 26);
+        this.menuXmlSign.Text = "Ký XML (tabXml)";
+        this.menuXmlSign.Click += new System.EventHandler(this.menuXmlSign_Click);
         // 
-        this.btnNavXml.FlatAppearance.BorderSize = 0;
-        this.btnNavXml.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-        this.btnNavXml.Font = new System.Drawing.Font("Segoe UI Semibold", 10F);
-        this.btnNavXml.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.btnNavXml.Location = new System.Drawing.Point(10, 135);
-        this.btnNavXml.Name = "btnNavXml";
-        this.btnNavXml.Size = new System.Drawing.Size(200, 45);
-        this.btnNavXml.TabIndex = 3;
-        this.btnNavXml.Text = "💠 Ký XML";
-        this.btnNavXml.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-        this.btnNavXml.UseVisualStyleBackColor = true;
-        this.btnNavXml.Visible = true;
-        this.btnNavXml.Click += new System.EventHandler(this.btnNav_Click);
+        // menuSystem
         // 
-        // btnNavSettings
+        this.menuSystem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuSettings,
+            this.menuExit});
+        this.menuSystem.Name = "menuSystem";
+        this.menuSystem.Size = new System.Drawing.Size(114, 24);
+        this.menuSystem.Text = "Hệ Thống (&S)";
         // 
-        this.btnNavSettings.FlatAppearance.BorderSize = 0;
-        this.btnNavSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-        this.btnNavSettings.Font = new System.Drawing.Font("Segoe UI Semibold", 10F);
-        this.btnNavSettings.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.btnNavSettings.Location = new System.Drawing.Point(10, 190);
-        this.btnNavSettings.Name = "btnNavSettings";
-        this.btnNavSettings.Size = new System.Drawing.Size(200, 45);
-        this.btnNavSettings.TabIndex = 4;
-        this.btnNavSettings.Text = "⚙️ Cài Đặt SDK";
-        this.btnNavSettings.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-        this.btnNavSettings.UseVisualStyleBackColor = true;
-        this.btnNavSettings.Click += new System.EventHandler(this.btnNav_Click);
+        // menuSettings
+        // 
+        this.menuSettings.Name = "menuSettings";
+        this.menuSettings.Size = new System.Drawing.Size(252, 26);
+        this.menuSettings.Text = "Cài Đặt SDK (tabSettings)";
+        this.menuSettings.Click += new System.EventHandler(this.menuSettings_Click);
+        // 
+        // menuExit
+        // 
+        this.menuExit.Name = "menuExit";
+        this.menuExit.Size = new System.Drawing.Size(252, 26);
+        this.menuExit.Text = "Thoát (&X)";
+        this.menuExit.Click += new System.EventHandler(this.menuExit_Click);
+        // 
+        // menuHelp
+        // 
+        this.menuHelp.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuHelpDoc,
+            this.menuAbout});
+        this.menuHelp.Name = "menuHelp";
+        this.menuHelp.Size = new System.Drawing.Size(107, 24);
+        this.menuHelp.Text = "Trợ Giúp (&H)";
+        // 
+        // menuHelpDoc
+        // 
+        this.menuHelpDoc.Name = "menuHelpDoc";
+        this.menuHelpDoc.Size = new System.Drawing.Size(226, 26);
+        this.menuHelpDoc.Text = "Hướng Dẫn Sử Dụng";
+        this.menuHelpDoc.Click += new System.EventHandler(this.menuHelpDoc_Click);
+        // 
+        // menuAbout
+        // 
+        this.menuAbout.Name = "menuAbout";
+        this.menuAbout.Size = new System.Drawing.Size(226, 26);
+        this.menuAbout.Text = "Về Phần Mềm";
+        this.menuAbout.Click += new System.EventHandler(this.menuAbout_Click);
         // 
         // panelHeader
         // 
-        this.panelHeader.BackColor = System.Drawing.Color.White;
+        this.panelHeader.BackColor = System.Drawing.SystemColors.Control;
         this.panelHeader.Controls.Add(this.lblMerchant);
         this.panelHeader.Controls.Add(this.cboMerchant);
         this.panelHeader.Controls.Add(this.lblSignAlgorithm);
@@ -304,7 +317,7 @@ partial class MainForm
         // 
         this.lblMerchant.AutoSize = true;
         this.lblMerchant.Font = new System.Drawing.Font("Segoe UI Semibold", 10F, System.Drawing.FontStyle.Bold);
-        this.lblMerchant.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
+        this.lblMerchant.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblMerchant.Location = new System.Drawing.Point(20, 20);
         this.lblMerchant.Name = "lblMerchant";
         this.lblMerchant.Size = new System.Drawing.Size(147, 23);
@@ -325,7 +338,7 @@ partial class MainForm
         // 
         this.lblSessionStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
         this.lblSessionStatus.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F);
-        this.lblSessionStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(116)))), ((int)(((byte)(139)))));
+        this.lblSessionStatus.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblSessionStatus.Location = new System.Drawing.Point(540, 20);
         this.lblSessionStatus.Name = "lblSessionStatus";
         this.lblSessionStatus.Size = new System.Drawing.Size(240, 23);
@@ -369,7 +382,7 @@ partial class MainForm
         // 
         // gbCredentials
         // 
-        this.gbCredentials.BackColor = System.Drawing.Color.White;
+        this.gbCredentials.BackColor = System.Drawing.SystemColors.Control;
         this.gbCredentials.Controls.Add(this.lblUser);
         this.gbCredentials.Controls.Add(this.txtUserName);
         this.gbCredentials.Controls.Add(this.lblPass);
@@ -383,12 +396,13 @@ partial class MainForm
         this.gbCredentials.Controls.Add(this.pbSigImage);
         this.gbCredentials.Controls.Add(this.btnBrowseSigImage);
         this.gbCredentials.Controls.Add(this.btnClearSigImage);
-        this.gbCredentials.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbCredentials.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbCredentials.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbCredentials.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbCredentials.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbCredentials.Location = new System.Drawing.Point(0, 0);
         this.gbCredentials.Name = "gbCredentials";
-        this.gbCredentials.Size = new System.Drawing.Size(500, 250);
+        this.gbCredentials.Size = new System.Drawing.Size(500, 235);
         this.gbCredentials.TabIndex = 0;
         this.gbCredentials.TabStop = false;
         this.gbCredentials.Text = "Xác Thực Nhà Cung Cấp && Chứng Thư Số";
@@ -397,7 +411,7 @@ partial class MainForm
         // 
         this.lblUser.AutoSize = true;
         this.lblUser.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblUser.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblUser.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblUser.Location = new System.Drawing.Point(15, 25);
         this.lblUser.Name = "lblUser";
         this.lblUser.Size = new System.Drawing.Size(220, 17);
@@ -417,46 +431,42 @@ partial class MainForm
         // 
         this.lblPass.AutoSize = true;
         this.lblPass.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblPass.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblPass.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblPass.Location = new System.Drawing.Point(255, 25);
         this.lblPass.Name = "lblPass";
         this.lblPass.Size = new System.Drawing.Size(109, 17);
         this.lblPass.Text = "Mật Khẩu / Mã PIN:";
         // 
         // txtPassword
-        // 
+        //
         this.txtPassword.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
         this.txtPassword.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.txtPassword.Location = new System.Drawing.Point(255, 45);
         this.txtPassword.Name = "txtPassword";
         this.txtPassword.PasswordChar = '*';
-        this.txtPassword.Size = new System.Drawing.Size(220, 27);
+        this.txtPassword.Size = new System.Drawing.Size(110, 27);
         this.txtPassword.TabIndex = 2;
         this.txtPassword.Text = "";
 
         // 
         // btnLogin
         // 
-        this.btnLogin.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(43)))), ((int)(((byte)(87)))), ((int)(((byte)(154)))));
-        this.btnLogin.FlatAppearance.BorderSize = 0;
-        this.btnLogin.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnLogin.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
-        this.btnLogin.ForeColor = System.Drawing.Color.White;
-        this.btnLogin.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
-        this.btnLogin.Location = new System.Drawing.Point(15, 135);
+        this.btnLogin.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+        this.btnLogin.Location = new System.Drawing.Point(370, 45);
         this.btnLogin.Name = "btnLogin";
-        this.btnLogin.Size = new System.Drawing.Size(460, 34);
+        this.btnLogin.Size = new System.Drawing.Size(115, 27);
         this.btnLogin.TabIndex = 6;
-        this.btnLogin.Text = "🔑 Đăng Nhập && Tìm Chứng Thư";
-        this.btnLogin.UseVisualStyleBackColor = false;
+        this.btnLogin.Text = "Đăng Nhập";
+        this.btnLogin.UseVisualStyleBackColor = true;
         this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
         // 
         // lblActiveCertLabel
         // 
         this.lblActiveCertLabel.AutoSize = true;
         this.lblActiveCertLabel.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblActiveCertLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
-        this.lblActiveCertLabel.Location = new System.Drawing.Point(15, 178);
+        this.lblActiveCertLabel.ForeColor = System.Drawing.SystemColors.ControlText;
+        this.lblActiveCertLabel.Location = new System.Drawing.Point(15, 84);
         this.lblActiveCertLabel.Name = "lblActiveCertLabel";
         this.lblActiveCertLabel.Size = new System.Drawing.Size(175, 17);
         this.lblActiveCertLabel.Text = "Chứng Thư Số Được Chọn:";
@@ -467,7 +477,7 @@ partial class MainForm
         this.cboCerts.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.cboCerts.FormattingEnabled = true;
         this.cboCerts.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
-        this.cboCerts.Location = new System.Drawing.Point(15, 198);
+        this.cboCerts.Location = new System.Drawing.Point(15, 104);
         this.cboCerts.Name = "cboCerts";
         this.cboCerts.Size = new System.Drawing.Size(300, 27);
         this.cboCerts.TabIndex = 7;
@@ -475,17 +485,13 @@ partial class MainForm
         // btnSyncCertificates
         // 
         this.btnSyncCertificates.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnSyncCertificates.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
-        this.btnSyncCertificates.FlatAppearance.BorderSize = 0;
-        this.btnSyncCertificates.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSyncCertificates.Font = new System.Drawing.Font("Segoe UI Semibold", 8F, System.Drawing.FontStyle.Bold);
-        this.btnSyncCertificates.ForeColor = System.Drawing.Color.White;
-        this.btnSyncCertificates.Location = new System.Drawing.Point(325, 197);
+        this.btnSyncCertificates.Location = new System.Drawing.Point(325, 103);
         this.btnSyncCertificates.Name = "btnSyncCertificates";
         this.btnSyncCertificates.Size = new System.Drawing.Size(150, 29);
         this.btnSyncCertificates.TabIndex = 8;
         this.btnSyncCertificates.Text = "🔄 Làm Mới Chứng Thư";
-        this.btnSyncCertificates.UseVisualStyleBackColor = false;
+        this.btnSyncCertificates.UseVisualStyleBackColor = true;
         this.btnSyncCertificates.Click += new System.EventHandler(this.btnSyncCertificates_Click);
         // 
 
@@ -493,7 +499,7 @@ partial class MainForm
         // 
         // tabDirect
         // 
-        this.tabDirect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+        this.tabDirect.BackColor = System.Drawing.SystemColors.Control;
         this.tabDirect.Controls.Add(this.splitContainerDirect);
         this.tabDirect.Location = new System.Drawing.Point(4, 5);
         this.tabDirect.Name = "tabDirect";
@@ -536,12 +542,15 @@ partial class MainForm
         // 
         this.splitContainerDirectLeft.Panel2.Controls.Add(this.gbDirectConfig);
         this.splitContainerDirectLeft.Size = new System.Drawing.Size(500, 560);
-        this.splitContainerDirectLeft.SplitterDistance = 250;
+        this.splitContainerDirectLeft.SplitterDistance = 235;
+        this.splitContainerDirectLeft.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
+        this.splitContainerDirectLeft.Panel1MinSize = 235;
+        this.splitContainerDirectLeft.Panel2MinSize = 100;
         this.splitContainerDirectLeft.TabIndex = 0;
         // 
         // gbDirectConfig
         // 
-        this.gbDirectConfig.BackColor = System.Drawing.Color.White;
+        this.gbDirectConfig.BackColor = System.Drawing.SystemColors.Control;
         this.gbDirectConfig.Controls.Add(this.lblFile);
         this.gbDirectConfig.Controls.Add(this.lstFilePath);
         this.gbDirectConfig.Controls.Add(this.btnBrowse);
@@ -561,9 +570,10 @@ partial class MainForm
         this.gbDirectConfig.Controls.Add(this.txtNoteY);
         this.gbDirectConfig.Controls.Add(this.chkShowSignatureTime);
         this.gbDirectConfig.Controls.Add(this.btnSign);
-        this.gbDirectConfig.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbDirectConfig.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbDirectConfig.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbDirectConfig.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbDirectConfig.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbDirectConfig.Location = new System.Drawing.Point(0, 0);
         this.gbDirectConfig.Name = "gbDirectConfig";
         this.gbDirectConfig.Size = new System.Drawing.Size(500, 320);
@@ -575,7 +585,7 @@ partial class MainForm
         // 
         this.lblFile.AutoSize = true;
         this.lblFile.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblFile.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblFile.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblFile.Location = new System.Drawing.Point(15, 20);
         this.lblFile.Name = "lblFile";
         this.lblFile.Size = new System.Drawing.Size(102, 17);
@@ -608,7 +618,7 @@ partial class MainForm
         // 
         this.lblSignerName.AutoSize = true;
         this.lblSignerName.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblSignerName.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblSignerName.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblSignerName.Location = new System.Drawing.Point(15, 115);
         this.lblSignerName.Name = "lblSignerName";
         this.lblSignerName.Size = new System.Drawing.Size(91, 17);
@@ -628,7 +638,7 @@ partial class MainForm
         // 
         this.lblSignerTitle.AutoSize = true;
         this.lblSignerTitle.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblSignerTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblSignerTitle.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblSignerTitle.Location = new System.Drawing.Point(255, 115);
         this.lblSignerTitle.Name = "lblSignerTitle";
         this.lblSignerTitle.Size = new System.Drawing.Size(81, 17);
@@ -648,7 +658,7 @@ partial class MainForm
         // 
         this.lblSignatureType.AutoSize = true;
         this.lblSignatureType.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblSignatureType.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblSignatureType.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblSignatureType.Location = new System.Drawing.Point(15, 165);
         this.lblSignatureType.Name = "lblSignatureType";
         this.lblSignatureType.Size = new System.Drawing.Size(100, 17);
@@ -667,7 +677,7 @@ partial class MainForm
         // 
         this.lblDisplayNameMode.AutoSize = true;
         this.lblDisplayNameMode.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblDisplayNameMode.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblDisplayNameMode.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblDisplayNameMode.Location = new System.Drawing.Point(255, 165);
         this.lblDisplayNameMode.Name = "lblDisplayNameMode";
         this.lblDisplayNameMode.Size = new System.Drawing.Size(95, 17);
@@ -688,7 +698,7 @@ partial class MainForm
         // 
         this.lblNote.AutoSize = true;
         this.lblNote.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblNote.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblNote.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblNote.Location = new System.Drawing.Point(15, 215);
         this.lblNote.Name = "lblNote";
         this.lblNote.Size = new System.Drawing.Size(56, 17);
@@ -707,7 +717,7 @@ partial class MainForm
         this.lblNoteX.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
         
         this.lblNoteX.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblNoteX.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblNoteX.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblNoteX.Location = new System.Drawing.Point(325, 215);
         this.lblNoteX.Name = "lblNoteX";
         this.lblNoteX.Size = new System.Drawing.Size(65, 17);
@@ -724,7 +734,7 @@ partial class MainForm
         this.lblNoteY.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
         
         this.lblNoteY.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblNoteY.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblNoteY.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblNoteY.Location = new System.Drawing.Point(400, 215);
         this.lblNoteY.Name = "lblNoteY";
         this.lblNoteY.Size = new System.Drawing.Size(65, 17);
@@ -757,7 +767,7 @@ partial class MainForm
         // 
         this.chkShowSignatureTime.AutoSize = true;
         this.chkShowSignatureTime.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.chkShowSignatureTime.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.chkShowSignatureTime.ForeColor = System.Drawing.SystemColors.ControlText;
         this.chkShowSignatureTime.Location = new System.Drawing.Point(15, 270);
         this.chkShowSignatureTime.Name = "chkShowSignatureTime";
         this.chkShowSignatureTime.Size = new System.Drawing.Size(400, 21);
@@ -769,7 +779,7 @@ partial class MainForm
         //
         this.lblSignAlgorithm.AutoSize = true;
         this.lblSignAlgorithm.Font = new System.Drawing.Font("Segoe UI Semibold", 9.75F, System.Drawing.FontStyle.Bold);
-        this.lblSignAlgorithm.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
+        this.lblSignAlgorithm.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblSignAlgorithm.Location = new System.Drawing.Point(405, 20);
         this.lblSignAlgorithm.Name = "lblSignAlgorithm";
         this.lblSignAlgorithm.Size = new System.Drawing.Size(85, 23);
@@ -788,23 +798,19 @@ partial class MainForm
         //
         // btnSign
         //
-        this.btnSign.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(43)))), ((int)(((byte)(87)))), ((int)(((byte)(154)))));
-        this.btnSign.FlatAppearance.BorderSize = 0;
-        this.btnSign.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSign.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
-        this.btnSign.ForeColor = System.Drawing.Color.White;
         this.btnSign.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
         this.btnSign.Location = new System.Drawing.Point(15, 305);
         this.btnSign.Name = "btnSign";
         this.btnSign.Size = new System.Drawing.Size(460, 40);
         this.btnSign.TabIndex = 9;
         this.btnSign.Text = "⚡ KÝ PDF";
-        this.btnSign.UseVisualStyleBackColor = false;
+        this.btnSign.UseVisualStyleBackColor = true;
         this.btnSign.Click += new System.EventHandler(this.btnSign_Click);
         // 
         // gbDirectPreview
         // 
-        this.gbDirectPreview.BackColor = System.Drawing.Color.White;
+        this.gbDirectPreview.BackColor = System.Drawing.SystemColors.Control;
         this.gbDirectPreview.Controls.Add(this.lblPreviewMock);
         this.gbDirectPreview.Controls.Add(this.rbPositionSignature);
         this.gbDirectPreview.Controls.Add(this.rbPositionNote);
@@ -813,7 +819,7 @@ partial class MainForm
         this.gbDirectPreview.Controls.Add(this.panelSigPlacementMock);
         this.gbDirectPreview.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbDirectPreview.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbDirectPreview.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbDirectPreview.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbDirectPreview.Location = new System.Drawing.Point(0, 0);
         this.gbDirectPreview.Name = "gbDirectPreview";
         this.gbDirectPreview.Size = new System.Drawing.Size(378, 461);
@@ -825,8 +831,8 @@ partial class MainForm
         // 
         this.lblSigImage.AutoSize = true;
         this.lblSigImage.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblSigImage.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
-        this.lblSigImage.Location = new System.Drawing.Point(15, 235);
+        this.lblSigImage.ForeColor = System.Drawing.SystemColors.ControlText;
+        this.lblSigImage.Location = new System.Drawing.Point(15, 141);
         this.lblSigImage.Name = "lblSigImage";
         this.lblSigImage.Size = new System.Drawing.Size(121, 17);
         this.lblSigImage.Text = "Ảnh Chữ Ký (Tùy Chọn):";
@@ -835,7 +841,7 @@ partial class MainForm
         // 
         this.pbSigImage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
         this.pbSigImage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-        this.pbSigImage.Location = new System.Drawing.Point(15, 255);
+        this.pbSigImage.Location = new System.Drawing.Point(15, 161);
         this.pbSigImage.Name = "pbSigImage";
         this.pbSigImage.Size = new System.Drawing.Size(100, 60);
         this.pbSigImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
@@ -845,7 +851,7 @@ partial class MainForm
         // btnBrowseSigImage
         // 
         this.btnBrowseSigImage.Font = new System.Drawing.Font("Segoe UI", 8F);
-        this.btnBrowseSigImage.Location = new System.Drawing.Point(125, 255);
+        this.btnBrowseSigImage.Location = new System.Drawing.Point(125, 161);
         this.btnBrowseSigImage.Name = "btnBrowseSigImage";
         this.btnBrowseSigImage.Size = new System.Drawing.Size(120, 27);
         this.btnBrowseSigImage.TabIndex = 10;
@@ -856,7 +862,7 @@ partial class MainForm
         // btnClearSigImage
         // 
         this.btnClearSigImage.Font = new System.Drawing.Font("Segoe UI", 8F);
-        this.btnClearSigImage.Location = new System.Drawing.Point(125, 287);
+        this.btnClearSigImage.Location = new System.Drawing.Point(125, 193);
         this.btnClearSigImage.Name = "btnClearSigImage";
         this.btnClearSigImage.Size = new System.Drawing.Size(120, 27);
         this.btnClearSigImage.TabIndex = 11;
@@ -868,7 +874,7 @@ partial class MainForm
         // 
         this.lblPreviewMock.AutoSize = true;
         this.lblPreviewMock.Font = new System.Drawing.Font("Segoe UI", 9F);
-        this.lblPreviewMock.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblPreviewMock.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblPreviewMock.Location = new System.Drawing.Point(15, 25);
         this.lblPreviewMock.Name = "lblPreviewMock";
         this.lblPreviewMock.Size = new System.Drawing.Size(175, 20);
@@ -877,33 +883,25 @@ partial class MainForm
         // btnPrevPage
         // 
         this.btnPrevPage.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnPrevPage.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-        this.btnPrevPage.FlatAppearance.BorderSize = 0;
-        this.btnPrevPage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
         this.btnPrevPage.Font = new System.Drawing.Font("Segoe UI", 7.5F, System.Drawing.FontStyle.Bold);
-        this.btnPrevPage.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
         this.btnPrevPage.Location = new System.Drawing.Point(280, 22);
         this.btnPrevPage.Name = "btnPrevPage";
         this.btnPrevPage.Size = new System.Drawing.Size(40, 24);
         this.btnPrevPage.TabIndex = 4;
         this.btnPrevPage.Text = "◀";
-        this.btnPrevPage.UseVisualStyleBackColor = false;
+        this.btnPrevPage.UseVisualStyleBackColor = true;
         this.btnPrevPage.Click += new System.EventHandler(this.btnPrevPage_Click);
         // 
         // btnNextPage
         // 
         this.btnNextPage.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnNextPage.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-        this.btnNextPage.FlatAppearance.BorderSize = 0;
-        this.btnNextPage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
         this.btnNextPage.Font = new System.Drawing.Font("Segoe UI", 7.5F, System.Drawing.FontStyle.Bold);
-        this.btnNextPage.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
         this.btnNextPage.Location = new System.Drawing.Point(325, 22);
         this.btnNextPage.Name = "btnNextPage";
         this.btnNextPage.Size = new System.Drawing.Size(40, 24);
         this.btnNextPage.TabIndex = 5;
         this.btnNextPage.Text = "▶";
-        this.btnNextPage.UseVisualStyleBackColor = false;
+        this.btnNextPage.UseVisualStyleBackColor = true;
         this.btnNextPage.Click += new System.EventHandler(this.btnNextPage_Click);
         // 
         // panelSigPlacementMock
@@ -924,7 +922,7 @@ partial class MainForm
         // 
         // tabAdvanced
         // 
-        this.tabAdvanced.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+        this.tabAdvanced.BackColor = System.Drawing.SystemColors.Control;
         this.tabAdvanced.Controls.Add(this.splitContainerAdvanced);
         this.tabAdvanced.Location = new System.Drawing.Point(4, 5);
         this.tabAdvanced.Name = "tabAdvanced";
@@ -952,14 +950,14 @@ partial class MainForm
         // 
         // gbAdvancedSign
         // 
-        this.gbAdvancedSign.BackColor = System.Drawing.Color.White;
+        this.gbAdvancedSign.BackColor = System.Drawing.SystemColors.Control;
         this.gbAdvancedSign.Controls.Add(this.lblAdvancedFile);
         this.gbAdvancedSign.Controls.Add(this.txtAdvancedFilePath);
         this.gbAdvancedSign.Controls.Add(this.btnBrowseAdvanced);
         this.gbAdvancedSign.Controls.Add(this.btnSignAdvanced);
         this.gbAdvancedSign.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbAdvancedSign.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbAdvancedSign.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbAdvancedSign.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbAdvancedSign.Location = new System.Drawing.Point(0, 0);
         this.gbAdvancedSign.Name = "gbAdvancedSign";
         this.gbAdvancedSign.Size = new System.Drawing.Size(330, 401);
@@ -971,7 +969,7 @@ partial class MainForm
         // 
         this.lblAdvancedFile.AutoSize = true;
         this.lblAdvancedFile.Font = new System.Drawing.Font("Segoe UI", 9F);
-        this.lblAdvancedFile.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblAdvancedFile.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblAdvancedFile.Location = new System.Drawing.Point(20, 35);
         this.lblAdvancedFile.Name = "lblAdvancedFile";
         this.lblAdvancedFile.Size = new System.Drawing.Size(123, 20);
@@ -1000,16 +998,12 @@ partial class MainForm
         // 
         this.btnSignAdvanced.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnSignAdvanced.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
-        this.btnSignAdvanced.FlatAppearance.BorderSize = 0;
-        this.btnSignAdvanced.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-        this.btnSignAdvanced.ForeColor = System.Drawing.Color.White;
         this.btnSignAdvanced.Location = new System.Drawing.Point(20, 320);
         this.btnSignAdvanced.Name = "btnSignAdvanced";
         this.btnSignAdvanced.Size = new System.Drawing.Size(290, 45);
         this.btnSignAdvanced.TabIndex = 3;
         this.btnSignAdvanced.Text = "🚀 SIGN WITH PROPERTY OBJECT";
-        this.btnSignAdvanced.UseVisualStyleBackColor = false;
+        this.btnSignAdvanced.UseVisualStyleBackColor = true;
         this.btnSignAdvanced.Click += new System.EventHandler(this.btnSignAdvanced_Click);
         // 
         // pgAdvancedRequest
@@ -1020,7 +1014,7 @@ partial class MainForm
         this.pgAdvancedRequest.Size = new System.Drawing.Size(458, 401);
         this.pgAdvancedRequest.TabIndex = 0;
         // 
-           this.tabBatch.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+        this.tabBatch.BackColor = System.Drawing.SystemColors.Control;
         this.tabBatch.Controls.Add(this.splitContainerBatch);
         this.tabBatch.Location = new System.Drawing.Point(4, 5);
         this.tabBatch.Name = "tabBatch";
@@ -1048,7 +1042,7 @@ partial class MainForm
         // 
         // gbBatchConfig
         // 
-        this.gbBatchConfig.BackColor = System.Drawing.Color.White;
+        this.gbBatchConfig.BackColor = System.Drawing.SystemColors.Control;
         this.gbBatchConfig.Controls.Add(this.lblBatchFolder);
         this.gbBatchConfig.Controls.Add(this.txtBatchFolder);
         this.gbBatchConfig.Controls.Add(this.btnBrowseBatch);
@@ -1067,7 +1061,7 @@ partial class MainForm
         this.gbBatchConfig.Controls.Add(this.lblBatchStatus);
         this.gbBatchConfig.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbBatchConfig.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbBatchConfig.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbBatchConfig.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbBatchConfig.Location = new System.Drawing.Point(0, 0);
         this.gbBatchConfig.Name = "gbBatchConfig";
         this.gbBatchConfig.Size = new System.Drawing.Size(330, 401);
@@ -1079,7 +1073,7 @@ partial class MainForm
         // 
         this.lblBatchFolder.AutoSize = true;
         this.lblBatchFolder.Font = new System.Drawing.Font("Segoe UI", 9F);
-        this.lblBatchFolder.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblBatchFolder.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblBatchFolder.Location = new System.Drawing.Point(15, 20);
         this.lblBatchFolder.Name = "lblBatchFolder";
         this.lblBatchFolder.Size = new System.Drawing.Size(126, 20);
@@ -1108,7 +1102,7 @@ partial class MainForm
         // 
         this.lblBatchUserSecret.AutoSize = true;
         this.lblBatchUserSecret.Font = new System.Drawing.Font("Segoe UI", 9F);
-        this.lblBatchUserSecret.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblBatchUserSecret.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblBatchUserSecret.Location = new System.Drawing.Point(15, 80);
         this.lblBatchUserSecret.Name = "lblBatchUserSecret";
         this.lblBatchUserSecret.Size = new System.Drawing.Size(217, 20);
@@ -1126,7 +1120,7 @@ partial class MainForm
         // 
         this.lblBatchCertPath.AutoSize = true;
         this.lblBatchCertPath.Font = new System.Drawing.Font("Segoe UI", 9F);
-        this.lblBatchCertPath.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblBatchCertPath.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblBatchCertPath.Location = new System.Drawing.Point(15, 137);
         this.lblBatchCertPath.Name = "lblBatchCertPath";
         this.lblBatchCertPath.Size = new System.Drawing.Size(184, 20);
@@ -1155,7 +1149,7 @@ partial class MainForm
         // 
         this.lblBatchCertPass.AutoSize = true;
         this.lblBatchCertPass.Font = new System.Drawing.Font("Segoe UI", 9F);
-        this.lblBatchCertPass.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblBatchCertPass.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblBatchCertPass.Location = new System.Drawing.Point(15, 194);
         this.lblBatchCertPass.Name = "lblBatchCertPass";
         this.lblBatchCertPass.Size = new System.Drawing.Size(150, 20);
@@ -1174,7 +1168,7 @@ partial class MainForm
         // 
         this.lblBatchOutput.AutoSize = true;
         this.lblBatchOutput.Font = new System.Drawing.Font("Segoe UI", 9F);
-        this.lblBatchOutput.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblBatchOutput.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblBatchOutput.Location = new System.Drawing.Point(15, 251);
         this.lblBatchOutput.Name = "lblBatchOutput";
         this.lblBatchOutput.Size = new System.Drawing.Size(213, 20);
@@ -1201,16 +1195,12 @@ partial class MainForm
         // 
         // btnBatchSign
         // 
-        this.btnBatchSign.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
-        this.btnBatchSign.FlatAppearance.BorderSize = 0;
-        this.btnBatchSign.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-        this.btnBatchSign.ForeColor = System.Drawing.Color.White;
         this.btnBatchSign.Location = new System.Drawing.Point(15, 312);
         this.btnBatchSign.Name = "btnBatchSign";
         this.btnBatchSign.Size = new System.Drawing.Size(295, 42);
         this.btnBatchSign.TabIndex = 9;
         this.btnBatchSign.Text = "📚 BẮT ĐẦU KÝ HÀNG LOẠT";
-        this.btnBatchSign.UseVisualStyleBackColor = false;
+        this.btnBatchSign.UseVisualStyleBackColor = true;
         this.btnBatchSign.Click += new System.EventHandler(this.btnBatchSign_Click);
         // 
         // progressBar
@@ -1223,7 +1213,7 @@ partial class MainForm
         // lblBatchStatus
         // 
         this.lblBatchStatus.Font = new System.Drawing.Font("Segoe UI", 8F);
-        this.lblBatchStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(116)))), ((int)(((byte)(139)))));
+        this.lblBatchStatus.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblBatchStatus.Location = new System.Drawing.Point(15, 375);
         this.lblBatchStatus.Name = "lblBatchStatus";
         this.lblBatchStatus.Size = new System.Drawing.Size(295, 18);
@@ -1232,13 +1222,13 @@ partial class MainForm
         // 
         // gbBatchFilesList
         // 
-        this.gbBatchFilesList.BackColor = System.Drawing.Color.White;
+        this.gbBatchFilesList.BackColor = System.Drawing.SystemColors.Control;
         this.gbBatchFilesList.Controls.Add(this.dgvBatchFiles);
         this.gbBatchFilesList.Controls.Add(this.btnSelectAllBatch);
         this.gbBatchFilesList.Controls.Add(this.btnClearAllBatch);
         this.gbBatchFilesList.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbBatchFilesList.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbBatchFilesList.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbBatchFilesList.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbBatchFilesList.Location = new System.Drawing.Point(0, 0);
         this.gbBatchFilesList.Name = "gbBatchFilesList";
         this.gbBatchFilesList.Size = new System.Drawing.Size(458, 401);
@@ -1298,7 +1288,7 @@ partial class MainForm
         // 
         // tabXml
         // 
-        this.tabXml.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+        this.tabXml.BackColor = System.Drawing.SystemColors.Control;
         this.tabXml.Controls.Add(this.splitContainerXml);
         this.tabXml.Location = new System.Drawing.Point(4, 5);
         this.tabXml.Name = "tabXml";
@@ -1339,12 +1329,15 @@ partial class MainForm
         // 
         this.splitContainerXmlLeft.Panel2.Controls.Add(this.gbXmlAction);
         this.splitContainerXmlLeft.Size = new System.Drawing.Size(500, 401);
-        this.splitContainerXmlLeft.SplitterDistance = 190;
+        this.splitContainerXmlLeft.SplitterDistance = 148;
+        this.splitContainerXmlLeft.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
+        this.splitContainerXmlLeft.Panel1MinSize = 148;
+        this.splitContainerXmlLeft.Panel2MinSize = 100;
         this.splitContainerXmlLeft.TabIndex = 0;
         // 
         // gbCredentialsXml
         // 
-        this.gbCredentialsXml.BackColor = System.Drawing.Color.White;
+        this.gbCredentialsXml.BackColor = System.Drawing.SystemColors.Control;
         this.gbCredentialsXml.Controls.Add(this.lblUserXml);
         this.gbCredentialsXml.Controls.Add(this.txtUserNameXml);
         this.gbCredentialsXml.Controls.Add(this.lblPassXml);
@@ -1353,12 +1346,13 @@ partial class MainForm
         this.gbCredentialsXml.Controls.Add(this.lblActiveCertLabelXml);
         this.gbCredentialsXml.Controls.Add(this.cboCertsXml);
         this.gbCredentialsXml.Controls.Add(this.btnSyncCertificatesXml);
-        this.gbCredentialsXml.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbCredentialsXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbCredentialsXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbCredentialsXml.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbCredentialsXml.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbCredentialsXml.Location = new System.Drawing.Point(0, 0);
         this.gbCredentialsXml.Name = "gbCredentialsXml";
-        this.gbCredentialsXml.Size = new System.Drawing.Size(500, 190);
+        this.gbCredentialsXml.Size = new System.Drawing.Size(500, 148);
         this.gbCredentialsXml.TabIndex = 0;
         this.gbCredentialsXml.TabStop = false;
         this.gbCredentialsXml.Text = "Xác Thực Nhà Cung Cấp && Chứng Thư Số";
@@ -1367,7 +1361,7 @@ partial class MainForm
         // 
         this.lblUserXml.AutoSize = true;
         this.lblUserXml.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblUserXml.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblUserXml.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblUserXml.Location = new System.Drawing.Point(15, 25);
         this.lblUserXml.Name = "lblUserXml";
         this.lblUserXml.Size = new System.Drawing.Size(220, 17);
@@ -1385,43 +1379,40 @@ partial class MainForm
         // 
         this.lblPassXml.AutoSize = true;
         this.lblPassXml.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblPassXml.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblPassXml.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblPassXml.Location = new System.Drawing.Point(255, 25);
         this.lblPassXml.Name = "lblPassXml";
         this.lblPassXml.Size = new System.Drawing.Size(109, 17);
         this.lblPassXml.Text = "Mật Khẩu / Mã PIN:";
         // 
         // txtPasswordXml
-        // 
+        //
+        this.txtPasswordXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
         this.txtPasswordXml.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.txtPasswordXml.Location = new System.Drawing.Point(255, 45);
         this.txtPasswordXml.Name = "txtPasswordXml";
         this.txtPasswordXml.PasswordChar = '*';
-        this.txtPasswordXml.Size = new System.Drawing.Size(220, 27);
+        this.txtPasswordXml.Size = new System.Drawing.Size(110, 27);
         this.txtPasswordXml.TabIndex = 2;
         // 
         // btnLoginXml
         // 
-        this.btnLoginXml.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(43)))), ((int)(((byte)(87)))), ((int)(((byte)(154)))));
-        this.btnLoginXml.FlatAppearance.BorderSize = 0;
-        this.btnLoginXml.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnLoginXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
-        this.btnLoginXml.ForeColor = System.Drawing.Color.White;
-        this.btnLoginXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
-        this.btnLoginXml.Location = new System.Drawing.Point(15, 85);
+        this.btnLoginXml.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+        this.btnLoginXml.Location = new System.Drawing.Point(370, 45);
         this.btnLoginXml.Name = "btnLoginXml";
-        this.btnLoginXml.Size = new System.Drawing.Size(460, 34);
+        this.btnLoginXml.Size = new System.Drawing.Size(115, 27);
         this.btnLoginXml.TabIndex = 3;
-        this.btnLoginXml.Text = "🔑 Đăng Nhập && Tìm Chứng Thư";
-        this.btnLoginXml.UseVisualStyleBackColor = false;
+        this.btnLoginXml.Text = "Đăng Nhập";
+        this.btnLoginXml.UseVisualStyleBackColor = true;
         this.btnLoginXml.Click += new System.EventHandler(this.btnLoginXml_Click);
         // 
         // lblActiveCertLabelXml
         // 
         this.lblActiveCertLabelXml.AutoSize = true;
         this.lblActiveCertLabelXml.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblActiveCertLabelXml.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
-        this.lblActiveCertLabelXml.Location = new System.Drawing.Point(15, 130);
+        this.lblActiveCertLabelXml.ForeColor = System.Drawing.SystemColors.ControlText;
+        this.lblActiveCertLabelXml.Location = new System.Drawing.Point(15, 84);
         this.lblActiveCertLabelXml.Name = "lblActiveCertLabelXml";
         this.lblActiveCertLabelXml.Size = new System.Drawing.Size(175, 17);
         this.lblActiveCertLabelXml.Text = "Chứng Thư Số Được Chọn:";
@@ -1432,7 +1423,7 @@ partial class MainForm
         this.cboCertsXml.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.cboCertsXml.FormattingEnabled = true;
         this.cboCertsXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
-        this.cboCertsXml.Location = new System.Drawing.Point(15, 150);
+        this.cboCertsXml.Location = new System.Drawing.Point(15, 104);
         this.cboCertsXml.Name = "cboCertsXml";
         this.cboCertsXml.Size = new System.Drawing.Size(300, 27);
         this.cboCertsXml.TabIndex = 4;
@@ -1440,22 +1431,18 @@ partial class MainForm
         // btnSyncCertificatesXml
         // 
         this.btnSyncCertificatesXml.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnSyncCertificatesXml.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
-        this.btnSyncCertificatesXml.FlatAppearance.BorderSize = 0;
-        this.btnSyncCertificatesXml.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSyncCertificatesXml.Font = new System.Drawing.Font("Segoe UI Semibold", 8F, System.Drawing.FontStyle.Bold);
-        this.btnSyncCertificatesXml.ForeColor = System.Drawing.Color.White;
-        this.btnSyncCertificatesXml.Location = new System.Drawing.Point(325, 149);
+        this.btnSyncCertificatesXml.Location = new System.Drawing.Point(325, 103);
         this.btnSyncCertificatesXml.Name = "btnSyncCertificatesXml";
         this.btnSyncCertificatesXml.Size = new System.Drawing.Size(150, 29);
         this.btnSyncCertificatesXml.TabIndex = 5;
         this.btnSyncCertificatesXml.Text = "🔄 Làm Mới Chứng Thư";
-        this.btnSyncCertificatesXml.UseVisualStyleBackColor = false;
+        this.btnSyncCertificatesXml.UseVisualStyleBackColor = true;
         this.btnSyncCertificatesXml.Click += new System.EventHandler(this.btnSyncCertificatesXml_Click);
         // 
         // gbXmlAction
         // 
-        this.gbXmlAction.BackColor = System.Drawing.Color.White;
+        this.gbXmlAction.BackColor = System.Drawing.SystemColors.Control;
         this.gbXmlAction.Controls.Add(this.lblXmlFile);
         this.gbXmlAction.Controls.Add(this.lstXmlFilePath);
         this.gbXmlAction.Controls.Add(this.btnBrowseXml);
@@ -1470,9 +1457,10 @@ partial class MainForm
         this.gbXmlAction.Controls.Add(this.txtXmlParentXPath);
         this.gbXmlAction.Controls.Add(this.pnlXmlHelp);
         this.gbXmlAction.Controls.Add(this.btnSignXml);
-        this.gbXmlAction.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.gbXmlAction.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
         this.gbXmlAction.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbXmlAction.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbXmlAction.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbXmlAction.Location = new System.Drawing.Point(0, 0);
         this.gbXmlAction.Name = "gbXmlAction";
         this.gbXmlAction.Size = new System.Drawing.Size(500, 450);
@@ -1484,7 +1472,7 @@ partial class MainForm
         // 
         this.lblXmlFile.AutoSize = true;
         this.lblXmlFile.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblXmlFile.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblXmlFile.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblXmlFile.Location = new System.Drawing.Point(15, 25);
         this.lblXmlFile.Name = "lblXmlFile";
         this.lblXmlFile.Size = new System.Drawing.Size(120, 17);
@@ -1531,7 +1519,7 @@ partial class MainForm
         // 
         this.lblXmlSignatureName.AutoSize = true;
         this.lblXmlSignatureName.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblXmlSignatureName.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblXmlSignatureName.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblXmlSignatureName.Location = new System.Drawing.Point(15, 130);
         this.lblXmlSignatureName.Name = "lblXmlSignatureName";
         this.lblXmlSignatureName.Size = new System.Drawing.Size(109, 17);
@@ -1550,7 +1538,7 @@ partial class MainForm
         // 
         this.lblXmlSignTag.AutoSize = true;
         this.lblXmlSignTag.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblXmlSignTag.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblXmlSignTag.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblXmlSignTag.Location = new System.Drawing.Point(255, 130);
         this.lblXmlSignTag.Name = "lblXmlSignTag";
         this.lblXmlSignTag.Size = new System.Drawing.Size(120, 17);
@@ -1572,7 +1560,7 @@ partial class MainForm
         //
         this.lblXmlReferenceId.AutoSize = true;
         this.lblXmlReferenceId.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblXmlReferenceId.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblXmlReferenceId.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblXmlReferenceId.Location = new System.Drawing.Point(15, 184);
         this.lblXmlReferenceId.Name = "lblXmlReferenceId";
         this.lblXmlReferenceId.Size = new System.Drawing.Size(200, 17);
@@ -1593,7 +1581,7 @@ partial class MainForm
         //
         this.lblXmlParentXPath.AutoSize = true;
         this.lblXmlParentXPath.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblXmlParentXPath.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+        this.lblXmlParentXPath.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblXmlParentXPath.Location = new System.Drawing.Point(15, 237);
         this.lblXmlParentXPath.Name = "lblXmlParentXPath";
         this.lblXmlParentXPath.Text = "XPath vị trí đặt chữ ký (tùy chọn):";
@@ -1611,9 +1599,9 @@ partial class MainForm
         //
         // pnlXmlHelp
         //
-        this.pnlXmlHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-            | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
-        this.pnlXmlHelp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
+        this.pnlXmlHelp.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+        this.pnlXmlHelp.BackColor = System.Drawing.SystemColors.Info;
         this.pnlXmlHelp.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
         this.pnlXmlHelp.Controls.Add(this.rtbXmlHelp);
         this.pnlXmlHelp.Location = new System.Drawing.Point(15, 292);
@@ -1622,11 +1610,11 @@ partial class MainForm
         //
         // rtbXmlHelp
         //
-        this.rtbXmlHelp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
+        this.rtbXmlHelp.BackColor = System.Drawing.SystemColors.Info;
         this.rtbXmlHelp.BorderStyle = System.Windows.Forms.BorderStyle.None;
         this.rtbXmlHelp.Dock = System.Windows.Forms.DockStyle.Fill;
         this.rtbXmlHelp.Font = new System.Drawing.Font("Segoe UI", 8.5F);
-        this.rtbXmlHelp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
+        this.rtbXmlHelp.ForeColor = System.Drawing.SystemColors.InfoText;
         this.rtbXmlHelp.Name = "rtbXmlHelp";
         this.rtbXmlHelp.ReadOnly = true;
         this.rtbXmlHelp.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical;
@@ -1635,28 +1623,24 @@ partial class MainForm
         //
         // btnSignXml
         //
-        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+        this.btnSignXml.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnSignXml.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(43)))), ((int)(((byte)(87)))), ((int)(((byte)(154)))));
-        this.btnSignXml.FlatAppearance.BorderSize = 0;
-        this.btnSignXml.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSignXml.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold);
-        this.btnSignXml.ForeColor = System.Drawing.Color.White;
         this.btnSignXml.Location = new System.Drawing.Point(15, 398);
         this.btnSignXml.Name = "btnSignXml";
         this.btnSignXml.Size = new System.Drawing.Size(460, 45);
         this.btnSignXml.TabIndex = 7;
         this.btnSignXml.Text = "⚡ KÝ XML";
-        this.btnSignXml.UseVisualStyleBackColor = false;
+        this.btnSignXml.UseVisualStyleBackColor = true;
         this.btnSignXml.Click += new System.EventHandler(this.btnSignXml_Click);
         // 
         // gbXmlPreview
         // 
-        this.gbXmlPreview.BackColor = System.Drawing.Color.White;
+        this.gbXmlPreview.BackColor = System.Drawing.SystemColors.Control;
         this.gbXmlPreview.Controls.Add(this.rtbXmlPreview);
         this.gbXmlPreview.Dock = System.Windows.Forms.DockStyle.Fill;
         this.gbXmlPreview.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold);
-        this.gbXmlPreview.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.gbXmlPreview.ForeColor = System.Drawing.SystemColors.ControlText;
         this.gbXmlPreview.Location = new System.Drawing.Point(0, 0);
         this.gbXmlPreview.Name = "gbXmlPreview";
         this.gbXmlPreview.Padding = new System.Windows.Forms.Padding(10);
@@ -1681,7 +1665,7 @@ partial class MainForm
         // 
         // tabSettings
         // 
-        this.tabSettings.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+        this.tabSettings.BackColor = System.Drawing.SystemColors.Control;
         this.tabSettings.Controls.Add(this.pgSettings);
         this.tabSettings.Controls.Add(this.panelSettingsBottom);
         this.tabSettings.Location = new System.Drawing.Point(4, 5);
@@ -1709,23 +1693,19 @@ partial class MainForm
         // 
         // btnSaveSettings
         // 
-        this.btnSaveSettings.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
         this.btnSaveSettings.Dock = System.Windows.Forms.DockStyle.Fill;
-        this.btnSaveSettings.FlatAppearance.BorderSize = 0;
-        this.btnSaveSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSaveSettings.Font = new System.Drawing.Font("Segoe UI Semibold", 10F, System.Drawing.FontStyle.Bold);
-        this.btnSaveSettings.ForeColor = System.Drawing.Color.White;
         this.btnSaveSettings.Location = new System.Drawing.Point(0, 0);
         this.btnSaveSettings.Name = "btnSaveSettings";
         this.btnSaveSettings.Size = new System.Drawing.Size(822, 50);
         this.btnSaveSettings.TabIndex = 0;
         this.btnSaveSettings.Text = "💾 LƯU CẤU HÌNH NHÀ CUNG CẤP VÀO APPSETTINGS.JSON";
-        this.btnSaveSettings.UseVisualStyleBackColor = false;
+        this.btnSaveSettings.UseVisualStyleBackColor = true;
         this.btnSaveSettings.Click += new System.EventHandler(this.btnSaveSettings_Click);
         // 
         // panelLogsTitle
         // 
-        this.panelLogsTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
+        this.panelLogsTitle.BackColor = System.Drawing.SystemColors.Control;
         this.panelLogsTitle.Controls.Add(this.lblLogsTitle);
         this.panelLogsTitle.Controls.Add(this.btnClearLogs);
         this.panelLogsTitle.Controls.Add(this.btnCopyLogs);
@@ -1739,7 +1719,7 @@ partial class MainForm
         // 
         this.lblLogsTitle.AutoSize = true;
         this.lblLogsTitle.Font = new System.Drawing.Font("Segoe UI Semibold", 8.5F, System.Drawing.FontStyle.Bold);
-        this.lblLogsTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
+        this.lblLogsTitle.ForeColor = System.Drawing.SystemColors.ControlText;
         this.lblLogsTitle.Location = new System.Drawing.Point(15, 6);
         this.lblLogsTitle.Name = "lblLogsTitle";
         this.lblLogsTitle.Size = new System.Drawing.Size(161, 20);
@@ -1748,33 +1728,25 @@ partial class MainForm
         // btnClearLogs
         // 
         this.btnClearLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnClearLogs.BackColor = System.Drawing.Color.Transparent;
-        this.btnClearLogs.FlatAppearance.BorderSize = 0;
-        this.btnClearLogs.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnClearLogs.Font = new System.Drawing.Font("Segoe UI", 8F);
-        this.btnClearLogs.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(113)))), ((int)(((byte)(113)))));
         this.btnClearLogs.Location = new System.Drawing.Point(615, 2);
         this.btnClearLogs.Name = "btnClearLogs";
         this.btnClearLogs.Size = new System.Drawing.Size(100, 25);
         this.btnClearLogs.TabIndex = 1;
         this.btnClearLogs.Text = "Xóa Nhật Ký";
-        this.btnClearLogs.UseVisualStyleBackColor = false;
+        this.btnClearLogs.UseVisualStyleBackColor = true;
         this.btnClearLogs.Click += new System.EventHandler(this.btnClearLogs_Click);
         // 
         // btnCopyLogs
         // 
         this.btnCopyLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnCopyLogs.BackColor = System.Drawing.Color.Transparent;
-        this.btnCopyLogs.FlatAppearance.BorderSize = 0;
-        this.btnCopyLogs.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnCopyLogs.Font = new System.Drawing.Font("Segoe UI", 8F);
-        this.btnCopyLogs.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(56)))), ((int)(((byte)(189)))), ((int)(((byte)(248)))));
         this.btnCopyLogs.Location = new System.Drawing.Point(725, 2);
         this.btnCopyLogs.Name = "btnCopyLogs";
         this.btnCopyLogs.Size = new System.Drawing.Size(90, 25);
         this.btnCopyLogs.TabIndex = 2;
         this.btnCopyLogs.Text = "Sao Chép";
-        this.btnCopyLogs.UseVisualStyleBackColor = false;
+        this.btnCopyLogs.UseVisualStyleBackColor = true;
         this.btnCopyLogs.Click += new System.EventHandler(this.btnCopyLogs_Click);
         // 
         // txtLogs
@@ -1800,13 +1772,14 @@ partial class MainForm
         this.Controls.Add(this.panelLogsTitle);
         this.Controls.Add(this.txtLogs);
         this.Controls.Add(this.panelHeader);
-        this.Controls.Add(this.panelSidebar);
+        this.Controls.Add(this.menuStripMain);
         this.Font = new System.Drawing.Font("Segoe UI", 9F);
         this.Name = "MainForm";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
         this.Text = "Vimes SignSDK";
         this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
-        this.panelSidebar.ResumeLayout(false);
+        this.menuStripMain.ResumeLayout(false);
+        this.menuStripMain.PerformLayout();
         this.panelHeader.ResumeLayout(false);
         this.panelHeader.PerformLayout();
         this.tabControl.ResumeLayout(false);
@@ -1869,12 +1842,16 @@ partial class MainForm
     }
 
     private System.Windows.Forms.RichTextBox txtLogs;
-    private System.Windows.Forms.Panel panelSidebar;
-    private System.Windows.Forms.Label lblSidebarTitle;
-    private System.Windows.Forms.Button btnNavDirect;
-
-    private System.Windows.Forms.Button btnNavXml;
-    private System.Windows.Forms.Button btnNavSettings;
+    private System.Windows.Forms.MenuStrip menuStripMain;
+    private System.Windows.Forms.ToolStripMenuItem menuFunctions;
+    private System.Windows.Forms.ToolStripMenuItem menuPdfSign;
+    private System.Windows.Forms.ToolStripMenuItem menuXmlSign;
+    private System.Windows.Forms.ToolStripMenuItem menuSystem;
+    private System.Windows.Forms.ToolStripMenuItem menuSettings;
+    private System.Windows.Forms.ToolStripMenuItem menuExit;
+    private System.Windows.Forms.ToolStripMenuItem menuHelp;
+    private System.Windows.Forms.ToolStripMenuItem menuHelpDoc;
+    private System.Windows.Forms.ToolStripMenuItem menuAbout;
     
     private System.Windows.Forms.Panel panelHeader;
     private System.Windows.Forms.Label lblMerchant;

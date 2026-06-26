@@ -9,7 +9,7 @@
          Visual Studio picks up SDK edits instantly (requires sign-sdk-nuget checked out at
          ..\..\sign-sdk-nuget). For release/package consumption, build with -p:UseSdkSource=false
          (consumes the published NuGet packages at $(SdkPkgVersion)). REVERT TO false BEFORE SHIPPING. -->
-    <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
+    <UseSdkSource Condition="'$(UseSdkSource)' == ''">true</UseSdkSource>
     <SdkSrc>..\..\sign-sdk-nuget\src</SdkSrc>
     <SdkPkgVersion>1.0.21</SdkPkgVersion>
   </PropertyGroup>
