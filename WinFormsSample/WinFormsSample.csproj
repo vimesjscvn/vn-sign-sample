@@ -61,7 +61,7 @@
     </None>
   </ItemGroup>
 
-  <!-- Download UsbTokenAgent from the public dist repo — no token needed.
+  <!-- Download UsbTokenAgent from the public dist repo â€” no token needed.
        Override version:  dotnet build -p:UsbAgentVersion=v1.2.0
        Cache lives in:    %LOCALAPPDATA%\.usb-agent-cache\  (or set UsbAgentCacheDir) -->
   <PropertyGroup>
@@ -71,7 +71,7 @@
   </PropertyGroup>
   <Target Name="DownloadUsbAgent" BeforeTargets="Build">
     <MakeDir Directories="$(OutDir)" />
-    <!-- $(OutDir) ends with \ — that causes \" in cmd.exe which is parsed as escaped quote,
+    <!-- $(OutDir) ends with \ â€” that causes \" in cmd.exe which is parsed as escaped quote,
          mangling all subsequent args. Resolve to absolute path and strip trailing slash. -->
     <PropertyGroup>
       <_AgentOutDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(OutDir)').TrimEnd('\'))</_AgentOutDir>

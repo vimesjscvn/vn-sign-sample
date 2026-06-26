@@ -55,6 +55,21 @@ jobs:
         shell: pwsh
         run: Copy-Item WinFormsSample\appsettings.example.json publish\appsettings.json
 
+      - name: Download UsbTokenAgent
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:LOCALAPPDATA ".usb-agent-cache"
+          $out   = (Resolve-Path "publish").Path
+          & "WinFormsSample\build\download-usb-agent.ps1" `
+              -Version "latest" `
+              -CacheDir $cache `
+              -OutDir $out
+          if (-not (Test-Path "publish\UsbTokenAgent.exe")) {
+            Write-Error "[USB Agent] UsbTokenAgent.exe was not copied to publish\. Check the dist repo and asset name."
+            exit 1
+          }
+          Write-Host "[USB Agent] UsbTokenAgent.exe ready in publish\" -ForegroundColor Green
+
       - name: Zip release
         shell: pwsh
         run: |
