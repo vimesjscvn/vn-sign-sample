@@ -92,6 +92,7 @@ jobs:
       - name: Publish VimesSign (osx-arm64)
         run: |
           VER=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
+          cp sign-app/appsettings.example.json sign-app/appsettings.json
           dotnet publish sign-app/VimesSignSample.csproj \
             -c Release -r osx-arm64 --self-contained true \
             -p:PublishSingleFile=false -p:Version=$VER \
@@ -231,6 +232,7 @@ jobs:
         shell: bash
         run: |
           VER=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
+          cp sign-app/appsettings.example.json sign-app/appsettings.json
           dotnet publish sign-app/VimesSignSample.csproj \
             -c Release -r win-x64 --self-contained true \
             -p:PublishSingleFile=true -p:PublishReadyToRun=true \
