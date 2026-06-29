@@ -6,7 +6,7 @@ on:
     tags:
       - 'sign-app-v*.*.*'
     paths:
-      - 'sign-app/mac/**'
+      - 'sign-app/**'
       - 'usb-token-agent/mac/**'
       - 'nuget.config'
       - '.github/workflows/build-sign-app-mac.yml'
@@ -27,7 +27,7 @@ jobs:
       AGENT_APP_NAME: UsbTokenAgent
       BUNDLE_ID_SIGN: com.vimes.signsample
       BUNDLE_ID_AGENT: com.vimes.usbtokenagent
-      PROJECT_DIR: sign-app/mac
+      PROJECT_DIR: sign-app
       IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/sign-app-v') || github.event_name == 'workflow_dispatch' }}
 
     steps:
@@ -111,7 +111,7 @@ jobs:
           cp -R publish/sign-app/* "$APP_DIR/Contents/MacOS/"
 
           # Copy app icon
-          cp sign-app/mac/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
+          cp sign-app/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
 
           cat > "$APP_DIR/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -183,7 +183,7 @@ jobs:
           APP_DIR="publish/${{ env.SIGN_APP_NAME }}.app"
           codesign --force --deep --options runtime \
             --sign "$DEV_ID_APP_NAME" --timestamp \
-            --entitlements sign-app/mac/entitlements.plist "$APP_DIR"
+            --entitlements sign-app/entitlements.plist "$APP_DIR"
           codesign -vvv "$APP_DIR"
 
       - name: Build combined .pkg (VimesSign + UsbTokenAgent)
