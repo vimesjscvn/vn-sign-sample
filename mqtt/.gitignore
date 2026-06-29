@@ -1,0 +1,7 @@
+# Runtime data
+data/
+log/
+
+# Secrets (password file contains hashed passwords - OK to commit)
+# But if you want extra safety:
+# config/passwd

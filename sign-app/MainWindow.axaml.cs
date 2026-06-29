@@ -854,9 +854,12 @@ public partial class MainWindow : Window
         {
             var doc = new System.Xml.XmlDocument();
             doc.Load(filePath);
+            var nsmgr = new System.Xml.XmlNamespaceManager(doc.NameTable);
+            nsmgr.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
             
             LogSystem($"=== Phân tích: {Path.GetFileName(filePath)} ===");
 
+            // Detect document type
             bool isHocBa = doc.SelectSingleNode("//*[local-name()='DANH_SACH_THONG_TIN_KY']") != null;
             bool isTongKet = doc.SelectSingleNode("//*[local-name()='TONG_KET_CA_NAM']") != null;
             bool isLyLich = doc.SelectSingleNode("//*[local-name()='THONG_TIN'][@Id='lyLich']") != null
@@ -874,7 +877,7 @@ public partial class MainWindow : Window
 
             if (idNodes?.Count > 0)
             {
-                LogSystem($"Phần tử có Id=\"...\" ({idNodes.Count} tìm thấy):");
+                LogSystem($"Phần tử có Id=\"...\" ({idNodes.Count} tìm thấy) — chọn làm ReferenceId:");
                 foreach (System.Xml.XmlElement el in idNodes)
                 {
                     string id = el.GetAttribute("Id");
@@ -888,33 +891,138 @@ public partial class MainWindow : Window
                     if (firstDataId == null) firstDataId = id;
                 }
 
-                cboXmlReferenceId.ItemsSource = refIds;
-                cboXmlReferenceId.SelectedIndex = firstDataId != null ? refIds.IndexOf(firstDataId) : 0;
+                if ((isTongKet || isLyLich || isHocBa) && firstDataId != null)
+                {
+                    cboXmlReferenceId.ItemsSource = refIds;
+                    cboXmlReferenceId.SelectedIndex = refIds.IndexOf(firstDataId);
+                }
+                else
+                {
+                    cboXmlReferenceId.ItemsSource = refIds;
+                    cboXmlReferenceId.SelectedIndex = firstDataId != null ? refIds.IndexOf(firstDataId) : 0;
+                }
             }
             else
             {
-                LogWarning("  Không tìm thấy phần tử nào có Id=\"...\"");
+                LogWarning("  Không tìm thấy phần tử nào có Id=\"...\" — ReferenceId để trống sẽ ký cả tài liệu.");
                 cboXmlReferenceId.ItemsSource = refIds;
                 cboXmlReferenceId.SelectedIndex = 0;
             }
 
             if (isHocBa)
             {
-                LogSystem("Loại: HOC_BA");
-                var xpathCbql = "//*[local-name()='PHAT_HANH_HOC_BA']//*[local-name()='CBQL'][not(*)][1]";
+                LogSystem("Loại: HOC_BA — chọn XPath vị trí theo vai trò ký:");
+
+                var xpathGvbm      = "//*[local-name()='DANH_SACH_THONG_TIN_KY']//*[local-name()='GVBM'][not(*)][1]";
+                var xpathGvcn      = "//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='GVCN']";
+                var xpathCbql      = "//*[local-name()='PHAT_HANH_HOC_BA']//*[local-name()='CBQL'][not(*)][1]";
                 var xpathKyPhatHanh = "//*[local-name()='PHAT_HANH_HOC_BA']/*[local-name()='KY_PHAT_HANH']";
+
                 parentXPaths.Add(xpathCbql);
                 parentXPaths.Add(xpathKyPhatHanh);
-                
-                _xpathRefMap[xpathCbql] = "";
-                _xpathRefMap[xpathKyPhatHanh] = "";
+                parentXPaths.Add(xpathGvcn);
+                parentXPaths.Add(xpathGvbm);
+
+                _xpathRefMap[xpathGvcn]       = "thongtinhocba";
+                _xpathRefMap[xpathCbql]       = "data";
+                _xpathRefMap[xpathKyPhatHanh] = "data";
+
+                // Build per-GVBM XPath entries
+                var gvbmSlotNodes = doc.SelectNodes(
+                    "//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='DANH_SACH_GVBM']/*[local-name()='GVBM']");
+                var gvbmPairList = new List<(string teacherId, string diemId)>();
+                if (gvbmSlotNodes?.Count > 0)
+                {
+                    foreach (System.Xml.XmlNode gvbmNode in gvbmSlotNodes)
+                    {
+                        var gvbmEl = gvbmNode as System.Xml.XmlElement;
+                        if (gvbmEl == null) continue;
+                        string teacherId = gvbmEl.GetAttribute("Id");
+                        if (string.IsNullOrEmpty(teacherId)) continue;
+                        var diemEl = doc.SelectSingleNode(
+                            $"//*[local-name()='DIEM_TONG_KET'][@Id][.//*[local-name()='GVBM'][@Id='{teacherId}']]")
+                            as System.Xml.XmlElement;
+                        if (diemEl == null) continue;
+                        string diemId = diemEl.GetAttribute("Id");
+                        if (string.IsNullOrEmpty(diemId)) continue;
+                        string xpathSlot = $"//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='DANH_SACH_GVBM']/*[local-name()='GVBM'][@Id='{teacherId}']";
+                        parentXPaths.Add(xpathSlot);
+                        _xpathRefMap[xpathSlot] = diemId;
+                        gvbmPairList.Add((teacherId, diemId));
+                    }
+                }
+
+                // Default to CBQL
+                cboXmlParentXPath.ItemsSource = parentXPaths;
+                cboXmlParentXPath.SelectedItem = xpathCbql;
+                cboXmlSignTag.ItemsSource = knownTags;
+                cboXmlSignTag.SelectedItem = "CBQL";
+
+                // Set ReferenceId to "data" for CBQL
+                cboXmlReferenceId.SelectedItem = "data";
+
+                LogSystem($"  CBQL (cán bộ quản lý)   : {xpathCbql}  → RefID=data  ← mặc định (NEAC-safe)");
+                LogSystem($"  KY_PHAT_HANH (phát hành): {xpathKyPhatHanh}  → RefID=data");
+                LogSystem($"  GVCN (chủ nhiệm)        : {xpathGvcn}  → RefID=thongtinhocba");
+                LogSystem($"  GVBM (giáo viên bộ môn) : {xpathGvbm}  → RefID=Id học sinh (chọn cụ thể bên dưới)");
+                if (gvbmPairList.Count > 0)
+                {
+                    LogSystem($"  GVBM cá nhân ({gvbmPairList.Count} cặp — chọn từ dropdown XPath, RefID tự động cập nhật):");
+                    int gi = 1;
+                    foreach (var (tId, dId) in gvbmPairList)
+                        LogSystem($"    [{gi++}] GVBM Id={tId}  →  RefID={dId}");
+                }
+                LogWarning("Lưu ý NEAC: Chữ ký phải đặt NGOÀI phần tử được tham chiếu. CBQL nằm ngoài DU_LIEU_HOC_BA (#data) → NEAC xác minh được.");
+            }
+            else if (isTongKet)
+            {
+                LogSystem("Loại: BCY (TONG_KET_CA_NAM) → Thẻ Ký để TRỐNG, ReferenceId = Id của TONG_KET_CA_NAM.");
+                cboXmlSignTag.ItemsSource = knownTags;
+                cboXmlSignTag.SelectedItem = "";
+                cboXmlParentXPath.ItemsSource = parentXPaths;
+                cboXmlParentXPath.SelectedIndex = 0;
+            }
+            else if (isLyLich)
+            {
+                LogSystem("Loại: Lý Lịch (THONG_TIN) → Thẻ Ký để TRỐNG, ReferenceId = Id của THONG_TIN.");
+                cboXmlSignTag.ItemsSource = knownTags;
+                cboXmlSignTag.SelectedItem = "";
+                cboXmlParentXPath.ItemsSource = parentXPaths;
+                cboXmlParentXPath.SelectedIndex = 0;
+            }
+            else
+            {
+                LogWarning("Không nhận diện được loại tài liệu — tự chọn SignTag và ReferenceId phù hợp.");
+                cboXmlSignTag.ItemsSource = knownTags;
+                cboXmlSignTag.SelectedIndex = 0;
+                cboXmlParentXPath.ItemsSource = parentXPaths;
+                cboXmlParentXPath.SelectedIndex = 0;
             }
 
-            cboXmlSignTag.ItemsSource = knownTags;
-            cboXmlSignTag.SelectedIndex = 0;
-
-            cboXmlParentXPath.ItemsSource = parentXPaths;
-            cboXmlParentXPath.SelectedIndex = 0;
+            // Report existing signatures
+            var existingSigs = doc.SelectNodes("//ds:Signature", nsmgr);
+            if (existingSigs?.Count > 0)
+            {
+                LogWarning($"Cảnh báo: tệp đã có {existingSigs.Count} chữ ký — ký lại sẽ THÊM chữ ký mới, không xóa chữ ký cũ.");
+                foreach (System.Xml.XmlElement sig in existingSigs)
+                {
+                    string sigId = sig.GetAttribute("Id");
+                    var signerNode = sig.SelectSingleNode(".//ds:X509SubjectName", nsmgr) as System.Xml.XmlElement;
+                    string signerInfo = signerNode?.InnerText ?? "(không rõ)";
+                    int cnIdx = signerInfo.IndexOf("CN=", StringComparison.OrdinalIgnoreCase);
+                    if (cnIdx >= 0)
+                    {
+                        int start = cnIdx + 3;
+                        int end = signerInfo.IndexOf(',', start);
+                        signerInfo = end > start ? signerInfo.Substring(start, end - start) : signerInfo.Substring(start);
+                    }
+                    LogWarning($"  Chữ ký [{(string.IsNullOrEmpty(sigId) ? "?" : sigId.Substring(0, Math.Min(8, sigId.Length)))}...] — người ký: {signerInfo}");
+                }
+            }
+            else
+            {
+                LogSuccess("Chưa có chữ ký — tệp sẵn sàng ký.");
+            }
         }
         catch (Exception ex)
         {
