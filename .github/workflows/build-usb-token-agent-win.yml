@@ -36,7 +36,9 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+            # Strip 'usb-token-agent-' prefix, e.g. usb-token-agent-v1.2.0 → v1.2.0
+            TAG="${GITHUB_REF_NAME}"
+            echo "VERSION=${TAG#usb-token-agent-}" >> $GITHUB_OUTPUT
           fi
 
       - name: Restore
