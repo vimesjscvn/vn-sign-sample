@@ -1,0 +1,575 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="VimesSignSample.MainWindow"
+        Title="Vimes SignSDK Showcase Studio"
+        Width="1280" Height="850"
+        WindowStartupLocation="CenterScreen">
+
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="Chức năng">
+        <NativeMenu>
+          <NativeMenuItem Header="Ký PDF" Click="NativeMenuPdfSign_Click"/>
+          <NativeMenuItem Header="Ký XML" Click="NativeMenuXmlSign_Click"/>
+          <NativeMenuItem Header="Ký Hàng Loạt" Click="NativeMenuBatchSign_Click"/>
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="Hệ thống">
+        <NativeMenu>
+          <NativeMenuItem Header="Cài đặt" Click="NativeMenuSettings_Click"/>
+          <NativeMenuItem Header="Thoát" Click="NativeMenuExit_Click"/>
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="Trợ giúp">
+        <NativeMenu>
+          <NativeMenuItem Header="Tài liệu hướng dẫn" Click="NativeMenuHelpDoc_Click"/>
+          <NativeMenuItem Header="Giới thiệu" Click="NativeMenuAbout_Click"/>
+        </NativeMenu>
+      </NativeMenuItem>
+    </NativeMenu>
+  </NativeMenu.Menu>
+
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="8,1" />
+      <Setter Property="MinHeight" Value="22"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="MinHeight" Value="22"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBox#txtLogs">
+      <Setter Property="Height" Value="NaN"/>
+      <Setter Property="MinHeight" Value="60"/>
+      <Setter Property="VerticalContentAlignment" Value="Top"/>
+    </Style>
+    <Style Selector="TextBox#txtLogs:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="#0F172A" />
+      <Setter Property="BorderBrush" Value="#CBD5E1" />
+    </Style>
+    <Style Selector="TextBox#txtLogs:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="#0F172A" />
+      <Setter Property="BorderBrush" Value="#2563EB" />
+    </Style>
+    <Style Selector="TextBox#txtLogs:pointerover">
+      <Setter Property="Foreground" Value="#E2E8F0"/>
+    </Style>
+    <Style Selector="TextBox#txtLogs:focus">
+      <Setter Property="Foreground" Value="#E2E8F0"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="MinHeight" Value="22"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <!-- Fix tab item contrast on light backgrounds -->
+    <Style Selector="TabItem">
+      <Setter Property="Foreground" Value="#475569" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style Selector="TabItem:selected">
+      <Setter Property="Foreground" Value="#2563EB" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TabItem:pointerover">
+      <Setter Property="Foreground" Value="#1D4ED8" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto, Auto, *">
+    <!-- Header status bar -->
+    <Border Grid.Row="0" Background="#1E293B" Padding="15,10" BorderBrush="#334155" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*, Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+          <TextBlock Text="Vimes SignSDK Cross-Platform Studio" Foreground="White" FontWeight="Bold" FontSize="16"/>
+          
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="20,0,0,0">
+            <TextBlock Text="Merchant:" Foreground="#94A3B8" VerticalAlignment="Center"/>
+            <ComboBox Name="cboMerchant" Width="150" VerticalAlignment="Center">
+              <!-- Will be populated dynamically in code -->
+            </ComboBox>
+          </StackPanel>
+        </StackPanel>
+        
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Ellipse Name="panelStatusDot" Width="10" Height="10" Fill="#EF4444" VerticalAlignment="Center"/>
+          <TextBlock Name="lblSessionStatus" Text="No Active Session" Foreground="#EF4444" VerticalAlignment="Center" FontWeight="Medium"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Top Menu Bar Navigation -->
+    <Menu Grid.Row="1" Name="winMenu" Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="10,4">
+      <MenuItem Header="_Chức năng">
+        <MenuItem Header="Ký PDF" Click="MenuPdfSign_Click"/>
+        <MenuItem Header="Ký XML" Click="MenuXmlSign_Click"/>
+        <MenuItem Header="Ký Hàng Loạt" Click="MenuBatchSign_Click"/>
+      </MenuItem>
+      <MenuItem Header="_Hệ thống">
+        <MenuItem Header="Cài đặt" Click="MenuSettings_Click"/>
+        <Separator/>
+        <MenuItem Header="Thoát" Click="MenuExit_Click"/>
+      </MenuItem>
+      <MenuItem Header="_Trợ giúp">
+        <MenuItem Header="Tài liệu hướng dẫn" Click="MenuHelpDoc_Click"/>
+        <MenuItem Header="Giới thiệu" Click="MenuAbout_Click"/>
+      </MenuItem>
+    </Menu>
+
+    <!-- Main Content Workspace -->
+    <Grid Grid.Row="2" ColumnDefinitions="480, 5, *">
+      <!-- Left Configuration Pane -->
+      <Border Grid.Column="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0">
+        <TabControl Name="tabMain" Margin="5" Padding="5">
+          <TabControl.Styles>
+            <Style Selector="TabItem">
+              <Setter Property="IsVisible" Value="False"/>
+            </Style>
+          </TabControl.Styles>
+          
+          <!-- Tab 1: Ký PDF -->
+          <TabItem Header="Ký PDF">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="6" Margin="4">
+                <!-- Credentials Section -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Xác Thực Nhà Cung Cấp &amp;&amp; Chứng Thư Số" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,3">
+                        <TextBlock Text="Tài khoản:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtUserName" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,3">
+                        <TextBlock Text="Mật khẩu (PIN):" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtPassword" PasswordChar="*" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <Button Grid.Row="1" Grid.Column="0" Name="btnLogin" Content="Đăng Nhập" Height="22" Padding="4,2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#2563EB" Foreground="White" Margin="0,1,4,0" Click="btnLogin_Click" FontSize="11"/>
+                      <Button Grid.Row="1" Grid.Column="1" Name="btnSyncCertificates" Content="Tải Chứng Thư Số" Height="22" Padding="4,2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,1,0,0" Click="btnSyncCertificates_Click" FontSize="11"/>
+                    </Grid>
+                    <ComboBox Name="cboCerts" HorizontalAlignment="Stretch" Height="22" FontSize="11">
+                      <!-- Populated in code -->
+                    </ComboBox>
+                  </StackPanel>
+                </Border>
+
+                <!-- Select file -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Tài liệu PDF" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*, Auto" Margin="0,1">
+                      <ListBox Grid.Column="0" Name="lstFilePath" Height="40" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" SelectionChanged="lstFilePath_SelectionChanged"/>
+                      <Button Grid.Column="1" Name="btnBrowse" Content="Chọn File" Height="22" Padding="6,2" VerticalAlignment="Center" Margin="6,0,0,0" Click="btnBrowse_Click" FontSize="11"/>
+                    </Grid>
+                    <StackPanel Spacing="1" Margin="0,3,0,0">
+                      <TextBlock Text="Thư mục đầu ra (Mặc định: \Signed):" FontSize="9" Foreground="#64748B"/>
+                      <Grid ColumnDefinitions="*, Auto">
+                        <TextBox Grid.Column="0" Name="txtPdfOutputDir" Watermark="Mặc định: Thư mục chứa file\Signed" FontSize="11" Height="22" Padding="4,2"/>
+                        <Button Grid.Column="1" Content="..." Height="22" Width="30" Margin="5,0,0,0" Click="btnBrowsePdfOutputDir_Click"/>
+                      </Grid>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <!-- Configuration signature metadata -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Cấu hình chữ ký" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,3">
+                        <TextBlock Text="Người ký:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtSignerName" Text="Sample User" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,3">
+                        <TextBlock Text="Chức danh:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtSignerTitle" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      
+                      <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,4,3">
+                        <TextBlock Text="Loại chữ ký:" FontSize="10" Foreground="#64748B"/>
+                        <ComboBox Name="cboSignatureType" HorizontalAlignment="Stretch" FontSize="11" Height="22"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,0,3">
+                        <TextBlock Text="Chế độ hiển thị:" FontSize="10" Foreground="#64748B"/>
+                        <ComboBox Name="cboDisplayNameMode" HorizontalAlignment="Stretch" FontSize="11" Height="22"/>
+                      </StackPanel>
+
+                      <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,2">
+                        <TextBlock Text="Ghi chú:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtNote" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      
+                      <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,2" IsVisible="False" Name="panelSignAlgorithm">
+                        <TextBlock Text="Thuật toán ký:" Name="lblSignAlgorithm" FontSize="10" Foreground="#64748B"/>
+                        <ComboBox Name="cboSignAlgorithm" HorizontalAlignment="Stretch" FontSize="11" Height="22"/>
+                      </StackPanel>
+                    </Grid>
+
+                    <CheckBox Name="chkShowSignatureTime" Content="Hiển thị thời gian ký" IsChecked="True" FontSize="11" Margin="0,2,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <!-- Placement configuration -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Định vị ô chữ ký (PDF Point)" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <StackPanel Orientation="Horizontal" Spacing="15" Margin="0,1">
+                      <RadioButton Name="rbPositionSignature" Content="Vẽ ô chữ ký" IsChecked="True" FontSize="11"/>
+                      <RadioButton Name="rbPositionNote" Content="Vẽ ô ghi chú" FontSize="11"/>
+                    </StackPanel>
+                    
+                    <Grid ColumnDefinitions="*,*,*,*" Margin="0,2" IsVisible="False">
+                      <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                        <TextBlock Text="X (Note)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtNoteX" FontSize="11" Height="22" Padding="3,1"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Margin="0,0,4,0">
+                        <TextBlock Text="Y (Note)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtNoteY" FontSize="11" Height="22" Padding="3,1"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" Margin="0,0,4,0">
+                        <TextBlock Text="W (Note)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtNoteW" FontSize="11" Height="22" Padding="3,1" IsReadOnly="True" Background="#F1F5F9"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="3">
+                        <TextBlock Text="H (Note)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtNoteH" FontSize="11" Height="22" Padding="3,1" IsReadOnly="True" Background="#F1F5F9"/>
+                      </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*,*,*" Margin="0,1" IsVisible="False">
+                      <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                        <TextBlock Text="X (Sig)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtSigX" FontSize="11" Height="22" Padding="3,1" IsReadOnly="True" Background="#F1F5F9"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Margin="0,0,4,0">
+                        <TextBlock Text="Y (Sig)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtSigY" FontSize="11" Height="22" Padding="3,1" IsReadOnly="True" Background="#F1F5F9"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" Margin="0,0,4,0">
+                        <TextBlock Text="W (Sig)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtSigW" FontSize="11" Height="22" Padding="3,1" IsReadOnly="True" Background="#F1F5F9"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="3">
+                        <TextBlock Text="H (Sig)" FontSize="9" Foreground="#64748B"/>
+                        <TextBox Name="txtSigH" FontSize="11" Height="22" Padding="3,1" IsReadOnly="True" Background="#F1F5F9"/>
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <!-- Signature Image -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <Grid ColumnDefinitions="Auto, *, Auto, Auto" RowDefinitions="Auto">
+                    <TextBlock Grid.Column="0" Text="Ảnh chữ ký:" FontWeight="Bold" FontSize="12" Foreground="#1E293B" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Border Grid.Column="1" Width="80" Height="28" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="#F8FAFC" VerticalAlignment="Center" HorizontalAlignment="Left">
+                      <Image Name="pbSigImage" Stretch="Uniform" Margin="1"/>
+                    </Border>
+                    <Button Grid.Column="2" Content="Chọn ảnh" Height="22" Padding="6,1" VerticalAlignment="Center" Margin="5,0,0,0" Click="btnBrowseSigImage_Click" FontSize="11"/>
+                    <Button Grid.Column="3" Content="Xóa ảnh" Height="22" Padding="6,1" VerticalAlignment="Center" Margin="5,0,0,0" Background="#EF4444" Foreground="White" Click="btnClearSigImage_Click" FontSize="11"/>
+                  </Grid>
+                </Border>
+
+                <!-- Process sign button -->
+                <Button Name="btnSign" Content="KÝ SỐ TÀI LIỆU PDF" Height="34" Background="#10B981" Foreground="White" FontWeight="Bold" FontSize="13" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="btnSign_Click"/>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <!-- Tab 2: Ký XML -->
+          <TabItem Header="Ký XML">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="6" Margin="4">
+                <!-- Credentials Section XML -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Xác Thực Nhà Cung Cấp &amp;&amp; Chứng Thư Số" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,3">
+                        <TextBlock Text="Tài khoản:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtUserNameXml" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,3">
+                        <TextBlock Text="Mật khẩu (PIN):" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtPasswordXml" PasswordChar="*" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <Button Grid.Row="1" Grid.Column="0" Name="btnLoginXml" Content="Đăng Nhập" Height="22" Padding="4,2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#2563EB" Foreground="White" Margin="0,1,4,0" Click="btnLoginXml_Click" FontSize="11"/>
+                      <Button Grid.Row="1" Grid.Column="1" Name="btnSyncCertificatesXml" Content="Tải Chứng Thư Số" Height="22" Padding="4,2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,1,0,0" Click="btnSyncCertificatesXml_Click" FontSize="11"/>
+                    </Grid>
+                    <ComboBox Name="cboCertsXml" HorizontalAlignment="Stretch" Height="22" FontSize="11">
+                      <!-- Populated in code -->
+                    </ComboBox>
+                  </StackPanel>
+                </Border>
+
+                <!-- Select File XML -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Chọn File XML" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*, Auto" Margin="0,1">
+                      <ListBox Grid.Column="0" Name="lstXmlFilePath" Height="40" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4"/>
+                      <Button Grid.Column="1" Name="btnBrowseXml" Content="Chọn File" Height="22" Padding="6,2" VerticalAlignment="Center" Margin="6,0,0,0" Click="btnBrowseXml_Click" FontSize="11"/>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <!-- Configuration XML -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Cấu hình thẻ ký XML" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,3">
+                        <TextBlock Text="Tên chữ ký XML (Signature Name):" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtXmlSignatureName" Watermark="Auto (UUID)" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,3">
+                        <TextBlock Text="Thẻ ký (Sign Tag):" FontSize="10" Foreground="#64748B"/>
+                        <ComboBox Name="cboXmlSignTag" HorizontalAlignment="Stretch" FontSize="11" Height="22"/>
+                      </StackPanel>
+                      
+                      <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,4,1">
+                        <TextBlock Text="Đường dẫn cha (Parent XPath):" FontSize="10" Foreground="#64748B"/>
+                        <ComboBox Name="cboXmlParentXPath" HorizontalAlignment="Stretch" FontSize="11" Height="22" SelectionChanged="cboXmlParentXPath_SelectionChanged"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,0,1">
+                        <TextBlock Text="Reference URI ID:" FontSize="10" Foreground="#64748B"/>
+                        <ComboBox Name="cboXmlReferenceId" HorizontalAlignment="Stretch" FontSize="11" Height="22"/>
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <!-- XML Action Buttons -->
+                <Grid ColumnDefinitions="*, *" Margin="0,2">
+                  <Button Grid.Column="0" Name="btnAnalyzeXml" Content="Phân tích XML" Height="34" Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="btnAnalyzeXml_Click" FontSize="13"/>
+                  <Button Grid.Column="1" Name="btnSignXml" Content="Ký XML" Height="34" Background="#10B981" Foreground="White" Margin="4,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="btnSignXml_Click" FontSize="13"/>
+                </Grid>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <!-- Tab 3: Ký Hàng Loạt -->
+          <TabItem Header="Ký Hàng Loạt">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="6" Margin="4">
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Thư mục ký số" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,3">
+                        <TextBlock Text="Thư mục nguồn chứa file PDF:" FontSize="10" Foreground="#64748B"/>
+                        <Grid ColumnDefinitions="*, Auto">
+                          <TextBox Grid.Column="0" Name="txtBatchFolder" FontSize="11" Height="22" Padding="4,2"/>
+                          <Button Grid.Column="1" Name="btnBrowseBatch" Content="..." Height="22" Padding="6,2" Margin="3,0,0,0" Click="btnBrowseBatch_Click" FontSize="11"/>
+                        </Grid>
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,3">
+                        <TextBlock Text="Thư mục đầu ra:" FontSize="10" Foreground="#64748B"/>
+                        <Grid ColumnDefinitions="*, Auto">
+                          <TextBox Grid.Column="0" Name="txtBatchOutput" FontSize="11" Height="22" Padding="4,2"/>
+                          <Button Grid.Column="1" Name="btnBrowseBatchOutput" Content="..." Height="22" Padding="6,2" Margin="3,0,0,0" Click="btnBrowseBatchOutput_Click" FontSize="11"/>
+                        </Grid>
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Chứng thư cục bộ (Self CA)" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto" Margin="0,1">
+                      <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                        <TextBlock Text="File PFX / P12:" FontSize="10" Foreground="#64748B"/>
+                        <Grid ColumnDefinitions="*, Auto">
+                          <TextBox Grid.Column="0" Name="txtBatchCertPath" FontSize="11" Height="22" Padding="4,2"/>
+                          <Button Grid.Column="1" Name="btnBrowseBatchCert" Content="..." Height="22" Padding="6,2" Margin="3,0,0,0" Click="btnBrowseBatchCert_Click" FontSize="11"/>
+                        </Grid>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                        <TextBlock Text="Mật khẩu chứng thư:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtBatchCertPass" PasswordChar="*" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <!-- Action buttons -->
+                <Grid ColumnDefinitions="*,*" Margin="0,2">
+                  <Button Grid.Column="0" Name="btnSelectAllBatch" Content="Chọn Tất Cả" Height="22" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Click="btnSelectAllBatch_Click" FontSize="11"/>
+                  <Button Grid.Column="1" Name="btnClearAllBatch" Content="Bỏ Chọn Cả" Height="22" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Click="btnClearAllBatch_Click" FontSize="11"/>
+                </Grid>
+
+                <Button Name="btnBatchSign" Content="KÝ HÀNG LOẠT" Height="34" Background="#10B981" Foreground="White" FontWeight="Bold" FontSize="13" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="btnBatchSign_Click"/>
+                
+                <StackPanel Spacing="3">
+                  <TextBlock Name="lblBatchStatus" Text="Sẵn sàng." FontSize="10" Foreground="#64748B"/>
+                  <ProgressBar Name="batchProgressBar" Minimum="0" Maximum="100" Value="0" Height="6"/>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <!-- Tab 4: Cài Đặt -->
+          <TabItem Header="Cài Đặt">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="6" Margin="4">
+                <!-- Viettel MySign -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="Viettel MySign" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,3">
+                        <TextBlock Text="URL kết nối:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtMySignUrl" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,4,0">
+                        <TextBlock Text="Profile ID:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtMySignProfile" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,0,0">
+                        <TextBlock Text="Client ID:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtMySignClientId" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                    </Grid>
+                    <StackPanel Margin="0,3,0,0">
+                      <TextBlock Text="Client Secret:" FontSize="10" Foreground="#64748B"/>
+                      <TextBox Name="txtMySignSecret" PasswordChar="*" FontSize="11" Height="22" Padding="4,2"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <!-- VNPT SmartCA -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="VNPT SmartCA" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,3">
+                        <TextBlock Text="URL kết nối:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtSmartCAUrl" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,4,0">
+                        <TextBlock Text="Profile ID:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtSmartCAProfile" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,0,0">
+                        <TextBlock Text="Client ID:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtSmartCAClientId" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                    </Grid>
+                    <StackPanel Margin="0,3,0,0">
+                      <TextBlock Text="Client Secret:" FontSize="10" Foreground="#64748B"/>
+                      <TextBox Name="txtSmartCASecret" PasswordChar="*" FontSize="11" Height="22" Padding="4,2"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <!-- USB Token Agent -->
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="8">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="USB Token Agent Settings" FontWeight="Bold" FontSize="12" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,1">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,3">
+                        <TextBlock Text="Agent IP:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtUsbAgentIp" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,3">
+                        <TextBlock Text="Agent Port:" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtUsbAgentPort" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
+                        <TextBlock Text="Đường dẫn file chạy agent (.exe / binary):" FontSize="10" Foreground="#64748B"/>
+                        <TextBox Name="txtUsbAgentExePath" FontSize="11" Height="22" Padding="4,2"/>
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <Button Name="btnSaveSettings" Content="LƯU CÀI ĐẶT" Height="34" Background="#2563EB" Foreground="White" FontWeight="Bold" FontSize="13" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="btnSaveSettings_Click"/>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Border>
+
+      <!-- Splitter -->
+      <GridSplitter Grid.Column="1" Background="#E2E8F0" ResizeDirection="Columns"/>
+
+      <!-- Right Output Pane -->
+      <Grid Grid.Column="2" RowDefinitions="*, 5, 230">
+        <!-- Interactive PDF Page Preview Canvas -->
+        <Border Grid.Row="0" Background="#E2E8F0" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1">
+          <Grid RowDefinitions="*, Auto">
+            <!-- Canvas container -->
+            <Border Grid.Row="0" Margin="10" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+              <!-- ScrollViewer lets large PDFs pan if needed, but we default to uniform fit -->
+              <Viewbox Stretch="Uniform">
+                <Canvas Name="panelSigPlacementMock" Background="White" Width="595" Height="842"
+                        PointerPressed="Canvas_PointerPressed"
+                        PointerMoved="Canvas_PointerMoved"
+                        PointerReleased="Canvas_PointerReleased">
+                  <!-- Rendered PDF Page -->
+                  <Image Name="imgPdfPage" Width="595" Height="842"/>
+
+                  <!-- Selection rectangle borders -->
+                  <Border Name="rectSig" BorderBrush="#2563EB" BorderThickness="2" Background="#222563EB" IsVisible="False">
+                    <TextBlock Text="Signature Box" Foreground="#2563EB" FontSize="11" Margin="5"/>
+                  </Border>
+
+                  <Border Name="rectNote" BorderBrush="#F59E0B" BorderThickness="2" Background="#22F59E0B" IsVisible="False">
+                    <TextBlock Text="Note Box" Foreground="#F59E0B" FontSize="11" Margin="5"/>
+                  </Border>
+                </Canvas>
+              </Viewbox>
+            </Border>
+
+            <!-- Navigation Controls -->
+            <Border Grid.Row="1" Background="White" Padding="10,5" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+              <Grid ColumnDefinitions="Auto, *, Auto">
+                <Button Grid.Column="0" Name="btnPrevPage" Content="Trang trước" Click="btnPrevPage_Click"/>
+                <TextBlock Grid.Column="1" Name="lblPreviewMock" Text="Trang 1 / 1" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Medium"/>
+                <Button Grid.Column="2" Name="btnNextPage" Content="Trang sau" Click="btnNextPage_Click"/>
+              </Grid>
+            </Border>
+          </Grid>
+        </Border>
+
+        <!-- Splitter -->
+        <GridSplitter Grid.Row="1" Background="#E2E8F0" ResizeDirection="Rows"/>
+
+        <!-- Real-time Output Logs -->
+        <Grid Grid.Row="2" RowDefinitions="Auto, *">
+          <Border Grid.Row="0" Background="#F8FAFC" Padding="10,5" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*, Auto, Auto">
+              <TextBlock Grid.Column="0" Text="Nhật ký hệ thống (Logs)" VerticalAlignment="Center" FontWeight="SemiBold"/>
+              <Button Grid.Column="1" Content="Sao chép" Margin="0,0,5,0" Click="btnCopyLogs_Click"/>
+              <Button Grid.Column="2" Content="Xóa" Click="btnClearLogs_Click"/>
+            </Grid>
+          </Border>
+          
+          <TextBox Grid.Row="1" Name="txtLogs" AcceptsReturn="True" IsReadOnly="True" BorderThickness="0" Background="#0F172A" Foreground="#E2E8F0" FontFamily="Courier New" FontSize="12" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

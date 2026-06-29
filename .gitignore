@@ -28,3 +28,8 @@ wwwroot/certs/*.cer
 # Ignore publish output folders and temporary mockups
 [Pp]ublish/
 mockup.html
+
+# Swift build artifacts
+.build/
+mac/usb-token-agent-mac/.build/
+mac/usb-token-agent-mac/dist/

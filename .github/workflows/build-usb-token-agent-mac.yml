@@ -1,0 +1,253 @@
+name: Build UsbTokenAgent (macOS PKG)
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'usb-token-agent-v*.*.*'
+    paths:
+      - 'mac/usb-token-agent-mac/**'
+      - '.github/workflows/build-usb-token-agent-mac.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+
+jobs:
+  build-usb-token-agent:
+    runs-on: macos-14  # Apple Silicon (M1) runner
+    permissions:
+      contents: write
+
+    env:
+      APP_NAME: UsbTokenAgent
+      BUNDLE_ID: com.vimes.usbtokenagent
+      INSTALL_LOCATION: /Applications/UsbTokenAgent.app
+      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/usb-token-agent-v') || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF_NAME}" == usb-token-agent-v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            echo "VERSION=${TAG#usb-token-agent-}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=v0.0.0-dev" >> $GITHUB_OUTPUT
+          fi
+
+      # ── Import signing certificates ────────────────────────────────────────
+      - name: Import Developer ID certificates
+        if: env.IS_RELEASE == 'true'
+        env:
+          DEV_ID_APP_P12: ${{ secrets.DEV_ID_APP_P12 }}
+          DEV_ID_APP_PASSWORD: ${{ secrets.DEV_ID_APP_PASSWORD }}
+          DEV_ID_INSTALLER_P12: ${{ secrets.DEV_ID_INSTALLER_P12 }}
+          DEV_ID_INSTALLER_PASSWORD: ${{ secrets.DEV_ID_INSTALLER_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import Developer ID Application certificate (for codesign)
+          echo "$DEV_ID_APP_P12" | base64 --decode > $RUNNER_TEMP/dev_id_app.p12
+          security import $RUNNER_TEMP/dev_id_app.p12 \
+            -k $KEYCHAIN_PATH \
+            -P "$DEV_ID_APP_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productbuild
+
+          # Import Developer ID Installer certificate (for productbuild/pkgbuild)
+          echo "$DEV_ID_INSTALLER_P12" | base64 --decode > $RUNNER_TEMP/dev_id_installer.p12
+          security import $RUNNER_TEMP/dev_id_installer.p12 \
+            -k $KEYCHAIN_PATH \
+            -P "$DEV_ID_INSTALLER_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productbuild \
+            -T /usr/bin/pkgbuild
+
+          # Add keychain to search list
+          security list-keychains -d user -s $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+      # ── Build Swift package ────────────────────────────────────────────────
+      - name: Build UsbTokenAgent (Release)
+        working-directory: mac/usb-token-agent-mac
+        run: |
+          swift build -c release
+
+      # ── Create .app bundle ─────────────────────────────────────────────────
+      - name: Create .app bundle
+        working-directory: mac/usb-token-agent-mac
+        run: |
+          APP_DIR="build/${{ env.APP_NAME }}.app"
+          mkdir -p "$APP_DIR/Contents/MacOS"
+          mkdir -p "$APP_DIR/Contents/Resources"
+
+          # Copy binary
+          cp .build/release/UsbTokenAgent "$APP_DIR/Contents/MacOS/UsbTokenAgent"
+
+          # Copy resources (use example config on CI)
+          if [ -f "Resources/appsettings.json" ]; then
+            cp Resources/appsettings.json "$APP_DIR/Contents/Resources/"
+          else
+            cp Resources/appsettings.example.json "$APP_DIR/Contents/Resources/appsettings.json"
+          fi
+          cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
+          if [ -d "Resources/pkcs11" ]; then
+            cp -R Resources/pkcs11 "$APP_DIR/Contents/Resources/"
+          fi
+
+          # Create Info.plist
+          VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
+          cat > "$APP_DIR/Contents/Info.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>UsbTokenAgent</string>
+            <key>CFBundleIdentifier</key>
+            <string>${{ env.BUNDLE_ID }}</string>
+            <key>CFBundleName</key>
+            <string>${{ env.APP_NAME }}</string>
+            <key>CFBundleVersion</key>
+            <string>${VERSION}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${VERSION}</string>
+            <key>CFBundleIconFile</key>
+            <string>AppIcon</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>14.0</string>
+            <key>LSUIElement</key>
+            <true/>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+      # ── Code sign the .app ─────────────────────────────────────────────────
+      - name: Codesign .app bundle
+        if: env.IS_RELEASE == 'true'
+        working-directory: mac/usb-token-agent-mac
+        env:
+          DEV_ID_APP_NAME: ${{ secrets.DEV_ID_APP_NAME }}
+        run: |
+          APP_DIR="build/${{ env.APP_NAME }}.app"
+
+          # Sign dylibs first (inside out)
+          find "$APP_DIR" -name "*.dylib" -exec \
+            codesign --force --options runtime \
+              --sign "$DEV_ID_APP_NAME" \
+              --timestamp {} \;
+
+          # Sign the main binary
+          codesign --force --options runtime \
+            --sign "$DEV_ID_APP_NAME" \
+            --timestamp \
+            --entitlements entitlements.plist \
+            "$APP_DIR"
+
+          # Verify
+          codesign --verify --deep --strict "$APP_DIR"
+
+      # ── Build the .pkg installer ───────────────────────────────────────────
+      - name: Build .pkg installer
+        if: env.IS_RELEASE == 'true'
+        working-directory: mac/usb-token-agent-mac
+        env:
+          DEV_ID_INSTALLER_NAME: ${{ secrets.DEV_ID_INSTALLER_NAME }}
+        run: |
+          VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
+          APP_DIR="build/${{ env.APP_NAME }}.app"
+          PKG_NAME="${{ env.APP_NAME }}-mac-arm64-${VERSION}.pkg"
+
+          # Build component pkg
+          pkgbuild \
+            --root "$APP_DIR" \
+            --identifier "${{ env.BUNDLE_ID }}" \
+            --version "$VERSION" \
+            --install-location "${{ env.INSTALL_LOCATION }}" \
+            --component-plist component.plist \
+            build/component.pkg 2>/dev/null || \
+          pkgbuild \
+            --root "$APP_DIR" \
+            --identifier "${{ env.BUNDLE_ID }}" \
+            --version "$VERSION" \
+            --install-location "${{ env.INSTALL_LOCATION }}" \
+            build/component.pkg
+
+          # Build signed product pkg
+          productbuild \
+            --package build/component.pkg \
+            --sign "$DEV_ID_INSTALLER_NAME" \
+            --timestamp \
+            "build/$PKG_NAME"
+
+          echo "PKG_PATH=build/$PKG_NAME" >> $GITHUB_ENV
+          echo "PKG_NAME=$PKG_NAME" >> $GITHUB_ENV
+
+      # ── Notarize the .pkg ──────────────────────────────────────────────────
+      - name: Notarize .pkg
+        if: env.IS_RELEASE == 'true'
+        working-directory: mac/usb-token-agent-mac
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit "$PKG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 600
+
+          # Staple the notarization ticket
+          xcrun stapler staple "$PKG_PATH"
+
+      # ── Upload artifact ────────────────────────────────────────────────────
+      - name: Upload PKG artifact
+        if: env.IS_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PKG_NAME }}
+          path: mac/usb-token-agent-mac/${{ env.PKG_PATH }}
+
+      # ── Create GitHub Release ──────────────────────────────────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "${{ env.APP_NAME }} ${{ steps.ver.outputs.VERSION }}"
+          files: mac/usb-token-agent-mac/${{ env.PKG_PATH }}
+          body: |
+            ## ${{ env.APP_NAME }} ${{ steps.ver.outputs.VERSION }}
+
+            macOS native USB Token signing agent (Apple Silicon).
+
+            ### Install
+            1. Download the `.pkg` file below
+            2. Double-click to install (notarized, no Gatekeeper warnings)
+            3. App installs to `/Applications/UsbTokenAgent.app`
+            4. Launch from Applications — runs as menu bar icon (no Dock)
+
+            ### Requirements
+            - macOS 14+ (Sonoma or later)
+            - USB Token with PKCS#11 driver
+
+      # ── Cleanup ────────────────────────────────────────────────────────────
+      - name: Cleanup keychain
+        if: env.IS_RELEASE == 'true' && always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/signing.keychain-db 2>/dev/null || true

@@ -1,0 +1,95 @@
+name: Release UsbTokenAgent
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+  PROJECT: win/usb-token-agent-win/UsbTokenAgent.csproj
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Restore
+        run: dotnet restore "${{ env.PROJECT }}"
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.VERSION }}" -replace '^v', ''
+          dotnet build "${{ env.PROJECT }}" -c Release --no-restore -p:Version=$ver
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          $out = "win\usb-token-agent-win\bin\Release\net461"
+          New-Item -ItemType Directory -Force publish | Out-Null
+          Get-ChildItem $out -File | Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
+            Copy-Item -Destination publish\
+          Copy-Item "win\usb-token-agent-win\app.config" publish\app.config.example
+
+      - name: Zip release
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.VERSION }}"
+          Compress-Archive -Path publish\* -DestinationPath "UsbTokenAgent-$ver.zip"
+
+      # Publish release to the PUBLIC dist repo so developers can download
+      # without a token. DIST_REPO_TOKEN is a classic PAT with repo scope
+      # on tamnguyendev/usb-token-agent-dist, stored as a secret in THIS repo.
+      - name: Create GitHub Release (public dist repo)
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.DIST_REPO_TOKEN }}
+          repository: tamnguyendev/usb-token-agent-dist
+          tag_name: ${{ steps.ver.outputs.VERSION }}
+          name: "UsbTokenAgent ${{ steps.ver.outputs.VERSION }}"
+          files: UsbTokenAgent-*.zip
+          body: |
+            ## UsbTokenAgent ${{ steps.ver.outputs.VERSION }}
+
+            Local USB Token signing service for WinFormsSample (net4.6.1, no .NET runtime install needed on Windows 10/11).
+
+            ### Usage
+            Distributed automatically — WinFormsSample downloads this at build time.
+            Manual install: extract zip, run UsbTokenAgent.exe (runs silently in background).
+
+            ### Endpoints
+            | Method | Path | Description |
+            |--------|------|-------------|
+            | POST | `/certs` | List certificates in Windows Personal store |
+            | POST | `/login` | Find certificate by serial / CN |
+            | POST | `/signHash` | Sign a SHA-256 digest (PKCS#11 if PIN set, CNG otherwise) |
+
+            ### Requirements
+            - Windows 10/11 x64 (.NET Framework 4.6.1 pre-installed)
+            - USB Token with driver installed (bit4id or compatible)
