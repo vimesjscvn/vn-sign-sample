@@ -193,6 +193,28 @@ jobs:
           name: macos-pkg
           path: build/${{ env.PKG_NAME }}
 
+      - name: Install Velopack CLI
+        if: env.IS_RELEASE == 'true'
+        run: dotnet tool install -g vpk
+
+      - name: Package with Velopack (macOS)
+        if: env.IS_RELEASE == 'true'
+        run: |
+          VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
+          vpk pack \
+            --packId VimesSign \
+            --packVersion "$VERSION" \
+            --packDir publish/sign-app \
+            --mainExe VimesSignSample \
+            --outputDir build/velopack-mac
+
+      - name: Upload Velopack macOS artifact
+        if: env.IS_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: velopack-mac
+          path: build/velopack-mac/*
+
       - name: Cleanup keychain
         if: env.IS_RELEASE == 'true' && always()
         run: security delete-keychain $RUNNER_TEMP/signing.keychain-db 2>/dev/null || true
@@ -235,7 +257,7 @@ jobs:
           cp sign-app/appsettings.example.json sign-app/appsettings.json
           dotnet publish sign-app/VimesSignSample.csproj \
             -c Release -r win-x64 --self-contained true \
-            -p:PublishSingleFile=true -p:PublishReadyToRun=true \
+            -p:PublishSingleFile=false -p:PublishReadyToRun=true \
             -p:Version=$VER \
             -o sign-app/build/win-publish
 
@@ -251,6 +273,23 @@ jobs:
           $out = (Resolve-Path "sign-app\build\win-publish").Path
           & "sign-app\build\download-usb-agent.ps1" -Version "latest" -CacheDir $cache -OutDir $out
 
+      - name: Install Velopack CLI
+        if: env.IS_RELEASE == 'true'
+        shell: bash
+        run: dotnet tool install -g vpk
+
+      - name: Package with Velopack (Windows)
+        if: env.IS_RELEASE == 'true'
+        shell: bash
+        run: |
+          VER=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
+          vpk pack \
+            --packId VimesSign \
+            --packVersion "$VER" \
+            --packDir sign-app/build/win-publish \
+            --mainExe VimesSignSample.exe \
+            --outputDir sign-app/build/velopack-win
+
       - name: Build Windows Installer (InnoSetup)
         if: env.IS_RELEASE == 'true'
         shell: pwsh
@@ -265,6 +304,13 @@ jobs:
         with:
           name: windows-setup
           path: sign-app/build/VimesSign-win-x64-*-setup.exe
+
+      - name: Upload Velopack Windows artifact
+        if: env.IS_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: velopack-win
+          path: sign-app/build/velopack-win/*
 
   # ════════════════════════════════════════════════════════════════════════════
   # Create GitHub Release (after both builds)
@@ -303,6 +349,18 @@ jobs:
           name: windows-setup
           path: dist/
 
+      - name: Download Velopack macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: velopack-mac
+          path: dist/
+
+      - name: Download Velopack Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: velopack-win
+          path: dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -313,6 +371,10 @@ jobs:
             ## VimesSign ${{ steps.ver.outputs.VERSION }}
 
             Ứng dụng ký số đa nền tảng — bao gồm VimesSign + UsbTokenAgent.
+
+            ### 🔄 Tự động cập nhật (Auto-Update)
+            Từ phiên bản này, ứng dụng sẽ **tự động kiểm tra và cập nhật** khi có bản mới.
+            Bạn không cần tải lại thủ công — chỉ cần khởi động lại ứng dụng khi được thông báo.
 
             ### macOS (Apple Silicon)
             1. Tải `VimesSign-mac-arm64-*.pkg`

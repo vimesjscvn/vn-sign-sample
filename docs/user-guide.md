@@ -13,7 +13,8 @@ Tài liệu hướng dẫn cài đặt và sử dụng ứng dụng ký số **V
 5. [Ký PDF bằng chữ ký số đám mây](#5-ký-pdf-bằng-chữ-ký-số-đám-mây)
 6. [Ký XML (Học Bạ, Lý Lịch)](#6-ký-xml-học-bạ-lý-lịch)
 7. [Ký hàng loạt](#7-ký-hàng-loạt)
-8. [Xử lý sự cố](#8-xử-lý-sự-cố)
+8. [Tự động cập nhật](#8-tự-động-cập-nhật)
+9. [Xử lý sự cố](#9-xử-lý-sự-cố)
 
 ---
 
@@ -210,7 +211,27 @@ Nhấn **📚 BẮT ĐẦU KÝ HÀNG LOẠT**. Thanh tiến trình hiển thị 
 
 ---
 
-## 8. Xử lý sự cố
+## 8. Tự động cập nhật
+
+VimesSign tích hợp tính năng **tự động cập nhật** (auto-update). Khi khởi động, ứng dụng sẽ:
+
+1. Kiểm tra phiên bản mới trên GitHub Releases (chạy nền, không ảnh hưởng thao tác)
+2. Nếu có bản mới → tự động tải về
+3. Sau khi tải xong → tự khởi động lại với phiên bản mới
+
+> **Lưu ý**: Tính năng này chỉ hoạt động khi ứng dụng được cài qua bộ cài (Setup/pkg). Nếu chạy từ mã nguồn (`dotnet run`), auto-update sẽ bị bỏ qua.
+
+### Kiểm tra log cập nhật
+
+Mở file log tại `~/.config/vimes-sign/logs/` để xem trạng thái cập nhật:
+- `[AutoUpdate] Checking for updates...` — Đang kiểm tra
+- `[AutoUpdate] App is up to date.` — Đã là phiên bản mới nhất
+- `[AutoUpdate] New version available: X.Y.Z. Downloading...` — Đang tải bản mới
+- `[AutoUpdate] Update downloaded. Will apply on next restart.` — Đã tải xong, sẵn sàng cập nhật
+
+---
+
+## 9. Xử lý sự cố
 
 ### Ứng dụng không mở được (macOS)
 

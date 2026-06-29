@@ -8,6 +8,7 @@
 - **Ký XML**: Phân tích cấu trúc Học Bạ/Lý Lịch/Tổng Kết, hỗ trợ NEAC
 - **Ký hàng loạt**: Ký nhiều file cùng lúc
 - **Đa merchant**: MySign, SmartCA, BCY, CMC, InTrust, SIM, USB, Self
+- **Tự động cập nhật**: Ứng dụng tự kiểm tra và tải bản mới từ GitHub Releases khi khởi động (powered by [Velopack](https://velopack.io))
 
 ## Yêu cầu hệ thống
 

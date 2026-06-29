@@ -10,6 +10,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using Velopack;
+using Velopack.Sources;
 using Vimes.SignSDK;
 using Vimes.SignSDK.ViewModels;
 using Vimes.SignSDK.Merchants.MySign;
@@ -40,6 +42,9 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Velopack must be the first thing to run — handles install/update hooks
+        VelopackApp.Build().Run();
+
         AppDomain.CurrentDomain.AssemblyResolve += (_, resolveArgs) =>
         {
             var requested = new AssemblyName(resolveArgs.Name);
@@ -121,7 +126,48 @@ public static class Program
         }
         else
         {
+            // Check for updates in background after app starts
+            Task.Run(CheckForUpdatesAsync);
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+    }
+
+    /// <summary>
+    /// Checks GitHub Releases for a newer version and downloads/applies it automatically.
+    /// The app will prompt to restart once the update is ready.
+    /// </summary>
+    public static async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var source = new GithubSource("https://github.com/vimesjscvn/vn-sign-sample", accessToken: null, prerelease: false);
+            var mgr = new UpdateManager(source);
+
+            // Skip if not installed via Velopack (e.g. running from IDE / dotnet run)
+            if (!mgr.IsInstalled)
+            {
+                Log.Information("[AutoUpdate] App is not installed via Velopack, skipping update check.");
+                return;
+            }
+
+            Log.Information("[AutoUpdate] Checking for updates...");
+            var newVersion = await mgr.CheckForUpdatesAsync();
+            if (newVersion == null)
+            {
+                Log.Information("[AutoUpdate] App is up to date.");
+                return;
+            }
+
+            Log.Information("[AutoUpdate] New version available: {Version}. Downloading...", newVersion.TargetFullRelease.Version);
+            await mgr.DownloadUpdatesAsync(newVersion);
+
+            Log.Information("[AutoUpdate] Update downloaded. Will apply on next restart.");
+            // Apply update and restart the app
+            mgr.ApplyUpdatesAndRestart(newVersion);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "[AutoUpdate] Update check failed (non-fatal).");
         }
     }
 
