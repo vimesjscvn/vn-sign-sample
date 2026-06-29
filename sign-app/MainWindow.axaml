@@ -358,6 +358,15 @@
                   </StackPanel>
                 </Border>
 
+                <!-- XML Output Folder -->
+                <StackPanel Margin="0,4,0,0">
+                  <TextBlock Text="Thư mục xuất file đã ký:" FontSize="10" Foreground="#64748B" Margin="0,0,0,2"/>
+                  <Grid ColumnDefinitions="*, Auto">
+                    <TextBox Grid.Column="0" Name="txtXmlOutputDir" FontSize="11" Height="22" Padding="4,2" Watermark="Mặc định: cùng thư mục file gốc"/>
+                    <Button Grid.Column="1" Name="btnBrowseXmlOutput" Content="Chọn..." Height="22" Padding="6,2" VerticalAlignment="Center" Margin="6,0,0,0" Click="btnBrowseXmlOutput_Click" FontSize="11"/>
+                  </Grid>
+                </StackPanel>
+
                 <!-- XML Action Buttons -->
                 <Grid ColumnDefinitions="*, *" Margin="0,2">
                   <Button Grid.Column="0" Name="btnAnalyzeXml" Content="Phân tích XML" Height="34" Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="btnAnalyzeXml_Click" FontSize="13"/>

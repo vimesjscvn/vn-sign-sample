@@ -253,5 +253,5 @@ Xem thông báo lỗi hiển thị.
 
 ### Cần hỗ trợ thêm
 
-- Email: tamnt@vimes.vn
+- Email: thientam1992@gmail.com
 - GitHub Issues: [vimesjscvn/vn-sign-sample/issues](https://github.com/vimesjscvn/vn-sign-sample/issues)

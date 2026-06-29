@@ -839,6 +839,19 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void btnBrowseXmlOutput_Click(object? sender, RoutedEventArgs e)
+    {
+        var options = new FolderPickerOpenOptions
+        {
+            Title = "Chọn thư mục xuất file XML đã ký"
+        };
+        var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
+        if (folders != null && folders.Count > 0)
+        {
+            txtXmlOutputDir.Text = folders[0].Path.LocalPath;
+        }
+    }
+
     private void btnAnalyzeXml_Click(object? sender, RoutedEventArgs e)
     {
         if (lstXmlFilePath.SelectedItem == null)
@@ -1117,8 +1130,16 @@ public partial class MainWindow : Window
                 if (result.Success && originalFilePath != null)
                 {
                     successCount++;
-                    var parentDir = Path.GetDirectoryName(originalFilePath)!;
-                    var outFolder = Path.Combine(parentDir, "Signed");
+                    string outFolder;
+                    if (!string.IsNullOrWhiteSpace(txtXmlOutputDir.Text) && Directory.Exists(txtXmlOutputDir.Text))
+                    {
+                        outFolder = txtXmlOutputDir.Text;
+                    }
+                    else
+                    {
+                        var parentDir = Path.GetDirectoryName(originalFilePath)!;
+                        outFolder = Path.Combine(parentDir, "Signed");
+                    }
                     if (!Directory.Exists(outFolder)) Directory.CreateDirectory(outFolder);
                     
                     var outPath = Path.Combine(outFolder, $"{DateTime.Now:yyMMddHHmmss}_{result.FileName}");
