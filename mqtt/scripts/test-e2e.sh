@@ -41,9 +41,9 @@ echo ""
 # Step 1: Agent publishes presence
 echo "[1/4] Agent publishes presence (retained)..."
 $PUB -h $HOST -p $PORT $TLS_ARGS \
-  -u usb-agent -P UsbAgent@Sign2024 \
-  -t "usbagent/$AGENT_ID/status" -r \
-  -m "{\"service\":\"vimes-usb-agent\",\"agentId\":\"$AGENT_ID\",\"host\":\"test-pc\",\"httpPort\":9999,\"online\":true,\"certs\":[{\"serial\":\"TEST001\",\"subject\":\"CN=E2E Test\",\"algorithm\":\"RSA\",\"certificate\":\"MIIB\"}],\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+  -u vmsign-agent -P VMSignAgent@Sign2024 \
+  -t "vmsignagent/$AGENT_ID/status" -r \
+  -m "{\"service\":\"vimes-vmsign-agent\",\"agentId\":\"$AGENT_ID\",\"host\":\"test-pc\",\"httpPort\":9999,\"online\":true,\"certs\":[{\"serial\":\"TEST001\",\"subject\":\"CN=E2E Test\",\"algorithm\":\"RSA\",\"certificate\":\"MIIB\"}],\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
 echo "  ✓ Done"
 
 # Step 2: SDK discovers agent
@@ -51,7 +51,7 @@ echo ""
 echo "[2/4] SDK discovers agents..."
 DISCOVERED=$($SUB -h $HOST -p $PORT $TLS_ARGS \
   -u sdk-server -P Sdk@Sign2024 \
-  -t "usbagent/+/status" -W 3 -C 1 2>/dev/null)
+  -t "vmsignagent/+/status" -W 3 -C 1 2>/dev/null)
 if echo "$DISCOVERED" | grep -q "$AGENT_ID"; then
   echo "  ✓ Agent discovered: $AGENT_ID"
 else
@@ -66,12 +66,12 @@ echo "[3/4] Sign request → response flow..."
 # Agent listener (background) — receives req, sends response
 (
   REQ=$($SUB -h $HOST -p $PORT $TLS_ARGS \
-    -u usb-agent -P UsbAgent@Sign2024 \
-    -t "usbagent/$AGENT_ID/sign/req" -C 1 -W 10 2>/dev/null)
+    -u vmsign-agent -P VMSignAgent@Sign2024 \
+    -t "vmsignagent/$AGENT_ID/sign/req" -C 1 -W 10 2>/dev/null)
   if [ -n "$REQ" ]; then
     $PUB -h $HOST -p $PORT $TLS_ARGS \
-      -u usb-agent -P UsbAgent@Sign2024 \
-      -t "usbagent/$AGENT_ID/sign/res" \
+      -u vmsign-agent -P VMSignAgent@Sign2024 \
+      -t "vmsignagent/$AGENT_ID/sign/res" \
       -m '{"correlationId":"e2e-test-corr","success":true,"signatureBase64":"dGVzdC1zaWduYXR1cmU=","certificateBase64":"dGVzdC1jZXJ0","algorithm":"RSA","error":null}'
   fi
 ) &
@@ -81,7 +81,7 @@ sleep 1
 # SDK sends sign request
 $PUB -h $HOST -p $PORT $TLS_ARGS \
   -u sdk-server -P Sdk@Sign2024 \
-  -t "usbagent/$AGENT_ID/sign/req" \
+  -t "vmsignagent/$AGENT_ID/sign/req" \
   -m '{"correlationId":"e2e-test-corr","hashBase64":"dGVzdGhhc2g=","serial":"TEST001","pin":null}'
 echo "  ✓ Sign request sent"
 
@@ -90,7 +90,7 @@ echo ""
 echo "[4/4] SDK receives sign response..."
 RESPONSE=$($SUB -h $HOST -p $PORT $TLS_ARGS \
   -u sdk-server -P Sdk@Sign2024 \
-  -t "usbagent/$AGENT_ID/sign/res" -C 1 -W 10 2>/dev/null)
+  -t "vmsignagent/$AGENT_ID/sign/res" -C 1 -W 10 2>/dev/null)
 
 kill $AGENT_PID 2>/dev/null
 wait $AGENT_PID 2>/dev/null
@@ -104,8 +104,8 @@ fi
 
 # Cleanup retained message
 $PUB -h $HOST -p $PORT $TLS_ARGS \
-  -u usb-agent -P UsbAgent@Sign2024 \
-  -t "usbagent/$AGENT_ID/status" -r -n 2>/dev/null || true
+  -u vmsign-agent -P VMSignAgent@Sign2024 \
+  -t "vmsignagent/$AGENT_ID/status" -r -n 2>/dev/null || true
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"

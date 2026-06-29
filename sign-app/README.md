@@ -35,7 +35,7 @@ File cấu hình chứa thông tin kết nối các nhà cung cấp. Khi chạy 
 |---------|-------|
 | `MySignSetting` | ClientId, ClientSecret cho Viettel MySign |
 | `SmartCASetting` | ClientId, ClientSecret cho VNPT SmartCA |
-| `UsbSetting` | IP/Port kết nối UsbTokenAgent (`127.0.0.1:9999`) |
+| `UsbSetting` | IP/Port kết nối VMSignAgent (`127.0.0.1:9999`) |
 | `TerminalSetting` | Thông tin MPKI (BCY/CA Gov) |
 | `MsspSetting` | Cấu hình SIM CA (MSSP) |
 

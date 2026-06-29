@@ -7,7 +7,7 @@ on:
       - 'sign-app-v*.*.*'
     paths:
       - 'sign-app/**'
-      - 'usb-token-agent/**'
+      - 'vmsign-agent/**'
       - '.github/workflows/build-sign-app.yml'
   workflow_dispatch:
     inputs:
@@ -17,7 +17,7 @@ on:
 
 jobs:
   # ════════════════════════════════════════════════════════════════════════════
-  # macOS: Build .pkg (VimesSign + UsbTokenAgent)
+  # macOS: Build .pkg (VimesSign + VMSignAgent)
   # ════════════════════════════════════════════════════════════════════════════
   build-macos:
     runs-on: macos-14
@@ -26,9 +26,9 @@ jobs:
 
     env:
       SIGN_APP_NAME: VimesSign
-      AGENT_APP_NAME: UsbTokenAgent
+      AGENT_APP_NAME: VMSignAgent
       BUNDLE_ID_SIGN: com.vimes.signsample
-      BUNDLE_ID_AGENT: com.vimes.usbtokenagent
+      BUNDLE_ID_AGENT: com.vimes.vmsignagent
       IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/sign-app-v') || github.event_name == 'workflow_dispatch' }}
 
     steps:
@@ -50,18 +50,18 @@ jobs:
         with:
           dotnet-version: '8.x'
 
-      - name: Build UsbTokenAgent (Swift)
-        working-directory: usb-token-agent/mac
+      - name: Build VMSignAgent (Swift)
+        working-directory: vmsign-agent/mac
         run: swift build -c release
 
-      - name: Create UsbTokenAgent .app bundle
-        working-directory: usb-token-agent/mac
+      - name: Create VMSignAgent .app bundle
+        working-directory: vmsign-agent/mac
         run: |
           VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
           APP_DIR="build/${{ env.AGENT_APP_NAME }}.app"
           mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
-          cp .build/release/UsbTokenAgent "$APP_DIR/Contents/MacOS/UsbTokenAgent"
+          cp .build/release/VMSignAgent "$APP_DIR/Contents/MacOS/VMSignAgent"
           if [ -f "Resources/appsettings.json" ]; then
             cp Resources/appsettings.json "$APP_DIR/Contents/Resources/"
           else
@@ -75,7 +75,7 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleExecutable</key><string>UsbTokenAgent</string>
+            <key>CFBundleExecutable</key><string>VMSignAgent</string>
             <key>CFBundleIdentifier</key><string>${{ env.BUNDLE_ID_AGENT }}</string>
             <key>CFBundleName</key><string>${{ env.AGENT_APP_NAME }}</string>
             <key>CFBundleVersion</key><string>${VERSION}</string>
@@ -144,11 +144,11 @@ jobs:
           security list-keychains -d user -s $KEYCHAIN_PATH
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-      - name: Codesign UsbTokenAgent
+      - name: Codesign VMSignAgent
         if: env.IS_RELEASE == 'true'
         env:
           DEV_ID_APP_NAME: ${{ secrets.DEV_ID_APP_NAME }}
-        working-directory: usb-token-agent/mac
+        working-directory: vmsign-agent/mac
         run: |
           APP_DIR="build/${{ env.AGENT_APP_NAME }}.app"
           find "$APP_DIR" -name "*.dylib" -exec codesign --force --options runtime --sign "$DEV_ID_APP_NAME" --timestamp {} \;
@@ -171,7 +171,7 @@ jobs:
           VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
           PKG_NAME="VimesSign-mac-arm64-${VERSION}.pkg"
           mkdir -p build
-          pkgbuild --root "usb-token-agent/mac/build/${{ env.AGENT_APP_NAME }}.app" --identifier "${{ env.BUNDLE_ID_AGENT }}" --version "$VERSION" --install-location "/Applications/${{ env.AGENT_APP_NAME }}.app" build/agent.pkg
+          pkgbuild --root "vmsign-agent/mac/build/${{ env.AGENT_APP_NAME }}.app" --identifier "${{ env.BUNDLE_ID_AGENT }}" --version "$VERSION" --install-location "/Applications/${{ env.AGENT_APP_NAME }}.app" build/agent.pkg
           pkgbuild --root "publish/${{ env.SIGN_APP_NAME }}.app" --identifier "${{ env.BUNDLE_ID_SIGN }}" --version "$VERSION" --install-location "/Applications/${{ env.SIGN_APP_NAME }}.app" build/sign.pkg
           productbuild --package build/agent.pkg --package build/sign.pkg --sign "$DEV_ID_INSTALLER_NAME" --timestamp "build/$PKG_NAME"
           echo "PKG_NAME=$PKG_NAME" >> $GITHUB_ENV
@@ -220,7 +220,7 @@ jobs:
         run: security delete-keychain $RUNNER_TEMP/signing.keychain-db 2>/dev/null || true
 
   # ════════════════════════════════════════════════════════════════════════════
-  # Windows: Build Setup.exe (VimesSign + UsbTokenAgent)
+  # Windows: Build Setup.exe (VimesSign + VMSignAgent)
   # ════════════════════════════════════════════════════════════════════════════
   build-windows:
     runs-on: windows-latest
@@ -265,13 +265,13 @@ jobs:
         shell: pwsh
         run: Copy-Item sign-app\appsettings.example.json sign-app\build\win-publish\appsettings.json
 
-      - name: Download UsbTokenAgent (Windows)
+      - name: Download VMSignAgent (Windows)
         if: env.IS_RELEASE == 'true'
         shell: pwsh
         run: |
-          $cache = Join-Path $env:LOCALAPPDATA ".usb-agent-cache"
+          $cache = Join-Path $env:LOCALAPPDATA ".vmsign-agent-cache"
           $out = (Resolve-Path "sign-app\build\win-publish").Path
-          & "sign-app\build\download-usb-agent.ps1" -Version "latest" -CacheDir $cache -OutDir $out
+          & "sign-app\build\download-vmsign-agent.ps1" -Version "latest" -CacheDir $cache -OutDir $out
 
       - name: Install Velopack CLI
         if: env.IS_RELEASE == 'true'
@@ -370,7 +370,7 @@ jobs:
           body: |
             ## VimesSign ${{ steps.ver.outputs.VERSION }}
 
-            Ứng dụng ký số đa nền tảng — bao gồm VimesSign + UsbTokenAgent.
+            Ứng dụng ký số đa nền tảng — bao gồm VimesSign + VMSignAgent.
 
             ### 🔄 Tự động cập nhật (Auto-Update)
             Từ phiên bản này, ứng dụng sẽ **tự động kiểm tra và cập nhật** khi có bản mới.

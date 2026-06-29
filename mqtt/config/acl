@@ -4,13 +4,13 @@
 # ─── SDK Server (Web/App signing service) ─────────────────────────────────────
 # Can discover all agents and send/receive sign requests to any agent
 user sdk-server
-topic read usbagent/+/status
-topic readwrite usbagent/+/sign/#
+topic read vmsignagent/+/status
+topic readwrite vmsignagent/+/sign/#
 
-# ─── USB Token Agents (shared account for all agents) ─────────────────────────
+# ─── VMSign Agents (shared account for all agents) ─────────────────────────
 # Each agent publishes to its own {agentId} topic path.
 # Shared account simplifies deployment — no per-machine broker config needed.
-user usb-agent
-topic readwrite usbagent/+/status
-topic read usbagent/+/sign/req
-topic write usbagent/+/sign/res
+user vmsign-agent
+topic readwrite vmsignagent/+/status
+topic read vmsignagent/+/sign/req
+topic write vmsignagent/+/sign/res

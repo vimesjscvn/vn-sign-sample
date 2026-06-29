@@ -6,7 +6,7 @@ param(
     [string]$Token
 )
 
-$repo = "tamnguyendev/usb-token-agent-dist"
+$repo = "tamnguyendev/vmsign-agent-dist"
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -25,10 +25,10 @@ try {
 }
 
 $versionDir = Join-Path $CacheDir $tag
-$agentExe   = Join-Path $versionDir "UsbTokenAgent.exe"
+$agentExe   = Join-Path $versionDir "VMSignAgent.exe"
 
 if (-not (Test-Path $agentExe)) {
-    $asset = $rel.assets | Where-Object { $_.name -like "UsbTokenAgent-*.zip" } | Select-Object -First 1
+    $asset = $rel.assets | Where-Object { $_.name -like "VMSignAgent-*.zip" } | Select-Object -First 1
     if (-not $asset) {
         Write-Host "[USB Agent] No zip asset found in release $tag - skipping."
         exit 0

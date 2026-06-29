@@ -1,13 +1,13 @@
-; UsbTokenAgent Windows Installer (InnoSetup)
+; VMSignAgent Windows Installer (InnoSetup)
 
-#define MyAppName "UsbTokenAgent"
+#define MyAppName "VMSignAgent"
 #define MyAppVersion GetEnv('APP_VERSION')
 #if MyAppVersion == ""
 #define MyAppVersion "1.0.0"
 #endif
 #define MyAppPublisher "VIETNAM MEDICAL SOFTWARE JSC"
 #define MyAppURL "https://github.com/vimesjscvn/vn-sign-sample"
-#define MyAppExeName "UsbTokenAgent.exe"
+#define MyAppExeName "VMSignAgent.exe"
 
 [Setup]
 AppId={{E7A1B3C5-2D4F-4E6A-8B9C-1D2E3F4A5B6C}
@@ -18,7 +18,7 @@ AppPublisherURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=..\build
-OutputBaseFilename=UsbTokenAgent-win-x64-{#MyAppVersion}-setup
+OutputBaseFilename=VMSignAgent-win-x64-{#MyAppVersion}-setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern

@@ -75,7 +75,7 @@ class UdpDiscovery {
             certs = certList.map { ["Serial": $0.serial, "Subject": $0.subjectDN, "Algorithm": $0.algorithm] }
         }
         return [
-            "Service": "vimes-usb-agent",
+            "Service": "vmsign-agent",
             "Host": ProcessInfo.processInfo.hostName,
             "HttpPort": httpPort,
             "Certs": certs,

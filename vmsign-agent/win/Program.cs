@@ -8,9 +8,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using UsbTokenAgent;
+using VMSignAgent;
 
-// ── UsbTokenAgent ────────────────────────────────────────────────────────────
+// ── VMSignAgent ────────────────────────────────────────────────────────────
 // Local HTTP service (net4.6.1) that exposes Windows CAPI / USB token signing
 // as a hash-then-sign API. Targets .NET Framework 4.6.1 so no runtime install
 // is needed on Windows 10/11 workstations (framework is pre-installed).

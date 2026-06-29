@@ -32,7 +32,7 @@ class MqttSigningResponder {
     init(config: AppConfig, delegate: AppDelegate?) {
         self.host = config.mqttBrokerHost ?? ""
         self.port = config.mqttBrokerPort
-        self.username = config.mqttUsername ?? "usb-agent"
+        self.username = config.mqttUsername ?? "vmsign-agent"
         self.password = config.mqttPassword ?? ""
         self.useTls = config.mqttUseTls
         self.agentId = (config.mqttAgentId?.isEmpty == false) ? config.mqttAgentId! : ProcessInfo.processInfo.hostName
@@ -296,7 +296,7 @@ class MqttSigningResponder {
         }
 
         let payload: [String: Any] = [
-            "service": "vimes-usb-agent",
+            "service": "vmsign-agent",
             "agentId": agentId,
             "host": ProcessInfo.processInfo.hostName,
             "httpPort": httpPort,

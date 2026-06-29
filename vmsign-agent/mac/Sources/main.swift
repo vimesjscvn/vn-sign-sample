@@ -1,6 +1,6 @@
 import AppKit
 
-// ── UsbTokenAgent (macOS Native) ─────────────────────────────────────────────
+// ── VMSignAgent (macOS Native) ─────────────────────────────────────────────
 // Menu bar app that exposes USB token signing through PKCS#11.
 // HTTP API on localhost:9999, UDP discovery on 9998.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "UsbTokenAgent",
+    name: "VMSignAgent",
     platforms: [.macOS(.v14)],
     targets: [
         .target(
@@ -11,7 +11,7 @@ let package = Package(
             publicHeadersPath: "include"
         ),
         .executableTarget(
-            name: "UsbTokenAgent",
+            name: "VMSignAgent",
             dependencies: ["CPkcs11"],
             path: "Sources",
             linkerSettings: [

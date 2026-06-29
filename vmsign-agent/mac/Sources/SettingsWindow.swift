@@ -225,7 +225,7 @@ struct SettingsView: View {
     private func configFilePath() -> String? {
         // User-writable config location (preferred for saving)
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        let userConfigDir = appSupport?.appendingPathComponent("UsbTokenAgent").path ?? ""
+        let userConfigDir = appSupport?.appendingPathComponent("VMSignAgent").path ?? ""
         let userConfig = userConfigDir + "/appsettings.json"
 
         // If user config exists, use it

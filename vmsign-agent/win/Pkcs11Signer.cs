@@ -3,7 +3,7 @@ using Net.Pkcs11Interop.Common;
 using Net.Pkcs11Interop.HighLevelAPI;
 using ISession = Net.Pkcs11Interop.HighLevelAPI.ISession;
 
-namespace UsbTokenAgent;
+namespace VMSignAgent;
 
 /// <summary>
 /// PKCS#11 signing path used to BYPASS the bit4id interactive PIN dialog.

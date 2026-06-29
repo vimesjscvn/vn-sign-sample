@@ -1,9 +1,9 @@
-name: Release UsbTokenAgent
+name: Release VMSignAgent
 
 on:
   push:
     tags:
-      - 'usb-token-agent-v*.*.*'
+      - 'vmsign-agent-v*.*.*'
   workflow_dispatch:
     inputs:
       version:
@@ -13,7 +13,7 @@ on:
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_NOLOGO: true
-  PROJECT: usb-token-agent/win/UsbTokenAgent.csproj
+  PROJECT: vmsign-agent/win/VMSignAgent.csproj
 
 jobs:
   release:
@@ -36,9 +36,9 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           else
-            # Strip 'usb-token-agent-' prefix, e.g. usb-token-agent-v1.2.0 → v1.2.0
+            # Strip 'vmsign-agent-' prefix, e.g. vmsign-agent-v1.2.0 → v1.2.0
             TAG="${GITHUB_REF_NAME}"
-            echo "VERSION=${TAG#usb-token-agent-}" >> $GITHUB_OUTPUT
+            echo "VERSION=${TAG#vmsign-agent-}" >> $GITHUB_OUTPUT
           fi
 
       - name: Restore
@@ -53,50 +53,50 @@ jobs:
       - name: Collect artifacts
         shell: pwsh
         run: |
-          $out = "usb-token-agent\win\bin\Release\net461"
-          New-Item -ItemType Directory -Force usb-token-agent\win\build\publish | Out-Null
+          $out = "vmsign-agent\win\bin\Release\net461"
+          New-Item -ItemType Directory -Force vmsign-agent\win\build\publish | Out-Null
           New-Item -ItemType Directory -Force publish | Out-Null
           Get-ChildItem $out -File | Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
-            Copy-Item -Destination usb-token-agent\win\build\publish\
+            Copy-Item -Destination vmsign-agent\win\build\publish\
           Get-ChildItem $out -File | Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
             Copy-Item -Destination publish\
-          Copy-Item "usb-token-agent\win\app.config" usb-token-agent\win\build\publish\app.config.example
-          Copy-Item "usb-token-agent\win\app.config" publish\app.config.example
+          Copy-Item "vmsign-agent\win\app.config" vmsign-agent\win\build\publish\app.config.example
+          Copy-Item "vmsign-agent\win\app.config" publish\app.config.example
 
       - name: Zip release
         shell: pwsh
         run: |
           $ver = "${{ steps.ver.outputs.VERSION }}"
-          Compress-Archive -Path publish\* -DestinationPath "UsbTokenAgent-$ver.zip"
+          Compress-Archive -Path publish\* -DestinationPath "VMSignAgent-$ver.zip"
 
       - name: Build Windows Installer (InnoSetup)
         shell: pwsh
         run: |
           $ver = "${{ steps.ver.outputs.VERSION }}" -replace '^v', ''
           $env:APP_VERSION = $ver
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "usb-token-agent\win\installer\setup.iss"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "vmsign-agent\win\installer\setup.iss"
 
       # Publish release to the PUBLIC dist repo so developers can download
       # without a token. DIST_REPO_TOKEN is a classic PAT with repo scope
-      # on tamnguyendev/usb-token-agent-dist, stored as a secret in THIS repo.
+      # on tamnguyendev/vmsign-agent-dist, stored as a secret in THIS repo.
       - name: Create GitHub Release (public dist repo)
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.DIST_REPO_TOKEN }}
-          repository: tamnguyendev/usb-token-agent-dist
+          repository: tamnguyendev/vmsign-agent-dist
           tag_name: ${{ steps.ver.outputs.VERSION }}
-          name: "UsbTokenAgent ${{ steps.ver.outputs.VERSION }}"
+          name: "VMSignAgent ${{ steps.ver.outputs.VERSION }}"
           files: |
-            UsbTokenAgent-*.zip
-            usb-token-agent/win/build/UsbTokenAgent-win-x64-*-setup.exe
+            VMSignAgent-*.zip
+            vmsign-agent/win/build/VMSignAgent-win-x64-*-setup.exe
           body: |
-            ## UsbTokenAgent ${{ steps.ver.outputs.VERSION }}
+            ## VMSignAgent ${{ steps.ver.outputs.VERSION }}
 
             Local USB Token signing service for WinFormsSample (net4.6.1, no .NET runtime install needed on Windows 10/11).
 
             ### Usage
             Distributed automatically — WinFormsSample downloads this at build time.
-            Manual install: extract zip, run UsbTokenAgent.exe (runs silently in background).
+            Manual install: extract zip, run VMSignAgent.exe (runs silently in background).
 
             ### Endpoints
             | Method | Path | Description |

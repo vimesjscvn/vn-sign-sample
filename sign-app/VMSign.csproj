@@ -71,27 +71,27 @@
     </None>
   </ItemGroup>
 
-  <!-- Download UsbTokenAgent from the public dist repo (Windows Only) -->
+  <!-- Download VMSignAgent from the public dist repo (Windows Only) -->
   <PropertyGroup Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">
-    <UsbAgentVersion Condition="'$(UsbAgentVersion)' == ''">latest</UsbAgentVersion>
-    <UsbAgentCacheDir Condition="'$(UsbAgentCacheDir)' == ''">$(LocalAppData)\.usb-agent-cache</UsbAgentCacheDir>
-    <_DownloadScript>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)build\download-usb-agent.ps1'))</_DownloadScript>
+    <AgentVersion Condition="'$(AgentVersion)' == ''">latest</AgentVersion>
+    <AgentCacheDir Condition="'$(AgentCacheDir)' == ''">$(LocalAppData)\.vmsign-agent-cache</AgentCacheDir>
+    <_DownloadScript>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)build\download-vmsign-agent.ps1'))</_DownloadScript>
   </PropertyGroup>
 
-  <Target Name="DownloadUsbAgent" BeforeTargets="Build" Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">
+  <Target Name="DownloadAgent" BeforeTargets="Build" Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">
     <MakeDir Directories="$(OutDir)" />
     <PropertyGroup>
       <_AgentOutDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(OutDir)').TrimEnd('\'))</_AgentOutDir>
     </PropertyGroup>
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(_DownloadScript)&quot; -Version &quot;$(UsbAgentVersion)&quot; -CacheDir &quot;$(UsbAgentCacheDir)&quot; -OutDir &quot;$(_AgentOutDir)&quot;"
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(_DownloadScript)&quot; -Version &quot;$(AgentVersion)&quot; -CacheDir &quot;$(AgentCacheDir)&quot; -OutDir &quot;$(_AgentOutDir)&quot;"
           IgnoreStandardErrorWarningFormat="true" />
   </Target>
 
-  <Target Name="CopyUsbAgentToPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != '' And $([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">
+  <Target Name="CopyAgentToPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != '' And $([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">
     <PropertyGroup>
       <_AgentPublishDir>$([System.IO.Path]::GetFullPath('$(PublishDir)').TrimEnd('\'))</_AgentPublishDir>
     </PropertyGroup>
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(_DownloadScript)&quot; -Version &quot;$(UsbAgentVersion)&quot; -CacheDir &quot;$(UsbAgentCacheDir)&quot; -OutDir &quot;$(_AgentPublishDir)&quot;"
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(_DownloadScript)&quot; -Version &quot;$(AgentVersion)&quot; -CacheDir &quot;$(AgentCacheDir)&quot; -OutDir &quot;$(_AgentPublishDir)&quot;"
           IgnoreStandardErrorWarningFormat="true" />
   </Target>
 

@@ -4,7 +4,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using MQTTnet.Client.Options;
 
-namespace UsbTokenAgent;
+namespace VMSignAgent;
 
 /// <summary>
 /// TLS settings for connecting to the MQTT broker (MQTTnet 3.x).

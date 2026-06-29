@@ -58,7 +58,7 @@ struct AppConfig {
 
     private static func loadJson() -> [String: Any]? {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        let userConfig = appSupport?.appendingPathComponent("UsbTokenAgent/appsettings.json").path ?? ""
+        let userConfig = appSupport?.appendingPathComponent("VMSignAgent/appsettings.json").path ?? ""
 
         let candidates = [
             userConfig, // User config (writable) — takes priority

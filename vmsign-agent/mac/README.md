@@ -1,4 +1,4 @@
-# UsbTokenAgent — macOS (Swift Native)
+# VMSignAgent — macOS (Swift Native)
 
 Agent chạy nền trên thanh menu macOS, cung cấp HTTP API để ký số qua USB Token (PKCS#11).
 
@@ -21,15 +21,15 @@ Agent chạy nền trên thanh menu macOS, cung cấp HTTP API để ký số qu
 
 ```bash
 swift build -c release
-# Output: .build/release/UsbTokenAgent
+# Output: .build/release/VMSignAgent
 ```
 
 ## Chạy
 
 ```bash
-.build/release/UsbTokenAgent
+.build/release/VMSignAgent
 # Hoặc sau khi cài .pkg:
-open /Applications/UsbTokenAgent.app
+open /Applications/VMSignAgent.app
 ```
 
 ## HTTP API
@@ -62,7 +62,7 @@ File `Resources/appsettings.json` (hoặc copy sang `~/.config/vimes-sign/`):
 ## Cấu trúc
 
 ```
-usb-token-agent/mac/
+vmsign-agent/mac/
 ├── Package.swift              # Swift Package Manager manifest
 ├── Sources/
 │   ├── main.swift             # Entry point (NSApplication)

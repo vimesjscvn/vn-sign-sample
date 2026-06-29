@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
-namespace UsbTokenAgent;
+namespace VMSignAgent;
 
 /// <summary>
 /// Core USB token / Windows CAPI operations shared by every transport
@@ -179,7 +179,7 @@ public static class TokenSigner
 
     /// <summary>Presence/discovery payload for this machine: host + certs available.</summary>
     public static DiscoveryReply BuildDiscoveryReply(int httpPort) => new(
-        Service: "vimes-usb-agent",
+        Service: "vmsign-agent",
         Host: Dns.GetHostName(),
         HttpPort: httpPort,
         Certs: SafeListCertsAsDiscovery());

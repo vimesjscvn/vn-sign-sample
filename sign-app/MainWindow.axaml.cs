@@ -1538,17 +1538,17 @@ public partial class MainWindow : Window
             if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
             {
                 // Mac OS binary lookups
-                agentExe = Path.Combine(appDir, "UsbTokenAgent");
+                agentExe = Path.Combine(appDir, "VMSignAgent");
                 if (!File.Exists(agentExe))
                 {
                     // Check parent directories or common bundle location
-                    agentExe = "/Applications/UsbTokenAgent.app/Contents/MacOS/UsbTokenAgent";
+                    agentExe = "/Applications/VMSignAgent.app/Contents/MacOS/VMSignAgent";
                 }
             }
             else
             {
                 // Windows binary
-                agentExe = Path.Combine(appDir, "UsbTokenAgent.exe");
+                agentExe = Path.Combine(appDir, "VMSignAgent.exe");
             }
         }
 
@@ -1569,11 +1569,11 @@ public partial class MainWindow : Window
                 CreateNoWindow = true,
                 RedirectStandardOutput = false,
             });
-            LogSystem($"[USB Agent] Started UsbTokenAgent (PID {_agentProcess?.Id}).");
+            LogSystem($"[USB Agent] Started VMSignAgent (PID {_agentProcess?.Id}).");
         }
         catch (Exception ex)
         {
-            LogError($"[USB Agent] Failed to start UsbTokenAgent: {ex.Message}");
+            LogError($"[USB Agent] Failed to start VMSignAgent: {ex.Message}");
         }
     }
 

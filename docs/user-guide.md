@@ -39,7 +39,7 @@ Tài liệu hướng dẫn cài đặt và sử dụng ứng dụng ký số **V
 4. Nhập mật khẩu máy nếu được yêu cầu
 5. Sau khi cài xong, hai ứng dụng xuất hiện trong `/Applications/`:
    - **VimesSign** — Ứng dụng ký số chính
-   - **UsbTokenAgent** — Agent USB Token (chạy nền)
+   - **VMSignAgent** — Agent USB Token (chạy nền)
 
 > **Lưu ý**: File `.pkg` đã được Apple notarize — không có cảnh báo Gatekeeper.
 
@@ -55,17 +55,17 @@ Tài liệu hướng dẫn cài đặt và sử dụng ứng dụng ký số **V
 5. Tùy chọn: Tạo biểu tượng Desktop
 6. Sau khi cài xong, mở từ Start Menu → **VimesSign**
 
-### Cài riêng UsbTokenAgent (standalone)
+### Cài riêng VMSignAgent (standalone)
 
 Nếu chỉ cần agent ký USB (không cần giao diện VimesSign), tải bản cài riêng:
 
 | Nền tảng | File | Mô tả |
 |----------|------|-------|
-| macOS | `UsbTokenAgent-mac-arm64-X.Y.Z.pkg` | Cài vào `/Applications/UsbTokenAgent.app` |
-| Windows | `UsbTokenAgent-win-x64-X.Y.Z-setup.exe` | Cài vào `C:\Program Files\UsbTokenAgent\` |
-| Windows (portable) | `UsbTokenAgent-vX.Y.Z.zip` | Giải nén và chạy trực tiếp |
+| macOS | `VMSignAgent-mac-arm64-X.Y.Z.pkg` | Cài vào `/Applications/VMSignAgent.app` |
+| Windows | `VMSignAgent-win-x64-X.Y.Z-setup.exe` | Cài vào `C:\Program Files\VMSignAgent\` |
+| Windows (portable) | `VMSignAgent-vX.Y.Z.zip` | Giải nén và chạy trực tiếp |
 
-Tải từ [Releases](https://github.com/vimesjscvn/vn-sign-sample/releases) hoặc [usb-token-agent-dist](https://github.com/tamnguyendev/usb-token-agent-dist/releases).
+Tải từ [Releases](https://github.com/vimesjscvn/vn-sign-sample/releases) hoặc [vmsign-agent-dist](https://github.com/tamnguyendev/vmsign-agent-dist/releases).
 
 ---
 
@@ -245,10 +245,10 @@ Xem thông báo lỗi hiển thị.
 
 ### "Connection refused (127.0.0.1:9999)"
 
-**Nguyên nhân**: UsbTokenAgent chưa chạy hoặc chưa sẵn sàng.
+**Nguyên nhân**: VMSignAgent chưa chạy hoặc chưa sẵn sàng.
 
 **Giải pháp**:
-1. Mở `/Applications/UsbTokenAgent.app` (macOS) hoặc chạy `UsbTokenAgent.exe` (Windows)
+1. Mở `/Applications/VMSignAgent.app` (macOS) hoặc chạy `VMSignAgent.exe` (Windows)
 2. Đợi 2-3 giây rồi thử lại
 3. Kiểm tra USB Token đã cắm đúng chưa
 

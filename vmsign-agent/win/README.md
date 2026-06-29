@@ -1,4 +1,4 @@
-# UsbTokenAgent — Windows (.NET Framework 4.6.1)
+# VMSignAgent — Windows (.NET Framework 4.6.1)
 
 Agent chạy nền trên Windows, cung cấp HTTP API để ký số qua USB Token (PKCS#11) và Windows Certificate Store (CNG).
 
@@ -19,15 +19,15 @@ Agent chạy nền trên Windows, cung cấp HTTP API để ký số qua USB Tok
 ## Build
 
 ```bash
-dotnet build UsbTokenAgent.csproj -c Release
-# Output: bin\Release\net461\UsbTokenAgent.exe
+dotnet build VMSignAgent.csproj -c Release
+# Output: bin\Release\net461\VMSignAgent.exe
 ```
 
 ## Chạy
 
 ```bash
 # Chạy nền (không cửa sổ)
-UsbTokenAgent.exe
+VMSignAgent.exe
 
 # Hoặc sau khi cài setup.exe, chạy từ Program Files
 ```
@@ -54,8 +54,8 @@ File `app.config`:
 ## Cấu trúc
 
 ```
-usb-token-agent/win/
-├── UsbTokenAgent.csproj       # .NET Framework 4.6.1 project
+vmsign-agent/win/
+├── VMSignAgent.csproj       # .NET Framework 4.6.1 project
 ├── Program.cs                 # Entry point, HTTP listener
 ├── TokenSigner.cs             # Logic ký (PKCS#11 + CNG)
 ├── Pkcs11Signer.cs            # PKCS#11 wrapper (Pkcs11Interop)
@@ -67,5 +67,5 @@ usb-token-agent/win/
 
 ## Phân phối
 
-Agent được phân phối qua repo công khai [tamnguyendev/usb-token-agent-dist](https://github.com/tamnguyendev/usb-token-agent-dist).  
-Ứng dụng VimesSign tự động tải agent khi build trên Windows (qua `build/download-usb-agent.ps1`).
+Agent được phân phối qua repo công khai [tamnguyendev/vmsign-agent-dist](https://github.com/tamnguyendev/vmsign-agent-dist).  
+Ứng dụng VimesSign tự động tải agent khi build trên Windows (qua `build/download-vmsign-agent.ps1`).

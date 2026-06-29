@@ -11,7 +11,7 @@ graph TB
         AutoUpdate[Auto-Update<br/>Velopack + GitHub Releases]
     end
 
-    subgraph "USB Token Agent"
+    subgraph "VMSign Agent"
         AgentMac[macOS Agent<br/>Swift / Menu Bar]
         AgentWin[Windows Agent<br/>.NET Framework 4.6.1]
     end
@@ -81,7 +81,7 @@ sequenceDiagram
 graph LR
     Dev[Developer] -->|push tag| GH[GitHub]
     GH -->|sign-app-v*| WF1[Build Sign App<br/>macOS + Windows]
-    GH -->|usb-token-agent-v*| WF2[Build Agent<br/>macOS + Windows]
+    GH -->|vmsign-agent-v*| WF2[Build Agent<br/>macOS + Windows]
 
     WF1 -->|vpk pack| VP[Velopack Packages]
     WF1 -->|InnoSetup / pkgbuild| Installer[Traditional Installers]
@@ -96,7 +96,7 @@ graph LR
 ```
 vn-sign-sample/
 ├── sign-app/                    ← Ứng dụng ký số (Avalonia UI, cross-platform)
-├── usb-token-agent/
+├── vmsign-agent/
 │   ├── mac/                     ← Agent macOS (Swift native, menu bar)
 │   └── win/                     ← Agent Windows (.NET Framework 4.6.1)
 ├── mqtt/                        ← MQTT Broker cho ký số từ xa (Docker)
@@ -122,7 +122,7 @@ vn-sign-sample/
 - **Ký PDF**: Ký số có hình ảnh, vị trí tùy chỉnh bằng kéo thả trên preview
 - **Ký XML**: Hỗ trợ Học Bạ (NEAC), Lý Lịch, Tổng Kết — phân tích tự động document type
 - **Ký hàng loạt**: Ký nhiều file PDF cùng lúc
-- **USB Token**: Tích hợp UsbTokenAgent để ký trực tiếp từ phần cứng PKCS#11
+- **USB Token**: Tích hợp VMSignAgent để ký trực tiếp từ phần cứng PKCS#11
 
 ## Cài đặt nhanh
 
@@ -132,7 +132,7 @@ Tải bộ cài từ [Releases](https://github.com/vimesjscvn/vn-sign-sample/rel
 
 | Nền tảng | File | Mô tả |
 |----------|------|-------|
-| macOS (arm64) | `VimesSign-mac-arm64-*.pkg` | Cài cả VimesSign + UsbTokenAgent |
+| macOS (arm64) | `VimesSign-mac-arm64-*.pkg` | Cài cả VimesSign + VMSignAgent |
 | Windows (x64) | `VimesSign-win-x64-*-setup.exe` | Trình cài đặt InnoSetup |
 
 ### Lập trình viên
@@ -146,26 +146,26 @@ cp sign-app/appsettings.example.json sign-app/appsettings.json
 # (Chỉnh sửa appsettings.json với thông tin merchant)
 dotnet run --project sign-app/VMSign.csproj
 
-# Build USB Token Agent (macOS)
-cd usb-token-agent/mac && swift build -c release
+# Build VMSign Agent (macOS)
+cd vmsign-agent/mac && swift build -c release
 
-# Build USB Token Agent (Windows)
-cd usb-token-agent/win && dotnet build -c Release
+# Build VMSign Agent (Windows)
+cd vmsign-agent/win && dotnet build -c Release
 ```
 
 ## CI/CD
 
 | Workflow | Trigger | Mô tả |
 |----------|---------|--------|
-| `build-sign-app.yml` | `sign-app-v*.*.*` | Build VimesSign + UsbTokenAgent cho cả macOS (.pkg) và Windows (.exe) |
-| `build-usb-token-agent-mac.yml` | `usb-token-agent-v*.*.*` | Build UsbTokenAgent standalone macOS .pkg |
-| `build-usb-token-agent-win.yml` | `usb-token-agent-v*.*.*` | Build UsbTokenAgent standalone Windows .zip + .exe |
+| `build-sign-app.yml` | `sign-app-v*.*.*` | Build VimesSign + VMSignAgent cho cả macOS (.pkg) và Windows (.exe) |
+| `build-vmsign-agent-mac.yml` | `vmsign-agent-v*.*.*` | Build VMSignAgent standalone macOS .pkg |
+| `build-vmsign-agent-win.yml` | `vmsign-agent-v*.*.*` | Build VMSignAgent standalone Windows .zip + .exe |
 
 ## Tài liệu chi tiết
 
 - [sign-app/README.md](sign-app/README.md) — Hướng dẫn ứng dụng ký số
-- [usb-token-agent/mac/README.md](usb-token-agent/mac/README.md) — Agent macOS
-- [usb-token-agent/win/README.md](usb-token-agent/win/README.md) — Agent Windows
+- [vmsign-agent/mac/README.md](vmsign-agent/mac/README.md) — Agent macOS
+- [vmsign-agent/win/README.md](vmsign-agent/win/README.md) — Agent Windows
 - [mqtt/README.md](mqtt/README.md) — MQTT Broker cho ký từ xa
 
 ## Phiên bản SDK

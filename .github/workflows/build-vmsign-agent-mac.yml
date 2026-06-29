@@ -1,13 +1,13 @@
-name: Build UsbTokenAgent (macOS PKG)
+name: Build VMSignAgent (macOS PKG)
 
 on:
   push:
     branches: [main]
     tags:
-      - 'usb-token-agent-v*.*.*'
+      - 'vmsign-agent-v*.*.*'
     paths:
-      - 'usb-token-agent/mac/**'
-      - '.github/workflows/build-usb-token-agent-mac.yml'
+      - 'vmsign-agent/mac/**'
+      - '.github/workflows/build-vmsign-agent-mac.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -15,16 +15,16 @@ on:
         required: true
 
 jobs:
-  build-usb-token-agent:
+  build-vmsign-agent:
     runs-on: macos-14  # Apple Silicon (M1) runner
     permissions:
       contents: write
 
     env:
-      APP_NAME: UsbTokenAgent
-      BUNDLE_ID: com.vimes.usbtokenagent
-      INSTALL_LOCATION: /Applications/UsbTokenAgent.app
-      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/usb-token-agent-v') || github.event_name == 'workflow_dispatch' }}
+      APP_NAME: VMSignAgent
+      BUNDLE_ID: com.vimes.vmsignagent
+      INSTALL_LOCATION: /Applications/VMSignAgent.app
+      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/vmsign-agent-v') || github.event_name == 'workflow_dispatch' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,9 +34,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          elif [[ "${GITHUB_REF_NAME}" == usb-token-agent-v* ]]; then
+          elif [[ "${GITHUB_REF_NAME}" == vmsign-agent-v* ]]; then
             TAG="${GITHUB_REF_NAME}"
-            echo "VERSION=${TAG#usb-token-agent-}" >> $GITHUB_OUTPUT
+            echo "VERSION=${TAG#vmsign-agent-}" >> $GITHUB_OUTPUT
           else
             echo "VERSION=v0.0.0-dev" >> $GITHUB_OUTPUT
           fi
@@ -79,21 +79,21 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
       # ── Build Swift package ────────────────────────────────────────────────
-      - name: Build UsbTokenAgent (Release)
-        working-directory: usb-token-agent/mac
+      - name: Build VMSignAgent (Release)
+        working-directory: vmsign-agent/mac
         run: |
           swift build -c release
 
       # ── Create .app bundle ─────────────────────────────────────────────────
       - name: Create .app bundle
-        working-directory: usb-token-agent/mac
+        working-directory: vmsign-agent/mac
         run: |
           APP_DIR="build/${{ env.APP_NAME }}.app"
           mkdir -p "$APP_DIR/Contents/MacOS"
           mkdir -p "$APP_DIR/Contents/Resources"
 
           # Copy binary
-          cp .build/release/UsbTokenAgent "$APP_DIR/Contents/MacOS/UsbTokenAgent"
+          cp .build/release/VMSignAgent "$APP_DIR/Contents/MacOS/VMSignAgent"
 
           # Copy resources (use example config on CI)
           if [ -f "Resources/appsettings.json" ]; then
@@ -114,7 +114,7 @@ jobs:
           <plist version="1.0">
           <dict>
             <key>CFBundleExecutable</key>
-            <string>UsbTokenAgent</string>
+            <string>VMSignAgent</string>
             <key>CFBundleIdentifier</key>
             <string>${{ env.BUNDLE_ID }}</string>
             <key>CFBundleName</key>
@@ -140,7 +140,7 @@ jobs:
       # ── Code sign the .app ─────────────────────────────────────────────────
       - name: Codesign .app bundle
         if: env.IS_RELEASE == 'true'
-        working-directory: usb-token-agent/mac
+        working-directory: vmsign-agent/mac
         env:
           DEV_ID_APP_NAME: ${{ secrets.DEV_ID_APP_NAME }}
         run: |
@@ -165,7 +165,7 @@ jobs:
       # ── Build the .pkg installer ───────────────────────────────────────────
       - name: Build .pkg installer
         if: env.IS_RELEASE == 'true'
-        working-directory: usb-token-agent/mac
+        working-directory: vmsign-agent/mac
         env:
           DEV_ID_INSTALLER_NAME: ${{ secrets.DEV_ID_INSTALLER_NAME }}
         run: |
@@ -201,7 +201,7 @@ jobs:
       # ── Notarize the .pkg ──────────────────────────────────────────────────
       - name: Notarize .pkg
         if: env.IS_RELEASE == 'true'
-        working-directory: usb-token-agent/mac
+        working-directory: vmsign-agent/mac
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -222,7 +222,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PKG_NAME }}
-          path: usb-token-agent/mac/${{ env.PKG_PATH }}
+          path: vmsign-agent/mac/${{ env.PKG_PATH }}
 
       # ── Create GitHub Release ──────────────────────────────────────────────
       - name: Create GitHub Release
@@ -230,7 +230,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: "${{ env.APP_NAME }} ${{ steps.ver.outputs.VERSION }}"
-          files: usb-token-agent/mac/${{ env.PKG_PATH }}
+          files: vmsign-agent/mac/${{ env.PKG_PATH }}
           body: |
             ## ${{ env.APP_NAME }} ${{ steps.ver.outputs.VERSION }}
 
@@ -239,7 +239,7 @@ jobs:
             ### Install
             1. Download the `.pkg` file below
             2. Double-click to install (notarized, no Gatekeeper warnings)
-            3. App installs to `/Applications/UsbTokenAgent.app`
+            3. App installs to `/Applications/VMSignAgent.app`
             4. Launch from Applications — runs as menu bar icon (no Dock)
 
             ### Requirements

@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "UsbTokenAgent": {
+    "VMSignAgent": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {

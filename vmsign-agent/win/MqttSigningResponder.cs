@@ -11,7 +11,7 @@ using MQTTnet.Client.Options;
 using MQTTnet.Protocol;
 using Newtonsoft.Json;
 
-namespace UsbTokenAgent;
+namespace VMSignAgent;
 
 /// <summary>
 /// MQTT transport for cross-subnet / NAT deployments (MQTTnet 3.x).
@@ -102,7 +102,7 @@ public sealed class MqttSigningResponder
     private IMqttClientOptions BuildOptions()
     {
         var offline = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
-            new MqttPresence("vimes-usb-agent", _agentId, Dns.GetHostName(), _httpPort, false,
+            new MqttPresence("vmsign-agent", _agentId, Dns.GetHostName(), _httpPort, false,
                 new List<PresenceCert>(), DateTimeOffset.UtcNow)));
 
         var builder = new MqttClientOptionsBuilder()
@@ -129,7 +129,7 @@ public sealed class MqttSigningResponder
                 .ToList()
             : new List<PresenceCert>();
         var payload = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
-            new MqttPresence("vimes-usb-agent", _agentId, Dns.GetHostName(),
+            new MqttPresence("vmsign-agent", _agentId, Dns.GetHostName(),
                 _httpPort, online, certs, DateTimeOffset.UtcNow)));
         await client.PublishAsync(new MqttApplicationMessageBuilder()
             .WithTopic(StatusTopic)
