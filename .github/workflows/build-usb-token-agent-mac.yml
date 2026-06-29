@@ -6,7 +6,7 @@ on:
     tags:
       - 'usb-token-agent-v*.*.*'
     paths:
-      - 'mac/usb-token-agent-mac/**'
+      - 'usb-token-agent/mac/**'
       - '.github/workflows/build-usb-token-agent-mac.yml'
   workflow_dispatch:
     inputs:
@@ -80,13 +80,13 @@ jobs:
 
       # ── Build Swift package ────────────────────────────────────────────────
       - name: Build UsbTokenAgent (Release)
-        working-directory: mac/usb-token-agent-mac
+        working-directory: usb-token-agent/mac
         run: |
           swift build -c release
 
       # ── Create .app bundle ─────────────────────────────────────────────────
       - name: Create .app bundle
-        working-directory: mac/usb-token-agent-mac
+        working-directory: usb-token-agent/mac
         run: |
           APP_DIR="build/${{ env.APP_NAME }}.app"
           mkdir -p "$APP_DIR/Contents/MacOS"
@@ -140,7 +140,7 @@ jobs:
       # ── Code sign the .app ─────────────────────────────────────────────────
       - name: Codesign .app bundle
         if: env.IS_RELEASE == 'true'
-        working-directory: mac/usb-token-agent-mac
+        working-directory: usb-token-agent/mac
         env:
           DEV_ID_APP_NAME: ${{ secrets.DEV_ID_APP_NAME }}
         run: |
@@ -165,7 +165,7 @@ jobs:
       # ── Build the .pkg installer ───────────────────────────────────────────
       - name: Build .pkg installer
         if: env.IS_RELEASE == 'true'
-        working-directory: mac/usb-token-agent-mac
+        working-directory: usb-token-agent/mac
         env:
           DEV_ID_INSTALLER_NAME: ${{ secrets.DEV_ID_INSTALLER_NAME }}
         run: |
@@ -201,7 +201,7 @@ jobs:
       # ── Notarize the .pkg ──────────────────────────────────────────────────
       - name: Notarize .pkg
         if: env.IS_RELEASE == 'true'
-        working-directory: mac/usb-token-agent-mac
+        working-directory: usb-token-agent/mac
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -222,7 +222,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PKG_NAME }}
-          path: mac/usb-token-agent-mac/${{ env.PKG_PATH }}
+          path: usb-token-agent/mac/${{ env.PKG_PATH }}
 
       # ── Create GitHub Release ──────────────────────────────────────────────
       - name: Create GitHub Release
@@ -230,7 +230,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: "${{ env.APP_NAME }} ${{ steps.ver.outputs.VERSION }}"
-          files: mac/usb-token-agent-mac/${{ env.PKG_PATH }}
+          files: usb-token-agent/mac/${{ env.PKG_PATH }}
           body: |
             ## ${{ env.APP_NAME }} ${{ steps.ver.outputs.VERSION }}
 

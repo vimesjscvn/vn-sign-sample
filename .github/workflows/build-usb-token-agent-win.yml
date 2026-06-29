@@ -13,7 +13,7 @@ on:
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_NOLOGO: true
-  PROJECT: win/usb-token-agent-win/UsbTokenAgent.csproj
+  PROJECT: usb-token-agent/win/UsbTokenAgent.csproj
 
 jobs:
   release:
@@ -51,11 +51,11 @@ jobs:
       - name: Collect artifacts
         shell: pwsh
         run: |
-          $out = "win\usb-token-agent-win\bin\Release\net461"
+          $out = "usb-token-agent\win\bin\Release\net461"
           New-Item -ItemType Directory -Force publish | Out-Null
           Get-ChildItem $out -File | Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
             Copy-Item -Destination publish\
-          Copy-Item "win\usb-token-agent-win\app.config" publish\app.config.example
+          Copy-Item "usb-token-agent\win\app.config" publish\app.config.example
 
       - name: Zip release
         shell: pwsh

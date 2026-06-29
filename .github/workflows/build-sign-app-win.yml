@@ -39,7 +39,7 @@ jobs:
       - name: Build and Publish WinForms Sample
         shell: bash
         run: |
-          dotnet publish win/sign-app-win/WinFormsSample.csproj \
+          dotnet publish sign-app/win/WinFormsSample.csproj \
             -c Release \
             -r win-x64 \
             --self-contained true \
@@ -50,14 +50,14 @@ jobs:
 
       - name: Copy config template (WinForms)
         shell: pwsh
-        run: Copy-Item win\sign-app-win\appsettings.example.json publish-winforms\appsettings.json
+        run: Copy-Item sign-app\win\appsettings.example.json publish-winforms\appsettings.json
 
       - name: Download Windows UsbTokenAgent (WinForms)
         shell: pwsh
         run: |
           $cache = Join-Path $env:LOCALAPPDATA ".usb-agent-cache"
           $out   = (Resolve-Path "publish-winforms").Path
-          & "win\sign-app-win\build\download-usb-agent.ps1" `
+          & "sign-app\win\build\download-usb-agent.ps1" `
               -Version "latest" `
               -CacheDir $cache `
               -OutDir $out
@@ -71,7 +71,7 @@ jobs:
       - name: Build and Publish Avalonia Windows Sample
         shell: bash
         run: |
-          dotnet publish mac/sign-app-mac/VimesSignSample.csproj \
+          dotnet publish sign-app/mac/VimesSignSample.csproj \
             -c Release \
             -r win-x64 \
             --self-contained true \
@@ -82,14 +82,14 @@ jobs:
 
       - name: Copy config template (Avalonia Win)
         shell: pwsh
-        run: Copy-Item mac\sign-app-mac\appsettings.example.json publish-avalonia-win\appsettings.json
+        run: Copy-Item sign-app\mac\appsettings.example.json publish-avalonia-win\appsettings.json
 
       - name: Download Windows UsbTokenAgent (Avalonia Win)
         shell: pwsh
         run: |
           $cache = Join-Path $env:LOCALAPPDATA ".usb-agent-cache"
           $out   = (Resolve-Path "publish-avalonia-win").Path
-          & "win\sign-app-win\build\download-usb-agent.ps1" `
+          & "sign-app\win\build\download-usb-agent.ps1" `
               -Version "latest" `
               -CacheDir $cache `
               -OutDir $out
@@ -130,7 +130,7 @@ jobs:
       - name: Build and Publish Avalonia Mac arm64
         shell: bash
         run: |
-          dotnet publish mac/sign-app-mac/VimesSignSample.csproj \
+          dotnet publish sign-app/mac/VimesSignSample.csproj \
             -c Release \
             -r osx-arm64 \
             --self-contained true \
@@ -139,7 +139,7 @@ jobs:
             -o ./publish-osx-arm64
 
       - name: Copy config template (Mac arm64)
-        run: cp mac/sign-app-mac/appsettings.example.json ./publish-osx-arm64/appsettings.json
+        run: cp sign-app/mac/appsettings.example.json ./publish-osx-arm64/appsettings.json
 
       - name: Zip Mac arm64 Release
         run: |
@@ -150,7 +150,7 @@ jobs:
       - name: Build and Publish Avalonia Mac x64
         shell: bash
         run: |
-          dotnet publish mac/sign-app-mac/VimesSignSample.csproj \
+          dotnet publish sign-app/mac/VimesSignSample.csproj \
             -c Release \
             -r osx-x64 \
             --self-contained true \
@@ -159,7 +159,7 @@ jobs:
             -o ./publish-osx-x64
 
       - name: Copy config template (Mac x64)
-        run: cp mac/sign-app-mac/appsettings.example.json ./publish-osx-x64/appsettings.json
+        run: cp sign-app/mac/appsettings.example.json ./publish-osx-x64/appsettings.json
 
       - name: Zip Mac x64 Release
         run: |
