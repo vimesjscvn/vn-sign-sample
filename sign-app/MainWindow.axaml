@@ -540,6 +540,9 @@
                   <!-- Rendered PDF Page -->
                   <Image Name="imgPdfPage" Width="595" Height="842"/>
 
+                  <!-- Clickable signature form fields from PDF -->
+                  <ItemsControl Name="icFormFields"/>
+
                   <!-- Selection rectangle borders -->
                   <Border Name="rectSig" BorderBrush="#2563EB" BorderThickness="2" Background="#222563EB" IsVisible="False">
                     <TextBlock Text="Signature Box" Foreground="#2563EB" FontSize="11" Margin="5"/>

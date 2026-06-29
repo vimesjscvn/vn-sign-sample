@@ -455,6 +455,9 @@ public partial class MainWindow : Window
                     }
                 }
             }
+
+            // Detect and show clickable signature form fields
+            DetectSignatureFields(pdfPath);
         }
         catch (Exception ex)
         {
@@ -463,6 +466,100 @@ public partial class MainWindow : Window
         }
 
         UpdatePlacementRects();
+    }
+
+    private void DetectSignatureFields(string pdfPath)
+    {
+        try
+        {
+            // Clear previous form field overlays
+            icFormFields.ItemsSource = null;
+            var children = panelSigPlacementMock.Children
+                .OfType<Avalonia.Controls.Button>()
+                .Where(b => b.Tag is string s && s == "FormField")
+                .ToList();
+            foreach (var c in children) panelSigPlacementMock.Children.Remove(c);
+
+            using var reader = new iText.Kernel.Pdf.PdfReader(pdfPath);
+            using var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader);
+            var acroForm = iText.Forms.PdfAcroForm.GetAcroForm(pdfDoc, false);
+            if (acroForm == null) return;
+
+            var fields = acroForm.GetFormFields();
+            int pageNum = _activePageNum;
+
+            foreach (var kvp in fields)
+            {
+                var field = kvp.Value;
+                // Look for signature fields (empty ones that can be signed)
+                if (field is not iText.Forms.Fields.PdfSignatureFormField sigField) continue;
+
+                var widgets = sigField.GetWidgets();
+                if (widgets == null || widgets.Count == 0) continue;
+
+                foreach (var widget in widgets)
+                {
+                    var page = widget.GetPage();
+                    if (page == null) continue;
+                    int fieldPage = pdfDoc.GetPageNumber(page);
+                    if (fieldPage != pageNum) continue;
+
+                    var rect = widget.GetRectangle()?.ToRectangle();
+                    if (rect == null || rect.GetWidth() < 1 || rect.GetHeight() < 1) continue;
+
+                    // Convert PDF coordinates (bottom-left origin) to canvas (top-left origin)
+                    float x = rect.GetLeft();
+                    float y = _pageH - rect.GetTop();
+                    float w = rect.GetWidth();
+                    float h = rect.GetHeight();
+
+                    string fieldName = kvp.Key ?? "Signature";
+                    bool isSigned = sigField.GetValue() != null;
+
+                    var btn = new Avalonia.Controls.Button
+                    {
+                        Content = isSigned ? $"✅ {fieldName}" : $"✍️ Ký tại đây: {fieldName}",
+                        Width = w,
+                        Height = h,
+                        FontSize = Math.Min(11, h * 0.4),
+                        Tag = "FormField",
+                        Opacity = 0.85,
+                        Background = isSigned
+                            ? Avalonia.Media.Brushes.LightGreen
+                            : Avalonia.Media.Brushes.LightYellow,
+                        BorderBrush = isSigned
+                            ? Avalonia.Media.Brushes.Green
+                            : Avalonia.Media.Brushes.Orange,
+                        BorderThickness = new Thickness(2),
+                        HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                        VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    };
+
+                    if (!isSigned)
+                    {
+                        float capturedX = x, capturedY = rect.GetBottom(), capturedW = w, capturedH = h;
+                        btn.Click += (s, e) =>
+                        {
+                            _sigX = (int)capturedX;
+                            _sigY = (int)capturedY;
+                            _sigW = (int)capturedW;
+                            _sigH = (int)capturedH;
+                            UpdatePlacementRects();
+                            LogSystem($"Đã chọn vùng ký từ form field '{fieldName}': X={_sigX}, Y={_sigY}, W={_sigW}, H={_sigH}");
+                        };
+                    }
+
+                    Avalonia.Controls.Canvas.SetLeft(btn, x);
+                    Avalonia.Controls.Canvas.SetTop(btn, y);
+                    panelSigPlacementMock.Children.Add(btn);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Silently ignore — form field detection is optional
+            LogWarning($"Form field detection: {ex.Message}");
+        }
     }
 
     private void UpdatePlacementRects()
