@@ -46,9 +46,13 @@ Tài liệu hướng dẫn cài đặt và sử dụng ứng dụng ký số **V
 
 1. Tải file `VimesSign-win-x64-X.Y.Z-setup.exe` từ trang Releases
 2. Nhấp đúp vào file `.exe`
-3. Nhấn **Next** → Chọn thư mục cài đặt → **Install**
-4. Tùy chọn: Tạo biểu tượng Desktop
-5. Sau khi cài xong, mở từ Start Menu → **VimesSign**
+3. **Nếu xuất hiện cảnh báo "Windows protected your PC"** (SmartScreen):
+   - Nhấn **"More info"** (Thông tin thêm)
+   - Nhấn **"Run anyway"** (Vẫn chạy)
+   - Đây là cảnh báo bình thường cho ứng dụng chưa có chứng chỉ ký số Windows — ứng dụng an toàn
+4. Nhấn **Next** → Chọn thư mục cài đặt → **Install**
+5. Tùy chọn: Tạo biểu tượng Desktop
+6. Sau khi cài xong, mở từ Start Menu → **VimesSign**
 
 ### Cài riêng UsbTokenAgent (standalone)
 
