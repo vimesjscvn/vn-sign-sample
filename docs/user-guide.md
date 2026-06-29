@@ -50,6 +50,18 @@ Tài liệu hướng dẫn cài đặt và sử dụng ứng dụng ký số **V
 4. Tùy chọn: Tạo biểu tượng Desktop
 5. Sau khi cài xong, mở từ Start Menu → **VimesSign**
 
+### Cài riêng UsbTokenAgent (standalone)
+
+Nếu chỉ cần agent ký USB (không cần giao diện VimesSign), tải bản cài riêng:
+
+| Nền tảng | File | Mô tả |
+|----------|------|-------|
+| macOS | `UsbTokenAgent-mac-arm64-X.Y.Z.pkg` | Cài vào `/Applications/UsbTokenAgent.app` |
+| Windows | `UsbTokenAgent-win-x64-X.Y.Z-setup.exe` | Cài vào `C:\Program Files\UsbTokenAgent\` |
+| Windows (portable) | `UsbTokenAgent-vX.Y.Z.zip` | Giải nén và chạy trực tiếp |
+
+Tải từ [Releases](https://github.com/vimesjscvn/vn-sign-sample/releases) hoặc [usb-token-agent-dist](https://github.com/tamnguyendev/usb-token-agent-dist/releases).
+
 ---
 
 ## 3. Cấu hình lần đầu
