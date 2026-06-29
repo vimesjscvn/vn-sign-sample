@@ -3,7 +3,7 @@ name: Release UsbTokenAgent
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'usb-token-agent-v*.*.*'
   workflow_dispatch:
     inputs:
       version:
@@ -52,9 +52,13 @@ jobs:
         shell: pwsh
         run: |
           $out = "usb-token-agent\win\bin\Release\net461"
+          New-Item -ItemType Directory -Force usb-token-agent\win\build\publish | Out-Null
           New-Item -ItemType Directory -Force publish | Out-Null
           Get-ChildItem $out -File | Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
+            Copy-Item -Destination usb-token-agent\win\build\publish\
+          Get-ChildItem $out -File | Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
             Copy-Item -Destination publish\
+          Copy-Item "usb-token-agent\win\app.config" usb-token-agent\win\build\publish\app.config.example
           Copy-Item "usb-token-agent\win\app.config" publish\app.config.example
 
       - name: Zip release
@@ -62,6 +66,13 @@ jobs:
         run: |
           $ver = "${{ steps.ver.outputs.VERSION }}"
           Compress-Archive -Path publish\* -DestinationPath "UsbTokenAgent-$ver.zip"
+
+      - name: Build Windows Installer (InnoSetup)
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.VERSION }}" -replace '^v', ''
+          $env:APP_VERSION = $ver
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "usb-token-agent\win\installer\setup.iss"
 
       # Publish release to the PUBLIC dist repo so developers can download
       # without a token. DIST_REPO_TOKEN is a classic PAT with repo scope
@@ -73,7 +84,9 @@ jobs:
           repository: tamnguyendev/usb-token-agent-dist
           tag_name: ${{ steps.ver.outputs.VERSION }}
           name: "UsbTokenAgent ${{ steps.ver.outputs.VERSION }}"
-          files: UsbTokenAgent-*.zip
+          files: |
+            UsbTokenAgent-*.zip
+            usb-token-agent/win/build/UsbTokenAgent-win-x64-*-setup.exe
           body: |
             ## UsbTokenAgent ${{ steps.ver.outputs.VERSION }}
 
