@@ -427,7 +427,9 @@ public partial class MainWindow : Window
                         var height = pageReader.GetPageHeight();
                         _pageW = width;
                         _pageH = height;
-                        var rawBytes = pageReader.GetImage(Docnet.Core.Models.RenderFlags.RenderAnnotations);
+                        var rawBytes = pageReader.GetImage(
+                            Docnet.Core.Models.RenderFlags.RenderAnnotations
+                            | (Docnet.Core.Models.RenderFlags)0x800);  // FPDF_PRINTING: renders form fields including signatures
 
                         // Set canvas sizes dynamically to match PDF coordinates
                         panelSigPlacementMock.Width = width;
