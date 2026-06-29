@@ -19,7 +19,7 @@ using Signature.Domain.API;
 using Core.Common.Common;
 using Core.Config.Settings;
 
-namespace VimesSignSample;
+namespace VMSign;
 
 public partial class MainWindow : Window
 {

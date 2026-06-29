@@ -239,7 +239,7 @@ Mở file log tại `~/.config/vimes-sign/logs/` để xem trạng thái cập n
 
 **Giải pháp**: Mở Terminal và chạy:
 ```bash
-/Applications/VimesSign.app/Contents/MacOS/VimesSignSample
+/Applications/VimesSign.app/Contents/MacOS/VMSign
 ```
 Xem thông báo lỗi hiển thị.
 

@@ -25,7 +25,7 @@ using Vimes.SignSDK.Merchants.CMC;
 using Core.Config.Settings;
 using Vimes.SignSDK.Helpers;
 
-namespace VimesSignSample;
+namespace VMSign;
 
 public static class Program
 {

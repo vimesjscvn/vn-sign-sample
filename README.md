@@ -144,7 +144,7 @@ cd vn-sign-sample
 # Chạy ứng dụng ký số
 cp sign-app/appsettings.example.json sign-app/appsettings.json
 # (Chỉnh sửa appsettings.json với thông tin merchant)
-dotnet run --project sign-app/VimesSignSample.csproj
+dotnet run --project sign-app/VMSign.csproj
 
 # Build USB Token Agent (macOS)
 cd usb-token-agent/mac && swift build -c release

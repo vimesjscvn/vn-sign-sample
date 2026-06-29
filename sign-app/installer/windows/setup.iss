@@ -8,7 +8,7 @@
 #endif
 #define MyAppPublisher "VIETNAM MEDICAL SOFTWARE JSC"
 #define MyAppURL "https://github.com/vimesjscvn/vn-sign-sample"
-#define MyAppExeName "VimesSignSample.exe"
+#define MyAppExeName "VMSign.exe"
 
 [Setup]
 AppId={{B5A2F8E1-4C3D-4A7B-9E1F-2D3A4B5C6D7E}

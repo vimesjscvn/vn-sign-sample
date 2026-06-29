@@ -59,17 +59,17 @@ Với HOC_BA, XPath dropdown hiển thị các vai trò ký:
 
 ```bash
 # macOS (arm64)
-dotnet publish VimesSignSample.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=false
+dotnet publish VMSign.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=false
 
 # Windows (x64)
-dotnet publish VimesSignSample.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish VMSign.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
 ## Cấu trúc thư mục
 
 ```
 sign-app/
-├── VimesSignSample.csproj     # Project file (.NET 8, Avalonia)
+├── VMSign.csproj     # Project file (.NET 8, Avalonia)
 ├── Program.cs                 # Entry point, DI, cấu hình
 ├── MainWindow.axaml           # Giao diện XAML
 ├── MainWindow.axaml.cs        # Logic xử lý (ký PDF, XML, batch)

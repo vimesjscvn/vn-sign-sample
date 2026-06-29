@@ -93,7 +93,7 @@ jobs:
         run: |
           VER=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
           cp sign-app/appsettings.example.json sign-app/appsettings.json
-          dotnet publish sign-app/VimesSignSample.csproj \
+          dotnet publish sign-app/VMSign.csproj \
             -c Release -r osx-arm64 --self-contained true \
             -p:PublishSingleFile=false -p:Version=$VER \
             -o publish/sign-app
@@ -111,7 +111,7 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleExecutable</key><string>VimesSignSample</string>
+            <key>CFBundleExecutable</key><string>VMSign</string>
             <key>CFBundleIdentifier</key><string>${{ env.BUNDLE_ID_SIGN }}</string>
             <key>CFBundleName</key><string>${{ env.SIGN_APP_NAME }}</string>
             <key>CFBundleVersion</key><string>${VERSION}</string>
@@ -205,7 +205,7 @@ jobs:
             --packId VimesSign \
             --packVersion "$VERSION" \
             --packDir publish/sign-app \
-            --mainExe VimesSignSample \
+            --mainExe VMSign \
             --outputDir build/velopack-mac
 
       - name: Upload Velopack macOS artifact
@@ -255,7 +255,7 @@ jobs:
         run: |
           VER=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
           cp sign-app/appsettings.example.json sign-app/appsettings.json
-          dotnet publish sign-app/VimesSignSample.csproj \
+          dotnet publish sign-app/VMSign.csproj \
             -c Release -r win-x64 --self-contained true \
             -p:PublishSingleFile=false -p:PublishReadyToRun=true \
             -p:Version=$VER \
@@ -287,7 +287,7 @@ jobs:
             --packId VimesSign \
             --packVersion "$VER" \
             --packDir sign-app/build/win-publish \
-            --mainExe VimesSignSample.exe \
+            --mainExe VMSign.exe \
             --outputDir sign-app/build/velopack-win
 
       - name: Build Windows Installer (InnoSetup)
