@@ -1,4 +1,4 @@
-name: Build Sign App (macOS PKG)
+name: Build Sign App (macOS + Windows)
 
 on:
   push:
@@ -7,9 +7,8 @@ on:
       - 'sign-app-v*.*.*'
     paths:
       - 'sign-app/**'
-      - 'usb-token-agent/mac/**'
-      - 'nuget.config'
-      - '.github/workflows/build-sign-app-mac.yml'
+      - 'usb-token-agent/**'
+      - '.github/workflows/build-sign-app.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -17,7 +16,10 @@ on:
         required: true
 
 jobs:
-  build-sign-app:
+  # ════════════════════════════════════════════════════════════════════════════
+  # macOS: Build .pkg (VimesSign + UsbTokenAgent)
+  # ════════════════════════════════════════════════════════════════════════════
+  build-macos:
     runs-on: macos-14
     permissions:
       contents: write
@@ -27,7 +29,6 @@ jobs:
       AGENT_APP_NAME: UsbTokenAgent
       BUNDLE_ID_SIGN: com.vimes.signsample
       BUNDLE_ID_AGENT: com.vimes.usbtokenagent
-      PROJECT_DIR: sign-app
       IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/sign-app-v') || github.event_name == 'workflow_dispatch' }}
 
     steps:
@@ -49,9 +50,6 @@ jobs:
         with:
           dotnet-version: '8.x'
 
-      # ══════════════════════════════════════════════════════════════════════
-      # BUILD: UsbTokenAgent (Swift)
-      # ══════════════════════════════════════════════════════════════════════
       - name: Build UsbTokenAgent (Swift)
         working-directory: usb-token-agent/mac
         run: swift build -c release
@@ -91,13 +89,10 @@ jobs:
           </plist>
           EOF
 
-      # ══════════════════════════════════════════════════════════════════════
-      # BUILD: VimesSign (.NET Avalonia)
-      # ══════════════════════════════════════════════════════════════════════
-      - name: Publish VimesSign (.NET)
+      - name: Publish VimesSign (osx-arm64)
         run: |
           VER=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
-          dotnet publish ${{ env.PROJECT_DIR }}/VimesSignSample.csproj \
+          dotnet publish sign-app/VimesSignSample.csproj \
             -c Release -r osx-arm64 --self-contained true \
             -p:PublishSingleFile=false -p:Version=$VER \
             -o publish/sign-app
@@ -107,10 +102,7 @@ jobs:
           VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
           APP_DIR="publish/${{ env.SIGN_APP_NAME }}.app"
           mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-
           cp -R publish/sign-app/* "$APP_DIR/Contents/MacOS/"
-
-          # Copy app icon
           cp sign-app/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
 
           cat > "$APP_DIR/Contents/Info.plist" << EOF
@@ -131,9 +123,6 @@ jobs:
           </plist>
           EOF
 
-      # ══════════════════════════════════════════════════════════════════════
-      # SIGN + PACKAGE (only on release tags)
-      # ══════════════════════════════════════════════════════════════════════
       - name: Import Developer ID certificates
         if: env.IS_RELEASE == 'true'
         env:
@@ -147,17 +136,10 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
           echo "$DEV_ID_APP_P12" | base64 --decode > $RUNNER_TEMP/dev_id_app.p12
-          security import $RUNNER_TEMP/dev_id_app.p12 \
-            -k $KEYCHAIN_PATH -P "$DEV_ID_APP_PASSWORD" \
-            -T /usr/bin/codesign -T /usr/bin/productbuild
-
+          security import $RUNNER_TEMP/dev_id_app.p12 -k $KEYCHAIN_PATH -P "$DEV_ID_APP_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
           echo "$DEV_ID_INSTALLER_P12" | base64 --decode > $RUNNER_TEMP/dev_id_installer.p12
-          security import $RUNNER_TEMP/dev_id_installer.p12 \
-            -k $KEYCHAIN_PATH -P "$DEV_ID_INSTALLER_PASSWORD" \
-            -T /usr/bin/codesign -T /usr/bin/productbuild -T /usr/bin/pkgbuild
-
+          security import $RUNNER_TEMP/dev_id_installer.p12 -k $KEYCHAIN_PATH -P "$DEV_ID_INSTALLER_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild -T /usr/bin/pkgbuild
           security list-keychains -d user -s $KEYCHAIN_PATH
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
@@ -168,11 +150,8 @@ jobs:
         working-directory: usb-token-agent/mac
         run: |
           APP_DIR="build/${{ env.AGENT_APP_NAME }}.app"
-          find "$APP_DIR" -name "*.dylib" -exec \
-            codesign --force --options runtime --sign "$DEV_ID_APP_NAME" --timestamp {} \;
-          codesign --force --options runtime \
-            --sign "$DEV_ID_APP_NAME" --timestamp \
-            --entitlements entitlements.plist "$APP_DIR"
+          find "$APP_DIR" -name "*.dylib" -exec codesign --force --options runtime --sign "$DEV_ID_APP_NAME" --timestamp {} \;
+          codesign --force --options runtime --sign "$DEV_ID_APP_NAME" --timestamp --entitlements entitlements.plist "$APP_DIR"
           codesign --verify --deep --strict "$APP_DIR"
 
       - name: Codesign VimesSign
@@ -180,13 +159,10 @@ jobs:
         env:
           DEV_ID_APP_NAME: ${{ secrets.DEV_ID_APP_NAME }}
         run: |
-          APP_DIR="publish/${{ env.SIGN_APP_NAME }}.app"
-          codesign --force --deep --options runtime \
-            --sign "$DEV_ID_APP_NAME" --timestamp \
-            --entitlements sign-app/entitlements.plist "$APP_DIR"
-          codesign -vvv "$APP_DIR"
+          codesign --force --deep --options runtime --sign "$DEV_ID_APP_NAME" --timestamp --entitlements sign-app/entitlements.plist "publish/${{ env.SIGN_APP_NAME }}.app"
+          codesign -vvv "publish/${{ env.SIGN_APP_NAME }}.app"
 
-      - name: Build combined .pkg (VimesSign + UsbTokenAgent)
+      - name: Build .pkg
         if: env.IS_RELEASE == 'true'
         env:
           DEV_ID_INSTALLER_NAME: ${{ secrets.DEV_ID_INSTALLER_NAME }}
@@ -194,32 +170,9 @@ jobs:
           VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
           PKG_NAME="VimesSign-mac-arm64-${VERSION}.pkg"
           mkdir -p build
-
-          # Component 1: UsbTokenAgent → /Applications/UsbTokenAgent.app
-          pkgbuild \
-            --root "usb-token-agent/mac/build/${{ env.AGENT_APP_NAME }}.app" \
-            --identifier "${{ env.BUNDLE_ID_AGENT }}" \
-            --version "$VERSION" \
-            --install-location "/Applications/${{ env.AGENT_APP_NAME }}.app" \
-            build/agent.pkg
-
-          # Component 2: VimesSign → /Applications/VimesSign.app
-          pkgbuild \
-            --root "publish/${{ env.SIGN_APP_NAME }}.app" \
-            --identifier "${{ env.BUNDLE_ID_SIGN }}" \
-            --version "$VERSION" \
-            --install-location "/Applications/${{ env.SIGN_APP_NAME }}.app" \
-            build/sign.pkg
-
-          # Combined signed product pkg
-          productbuild \
-            --package build/agent.pkg \
-            --package build/sign.pkg \
-            --sign "$DEV_ID_INSTALLER_NAME" \
-            --timestamp \
-            "build/$PKG_NAME"
-
-          echo "PKG_PATH=build/$PKG_NAME" >> $GITHUB_ENV
+          pkgbuild --root "usb-token-agent/mac/build/${{ env.AGENT_APP_NAME }}.app" --identifier "${{ env.BUNDLE_ID_AGENT }}" --version "$VERSION" --install-location "/Applications/${{ env.AGENT_APP_NAME }}.app" build/agent.pkg
+          pkgbuild --root "publish/${{ env.SIGN_APP_NAME }}.app" --identifier "${{ env.BUNDLE_ID_SIGN }}" --version "$VERSION" --install-location "/Applications/${{ env.SIGN_APP_NAME }}.app" build/sign.pkg
+          productbuild --package build/agent.pkg --package build/sign.pkg --sign "$DEV_ID_INSTALLER_NAME" --timestamp "build/$PKG_NAME"
           echo "PKG_NAME=$PKG_NAME" >> $GITHUB_ENV
 
       - name: Notarize .pkg
@@ -229,46 +182,150 @@ jobs:
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcrun notarytool submit "$PKG_PATH" \
-            --apple-id "$APPLE_ID" --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" --wait --timeout 600
-          xcrun stapler staple "$PKG_PATH"
+          xcrun notarytool submit "build/$PKG_NAME" --apple-id "$APPLE_ID" --password "$APPLE_ID_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait --timeout 600
+          xcrun stapler staple "build/$PKG_NAME"
 
-      - name: Upload PKG artifact
+      - name: Upload macOS artifact
         if: env.IS_RELEASE == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PKG_NAME }}
-          path: ${{ env.PKG_PATH }}
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          name: "VimesSign ${{ steps.ver.outputs.VERSION }}"
-          files: ${{ env.PKG_PATH }}
-          body: |
-            ## VimesSign ${{ steps.ver.outputs.VERSION }}
-
-            macOS signing suite — installs both apps:
-            - **VimesSign** — Desktop signing UI (Avalonia .NET 8)
-            - **UsbTokenAgent** — Menu bar USB token agent (Swift native)
-
-            ### Install
-            1. Download the `.pkg` file
-            2. Double-click to install (notarized, no Gatekeeper warnings)
-            3. Both apps install to `/Applications/`
-
-            ### First Run
-            - Put your config at `~/.config/vimes-sign/appsettings.json`
-            - Launch **VimesSign** from Applications
-            - **UsbTokenAgent** launches automatically when USB signing is used
-
-            ### Requirements
-            - macOS 14+ (Sonoma or later)
-            - Apple Silicon (arm64)
-            - USB Token with PKCS#11 driver
+          name: macos-pkg
+          path: build/${{ env.PKG_NAME }}
 
       - name: Cleanup keychain
         if: env.IS_RELEASE == 'true' && always()
         run: security delete-keychain $RUNNER_TEMP/signing.keychain-db 2>/dev/null || true
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Windows: Build Setup.exe (VimesSign + UsbTokenAgent)
+  # ════════════════════════════════════════════════════════════════════════════
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    env:
+      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/sign-app-v') || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF_NAME}" == sign-app-v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            echo "VERSION=${TAG#sign-app-}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=v0.0.0-dev" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Publish VimesSign (win-x64)
+        shell: bash
+        run: |
+          VER=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
+          dotnet publish sign-app/VimesSignSample.csproj \
+            -c Release -r win-x64 --self-contained true \
+            -p:PublishSingleFile=true -p:PublishReadyToRun=true \
+            -p:Version=$VER \
+            -o sign-app/build/win-publish
+
+      - name: Copy config template
+        shell: pwsh
+        run: Copy-Item sign-app\appsettings.example.json sign-app\build\win-publish\appsettings.json
+
+      - name: Download UsbTokenAgent (Windows)
+        if: env.IS_RELEASE == 'true'
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:LOCALAPPDATA ".usb-agent-cache"
+          $out = (Resolve-Path "sign-app\build\win-publish").Path
+          & "sign-app\build\download-usb-agent.ps1" -Version "latest" -CacheDir $cache -OutDir $out
+
+      - name: Build Windows Installer (InnoSetup)
+        if: env.IS_RELEASE == 'true'
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.VERSION }}" -replace '^v', ''
+          $env:APP_VERSION = $ver
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "sign-app\installer\windows\setup.iss"
+
+      - name: Upload Windows artifact
+        if: env.IS_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: sign-app/build/VimesSign-win-x64-*-setup.exe
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Create GitHub Release (after both builds)
+  # ════════════════════════════════════════════════════════════════════════════
+  release:
+    if: startsWith(github.ref, 'refs/tags/sign-app-v') || github.event_name == 'workflow_dispatch'
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF_NAME}" == sign-app-v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            echo "VERSION=${TAG#sign-app-}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=v0.0.0-dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-pkg
+          path: dist/
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-setup
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "VimesSign ${{ steps.ver.outputs.VERSION }}"
+          files: dist/*
+          body: |
+            ## VimesSign ${{ steps.ver.outputs.VERSION }}
+
+            Ứng dụng ký số đa nền tảng — bao gồm VimesSign + UsbTokenAgent.
+
+            ### macOS (Apple Silicon)
+            1. Tải `VimesSign-mac-arm64-*.pkg`
+            2. Nhấp đúp để cài đặt (đã notarize, không cảnh báo Gatekeeper)
+            3. Cả hai ứng dụng cài vào `/Applications/`
+
+            ### Windows (x64)
+            1. Tải `VimesSign-win-x64-*-setup.exe`
+            2. Chạy trình cài đặt → Next → Install
+            3. Ứng dụng cài vào `C:\Program Files\VimesSign\`
+
+            ### Lần chạy đầu tiên
+            - **macOS**: Cấu hình tại `~/.config/vimes-sign/appsettings.json`
+            - **Windows**: Chỉnh sửa `appsettings.json` trong thư mục cài đặt
+
+            ### Yêu cầu
+            - macOS 14+ (Sonoma) hoặc Windows 10/11 x64
+            - USB Token có driver PKCS#11
