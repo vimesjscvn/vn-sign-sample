@@ -1,98 +1,84 @@
-# Vimes SignSDK — Desktop Studio & Samples
+# VN Sign Sample
 
-Kho mã nguồn chứa các ứng dụng mẫu trực quan minh họa toàn bộ tính năng của **Vimes SignSDK**: ký số PDF, ký số XML, định vị vị trí chữ ký trực quan, ký hàng loạt, và tích hợp với tất cả các nhà cung cấp dịch vụ chữ ký số (CA) hỗ trợ tại Việt Nam.
+Bộ ứng dụng ký số đa nền tảng (macOS + Windows) cho USB Token, chữ ký số đám mây và chữ ký số cục bộ.
 
-Kho chứa hiện tại bao gồm hai dự án:
-1. **[VimesSignSample](file:///Volumes/DATA/vimes/sources/4.Sign/vn-sign-sample/VimesSignSample)** (Mới): Ứng dụng cross-platform phát triển trên **Avalonia UI**, chạy mượt mà trên cả **macOS** (Apple Silicon & Intel) và **Windows**.
-2. **[WinFormsSample](file:///Volumes/DATA/vimes/sources/4.Sign/vn-sign-sample/WinFormsSample)**: Phiên bản Windows Forms gốc dành riêng cho hệ điều hành **Windows**.
+## Cấu trúc dự án
 
----
+```
+vn-sign-sample/
+├── sign-app/                    ← Ứng dụng ký số (Avalonia UI, cross-platform)
+├── usb-token-agent/
+│   ├── mac/                     ← Agent macOS (Swift native, menu bar)
+│   └── win/                     ← Agent Windows (.NET Framework 4.6.1)
+├── mqtt/                        ← MQTT Broker cho ký số từ xa (Docker)
+├── docs/                        ← Ảnh chụp màn hình, tài liệu
+└── .github/workflows/           ← CI/CD (GitHub Actions)
+```
 
-## Tính Năng & Các Nhà Cung Cấp Hỗ Trợ
+## Các nhà cung cấp hỗ trợ
 
 | Merchant | Loại | Mô tả |
 |----------|------|-------|
-| **MySign**  | Remote CA | Ký số đám mây Viettel MySign |
+| **MySign** | Remote CA | Ký số đám mây Viettel MySign |
 | **SmartCA** | Remote CA | Ký số đám mây VNPT SmartCA |
-| **BCY**     | Remote CA | Ký số đám mây BKAV (Ban Cơ Yếu) |
-| **CMC**     | Remote CA | Ký số đám mây CMC CA |
+| **BCY** | Remote CA | Ký số đám mây BKAV (Ban Cơ Yếu) |
+| **CMC** | Remote CA | Ký số đám mây CMC CA |
 | **InTrust** | Remote CA | Ký số đám mây InTrust CA |
-| **SIM**     | Remote CA | Ký số qua SIM/MSSP (OTP SMS) |
-| **USB**     | Local     | Ký số bằng USB Token / Smart Card qua PKCS#11 |
-| **Self**    | Local     | Ký số bằng file chứng thư cục bộ (.p12 / .pfx) |
+| **SIM** | Remote CA | Ký số qua SIM/MSSP (OTP SMS) |
+| **USB** | Local | Ký số bằng USB Token / Smart Card qua PKCS#11 |
+| **Self** | Local | Ký số bằng file chứng thư cục bộ (.p12 / .pfx) |
 
----
+## Tính năng chính
 
-## Hướng Dẫn Chạy & Cài Đặt Nhanh
+- **Ký PDF**: Ký số có hình ảnh, vị trí tùy chỉnh bằng kéo thả trên preview
+- **Ký XML**: Hỗ trợ Học Bạ (NEAC), Lý Lịch, Tổng Kết — phân tích tự động document type
+- **Ký hàng loạt**: Ký nhiều file PDF cùng lúc
+- **USB Token**: Tích hợp UsbTokenAgent để ký trực tiếp từ phần cứng PKCS#11
 
-### Yêu Cầu Hệ Thống
-- **.NET 8.0 SDK** trở lên — [tải xuống tại đây](https://dotnet.microsoft.com/download)
-- Hệ điều hành: **Windows 10/11** hoặc **macOS 14 (Sonoma)** trở lên.
+## Cài đặt nhanh
 
-### Cài đặt và Chạy thử:
+### Người dùng cuối
+
+Tải bộ cài từ [Releases](https://github.com/vimesjscvn/vn-sign-sample/releases):
+
+| Nền tảng | File | Mô tả |
+|----------|------|-------|
+| macOS (arm64) | `VimesSign-mac-arm64-*.pkg` | Cài cả VimesSign + UsbTokenAgent |
+| Windows (x64) | `VimesSign-win-x64-*-setup.exe` | Trình cài đặt InnoSetup |
+
+### Lập trình viên
 
 ```bash
 git clone https://github.com/vimesjscvn/vn-sign-sample.git
 cd vn-sign-sample
 
-# Tạo file cấu hình từ file mẫu
-cp VimesSignSample/appsettings.example.json VimesSignSample/appsettings.json
-# (Điền thông tin tài khoản CA của bạn vào file appsettings.json)
+# Chạy ứng dụng ký số
+cp sign-app/appsettings.example.json sign-app/appsettings.json
+# (Chỉnh sửa appsettings.json với thông tin merchant)
+dotnet run --project sign-app/VimesSignSample.csproj
 
-# Chạy ứng dụng cross-platform Avalonia
-dotnet run --project VimesSignSample/VimesSignSample.csproj
+# Build USB Token Agent (macOS)
+cd usb-token-agent/mac && swift build -c release
+
+# Build USB Token Agent (Windows)
+cd usb-token-agent/win && dotnet build -c Release
 ```
 
-Nếu bạn ở trên Windows và muốn chạy phiên bản WinForms cũ:
-```bash
-cp WinFormsSample/appsettings.example.json WinFormsSample/appsettings.json
-dotnet run --project WinFormsSample/WinFormsSample.csproj
-```
+## CI/CD
 
----
+| Workflow | Trigger | Mô tả |
+|----------|---------|--------|
+| `build-sign-app.yml` | `sign-app-v*.*.*` | Build VimesSign + UsbTokenAgent cho cả macOS (.pkg) và Windows (.exe) |
+| `build-usb-token-agent-mac.yml` | `usb-token-agent-v*.*.*` | Build UsbTokenAgent standalone macOS .pkg |
+| `build-usb-token-agent-win.yml` | `usb-token-agent-v*.*.*` | Build UsbTokenAgent standalone Windows .zip + .exe |
 
-## Cấu Hình Cài Đặt (`appsettings.json`)
+## Tài liệu chi tiết
 
-Các thiết lập quan trọng trong `appsettings.json`:
-- **MySignSetting / SmartCASetting**: Điền `ClientId`, `ClientSecret`, và `ProfileId` được cung cấp bởi nhà cung cấp.
-- **UsbSetting**: Thiết lập IP và Port kết nối tới USB Token Agent cục bộ (Mặc định `127.0.0.1:9999`).
+- [sign-app/README.md](sign-app/README.md) — Hướng dẫn ứng dụng ký số
+- [usb-token-agent/mac/README.md](usb-token-agent/mac/README.md) — Agent macOS
+- [usb-token-agent/win/README.md](usb-token-agent/win/README.md) — Agent Windows
+- [mqtt/README.md](mqtt/README.md) — MQTT Broker cho ký từ xa
 
----
+## Phiên bản SDK
 
-## USB Token Agent cho từng nền tảng
-
-Tính năng ký qua **USB Token** (Local) yêu cầu một phần mềm trung gian chạy ngầm để giao tiếp với phần cứng USB Token thông qua thư viện PKCS#11.
-
-### 1. Trên Windows
-Ứng dụng sẽ tự động tải và khởi chạy `UsbTokenAgent.exe` chạy ngầm. Quá trình này hoàn toàn tự động khi bạn build dự án trên hệ điều hành Windows.
-
-### 2. Trên macOS
-Trên macOS, phần mềm agent được viết bằng Swift.
-- Bạn có thể tải file cài đặt đã ký số **`UsbTokenAgent-mac-arm64-signed.pkg`** từ thư mục `usb-token-agent-mac/dist` trong máy hoặc từ kho lưu trữ.
-- Khi cài đặt thành công, chạy ứng dụng **UsbTokenAgent** từ thư mục Applications. Agent sẽ khởi động một Web Server cục bộ tại cổng `9999` để lắng nghe yêu cầu ký từ ứng dụng Studio.
-- Thiết lập đường dẫn chạy agent trong tab **Cài Đặt** của Studio nếu bạn muốn kích hoạt khởi động tự động.
-
----
-
-## Phát Hành Ứng Dụng (Publish)
-
-Để đóng gói ứng dụng độc lập tự chạy (Self-contained) không cần cài .NET runtime trên máy người dùng:
-
-- **Windows x64**:
-  ```bash
-  dotnet publish VimesSignSample/VimesSignSample.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish-win
-  ```
-- **macOS Apple Silicon (M1/M2/M3)**:
-  ```bash
-  dotnet publish VimesSignSample/VimesSignSample.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -o ./publish-mac-arm64
-  ```
-- **macOS Intel**:
-  ```bash
-  dotnet publish VimesSignSample/VimesSignSample.csproj -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./publish-mac-x64
-  ```
-
----
-
-## Bản Quyền & Bảo Mật
-- Không bao giờ commit file `appsettings.json` có chứa key nhạy cảm của bạn lên git.
-- Mọi thông tin chữ ký số và dữ liệu chứng thư đều được mã hóa hoặc truyền tải trực tiếp thông qua các cổng bảo mật (HTTPS/SSL).
+Sử dụng [Vimes SignSDK](https://www.nuget.org/packages/Vimes.SignSDK/) `1.0.23` từ NuGet.org.
