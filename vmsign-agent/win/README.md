@@ -79,5 +79,5 @@ vmsign-agent/win/
 
 ## Phân phối
 
-Agent được phân phối qua repo công khai [tamnguyendev/vmsign-agent-dist](https://github.com/tamnguyendev/vmsign-agent-dist).  
+Agent được phân phối qua [Releases](https://github.com/vimesjscvn/vn-sign-sample/releases) của repo này.
 Ứng dụng VimesSign tự động tải agent khi build trên Windows (qua `build/download-vmsign-agent.ps1`).

@@ -65,7 +65,7 @@ Nếu chỉ cần agent ký USB (không cần giao diện VimesSign), tải bả
 | Windows | `VMSignAgent-win-x64-X.Y.Z-setup.exe` | Cài vào `C:\Program Files\VMSignAgent\` |
 | Windows (portable) | `VMSignAgent-vX.Y.Z.zip` | Giải nén và chạy trực tiếp |
 
-Tải từ [Releases](https://github.com/vimesjscvn/vn-sign-sample/releases) hoặc [vmsign-agent-dist](https://github.com/tamnguyendev/vmsign-agent-dist/releases).
+Tải từ [Releases](https://github.com/vimesjscvn/vn-sign-sample/releases).
 
 ---
 

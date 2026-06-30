@@ -76,15 +76,10 @@ jobs:
           $env:APP_VERSION = $ver
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "vmsign-agent\win\installer\setup.iss"
 
-      # Publish release to the PUBLIC dist repo so developers can download
-      # without a token. DIST_REPO_TOKEN is a classic PAT with repo scope
-      # on tamnguyendev/vmsign-agent-dist, stored as a secret in THIS repo.
-      - name: Create GitHub Release (public dist repo)
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.DIST_REPO_TOKEN }}
-          repository: tamnguyendev/vmsign-agent-dist
-          tag_name: ${{ steps.ver.outputs.VERSION }}
+          tag_name: ${{ github.ref_name }}
           name: "VMSignAgent ${{ steps.ver.outputs.VERSION }}"
           files: |
             VMSignAgent-*.zip

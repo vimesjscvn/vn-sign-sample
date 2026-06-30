@@ -6,7 +6,8 @@ param(
     [string]$Token
 )
 
-$repo = "tamnguyendev/vmsign-agent-dist"
+$repo = "vimesjscvn/vn-sign-sample"
+$tagPrefix = "vmsign-agent-v"
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -14,9 +15,15 @@ $headers = @{ "User-Agent" = "WinFormsSample-Build" }
 
 try {
     if ($Version -eq "latest") {
-        $rel = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" -Headers $headers
+        $releases = Invoke-RestMethod "https://api.github.com/repos/$repo/releases?per_page=50" -Headers $headers
+        $rel = $releases | Where-Object { $_.tag_name -like "$tagPrefix*" } | Select-Object -First 1
+        if (-not $rel) {
+            Write-Host "[USB Agent] No VMSignAgent release found - skipping download."
+            exit 0
+        }
     } else {
-        $rel = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/tags/$Version" -Headers $headers
+        $tag = if ($Version -like "$tagPrefix*") { $Version } else { "$tagPrefix$Version" }
+        $rel = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/tags/$tag" -Headers $headers
     }
     $tag = $rel.tag_name
 } catch {

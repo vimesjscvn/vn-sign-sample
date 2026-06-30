@@ -71,7 +71,7 @@
     </None>
   </ItemGroup>
 
-  <!-- Download VMSignAgent from the public dist repo (Windows Only) -->
+  <!-- Download VMSignAgent from this repository's VMSignAgent releases (Windows Only) -->
   <PropertyGroup Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">
     <AgentVersion Condition="'$(AgentVersion)' == ''">latest</AgentVersion>
     <AgentCacheDir Condition="'$(AgentCacheDir)' == ''">$(LocalAppData)\.vmsign-agent-cache</AgentCacheDir>
