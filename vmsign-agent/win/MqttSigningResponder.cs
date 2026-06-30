@@ -18,9 +18,9 @@ namespace VMSignAgent;
 /// The agent connects outbound to a central broker, so it works from behind NAT.
 ///
 /// Topics:
-///   usbagent/{agentId}/status   — retained presence + Last-Will
-///   usbagent/{agentId}/sign/req — app → agent
-///   usbagent/{agentId}/sign/res — agent → app
+///   usbagent/{agentId}/status   - retained presence + Last-Will
+///   usbagent/{agentId}/sign/req - app to agent
+///   usbagent/{agentId}/sign/res - agent to app
 /// </summary>
 public sealed class MqttSigningResponder
 {
@@ -32,22 +32,32 @@ public sealed class MqttSigningResponder
     private readonly string _agentId;
     private readonly int _httpPort;
     private readonly string? _tokenPin;
+    private readonly string? _phoneNumber;
+    private readonly string? _selectedCertificateSerial;
+    private readonly string? _pkcs11ModulePath;
+    private readonly Action<string?>? _onSignSuccess;
 
     private string StatusTopic  => $"usbagent/{_agentId}/status";
     private string SignReqTopic => $"usbagent/{_agentId}/sign/req";
     private string SignResTopic => $"usbagent/{_agentId}/sign/res";
+    private string AuthReqTopic => $"usbagent/{_agentId}/auth/req";
+    private string AuthResTopic => $"usbagent/{_agentId}/auth/res";
 
     public MqttSigningResponder(string brokerHost, int brokerPort, string? username, string? password,
-        bool useTls, string agentId, int httpPort, MqttTlsConfig? tls = null, string? tokenPin = null)
+        bool useTls, string agentId, int httpPort, MqttTlsConfig? tls = null, string? tokenPin = null, string? phoneNumber = null, string? selectedCertificateSerial = null, string? pkcs11ModulePath = null, Action<string?>? onSignSuccess = null)
     {
         _brokerHost = brokerHost;
         _brokerPort = brokerPort;
         _agentId    = agentId;
-        _username   = string.IsNullOrWhiteSpace(username) ? agentId : username!;
+        _username   = string.IsNullOrWhiteSpace(username) ? string.Empty : username!;
         _password   = password;
         _tls        = tls ?? new MqttTlsConfig { UseTls = useTls };
         _httpPort   = httpPort;
         _tokenPin   = tokenPin;
+        _phoneNumber = phoneNumber;
+        _selectedCertificateSerial = selectedCertificateSerial;
+        _pkcs11ModulePath = pkcs11ModulePath;
+        _onSignSuccess = onSignSuccess;
     }
 
     public async Task RunAsync(CancellationToken ct)
@@ -56,7 +66,7 @@ public sealed class MqttSigningResponder
         using var client = factory.CreateMqttClient();
 
         client.UseApplicationMessageReceivedHandler(e =>
-            _ = Task.Run(() => OnSignRequestAsync(client, e)));
+            _ = Task.Run(() => OnMqttMessageAsync(client, e)));
 
         client.UseConnectedHandler(async _ =>
         {
@@ -67,7 +77,13 @@ public sealed class MqttSigningResponder
                     .WithTopic(SignReqTopic)
                     .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
                     .Build());
+            await client.SubscribeAsync(
+                new MqttTopicFilterBuilder()
+                    .WithTopic(AuthReqTopic)
+                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                    .Build());
             Console.WriteLine($"[MQTT] Subscribed to {SignReqTopic}");
+            Console.WriteLine($"[MQTT] Subscribed to {AuthReqTopic}");
         });
 
         client.UseDisconnectedHandler(async _ =>
@@ -103,14 +119,19 @@ public sealed class MqttSigningResponder
     {
         var offline = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
             new MqttPresence("vmsign-agent", _agentId, Dns.GetHostName(), _httpPort, false,
-                new List<PresenceCert>(), DateTimeOffset.UtcNow)));
+                _phoneNumber, new List<PresenceCert>(), DateTimeOffset.UtcNow)));
 
         var builder = new MqttClientOptionsBuilder()
             .WithClientId($"usbagent-{_agentId}-{Guid.NewGuid():N}")
             .WithTcpServer(_brokerHost, _brokerPort)
-            .WithCleanSession(true)
-            .WithCredentials(_username, _password ?? string.Empty)
-            .WithWillMessage(new MqttApplicationMessageBuilder()
+            .WithCleanSession(true);
+
+        if (!string.IsNullOrWhiteSpace(_username))
+        {
+            builder.WithCredentials(_username, _password ?? string.Empty);
+        }
+
+        builder.WithWillMessage(new MqttApplicationMessageBuilder()
                 .WithTopic(StatusTopic)
                 .WithPayload(offline)
                 .WithRetainFlag(true)
@@ -124,19 +145,53 @@ public sealed class MqttSigningResponder
     private async Task PublishPresenceAsync(IMqttClient client, bool online, CancellationToken ct)
     {
         var certs = online
-            ? TokenSigner.ListCerts()
+            ? TokenSigner.ListCerts(_selectedCertificateSerial)
                 .Select(c => new PresenceCert(c.Serial, c.SubjectDN, c.Algorithm, c.Certificate))
                 .ToList()
             : new List<PresenceCert>();
         var payload = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
             new MqttPresence("vmsign-agent", _agentId, Dns.GetHostName(),
-                _httpPort, online, certs, DateTimeOffset.UtcNow)));
+                _httpPort, online, _phoneNumber, certs, DateTimeOffset.UtcNow)));
         await client.PublishAsync(new MqttApplicationMessageBuilder()
             .WithTopic(StatusTopic)
             .WithPayload(payload)
             .WithRetainFlag(true)
             .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
             .Build(), ct);
+    }
+
+    private Task OnMqttMessageAsync(IMqttClient client, MqttApplicationMessageReceivedEventArgs e)
+    {
+        if (e.ApplicationMessage.Topic == SignReqTopic)
+        {
+            return OnSignRequestAsync(client, e);
+        }
+
+        if (e.ApplicationMessage.Topic == AuthReqTopic)
+        {
+            return OnAuthRequestAsync(client, e);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnAuthRequestAsync(IMqttClient client, MqttApplicationMessageReceivedEventArgs e)
+    {
+        MqttAuthRequest? req = null;
+        try
+        {
+            var json = Encoding.UTF8.GetString(e.ApplicationMessage.Payload ?? Array.Empty<byte>());
+            req = JsonConvert.DeserializeObject<MqttAuthRequest>(json);
+        }
+        catch (Exception ex) { Console.WriteLine($"[MQTT] Auth request not parseable: {ex.Message}"); }
+
+        var response = HandleAuth(req);
+        await client.PublishAsync(new MqttApplicationMessageBuilder()
+            .WithTopic(AuthResTopic)
+            .WithPayload(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response)))
+            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+            .Build());
+        Console.WriteLine($"[MQTT] Auth response sent (correlationId={response.CorrelationId}, success={response.Success})");
     }
 
     private async Task OnSignRequestAsync(IMqttClient client, MqttApplicationMessageReceivedEventArgs e)
@@ -165,7 +220,8 @@ public sealed class MqttSigningResponder
         if (req == null || string.IsNullOrWhiteSpace(req.HashBase64))
             return MqttSignResponse.Fail(req?.CorrelationId, "hashBase64 is required");
 
-        var cert = TokenSigner.FindCert(req.Serial, null);
+        var serialToUse = string.IsNullOrWhiteSpace(_selectedCertificateSerial) ? req.Serial : _selectedCertificateSerial;
+        var cert = TokenSigner.FindCert(serialToUse, null);
         if (cert == null)
             return MqttSignResponse.Fail(req.CorrelationId, "Certificate not found in Windows Personal store");
 
@@ -176,9 +232,8 @@ public sealed class MqttSigningResponder
         try
         {
             var pin = !string.IsNullOrEmpty(req.Pin) ? req.Pin : _tokenPin;
-            var r   = !string.IsNullOrEmpty(pin)
-                ? Pkcs11Signer.SignDigest(cert, digest, pin!)
-                : TokenSigner.SignDigest(cert, digest, null);
+            var r = TokenSigner.SignDigestPreferred(cert, digest, pin, _pkcs11ModulePath);
+            _onSignSuccess?.Invoke(cert.SerialNumber);
             return new MqttSignResponse(req.CorrelationId, true,
                 Convert.ToBase64String(r.Signature),
                 Convert.ToBase64String(r.CertRawData),
@@ -186,12 +241,38 @@ public sealed class MqttSigningResponder
         }
         catch (Exception ex) { return MqttSignResponse.Fail(req.CorrelationId, ex.Message); }
     }
+
+    private MqttAuthResponse HandleAuth(MqttAuthRequest? req)
+    {
+        if (req == null)
+        {
+            return MqttAuthResponse.Fail(null, "auth request is required");
+        }
+
+        if (string.IsNullOrWhiteSpace(_phoneNumber) || string.IsNullOrWhiteSpace(_tokenPin))
+        {
+            return MqttAuthResponse.Fail(req.CorrelationId, "agent phone number or PIN is not configured");
+        }
+
+        var phoneMatches = string.Equals(
+            NormalizePhone(req.PhoneNumber),
+            NormalizePhone(_phoneNumber),
+            StringComparison.OrdinalIgnoreCase);
+        var pinMatches = string.Equals(req.Pin ?? string.Empty, _tokenPin, StringComparison.Ordinal);
+
+        return phoneMatches && pinMatches
+            ? new MqttAuthResponse(req.CorrelationId, true, null)
+            : MqttAuthResponse.Fail(req.CorrelationId, "invalid phone number or PIN");
+    }
+
+    private static string NormalizePhone(string? phone) =>
+        (phone ?? string.Empty).Trim().Replace(" ", string.Empty).Replace("-", string.Empty);
 }
 
-// ── MQTT message contracts ─────────────────────────────────────────────────────
+// MQTT message contracts
 public record MqttPresence(
     string Service, string AgentId, string Host, int HttpPort, bool Online,
-    List<PresenceCert> Certs, DateTimeOffset Ts);
+    string? PhoneNumber, List<PresenceCert> Certs, DateTimeOffset Ts);
 
 public record PresenceCert(string Serial, string Subject, string Algorithm, string Certificate);
 
@@ -203,4 +284,12 @@ public record MqttSignResponse(
 {
     public static MqttSignResponse Fail(string? id, string error) =>
         new(id, false, null, null, null, error);
+}
+
+public record MqttAuthRequest(string? CorrelationId, string? PhoneNumber, string? Pin);
+
+public record MqttAuthResponse(string? CorrelationId, bool Success, string? Error)
+{
+    public static MqttAuthResponse Fail(string? id, string error) =>
+        new(id, false, error);
 }

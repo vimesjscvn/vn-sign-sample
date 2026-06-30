@@ -24,6 +24,7 @@ wwwroot/certs/*.cer
 
 # VMSignAgent release download cache
 .vmsign-agent-cache/
+vmsign-agent/win/bit4xpki.dll
 
 # Ignore publish output folders and temporary mockups
 [Pp]ublish/

@@ -26,7 +26,7 @@ dotnet build VMSignAgent.csproj -c Release
 ## Chạy
 
 ```bash
-# Chạy nền (không cửa sổ)
+# Chạy nền với tray icon
 VMSignAgent.exe
 
 # Hoặc sau khi cài setup.exe, chạy từ Program Files
@@ -47,9 +47,21 @@ File `app.config`:
 ```xml
 <appSettings>
   <add key="Port" value="9999" />
-  <add key="Pkcs11Module" value="C:\bit4id\bit4xpki.dll" />
+  <add key="Token:Pin" value="" />
+  <add key="Token:SelectedCertificateSerial" value="" />
+  <add key="Ui:ShowSignSuccessToast" value="true" />
+  <add key="EndUser:PhoneNumber" value="" />
+  <add key="Token:Pkcs11Module" value="" />
+  <add key="Mqtt:BrokerHost" value="108.108.108.251" />
+  <add key="Mqtt:BrokerPort" value="1883" />
+  <add key="Mqtt:Username" value="" />
+  <add key="Mqtt:Password" value="" />
 </appSettings>
 ```
+
+For SignSDK USB API over MQTT, call with `mid = USB`, `user_name = EndUser:PhoneNumber`, and `password = Token:Pin`. Leave MQTT username/password blank when the broker allows anonymous connections.
+
+For USB token signing, install the token vendor driver normally. If you need to ship a local driver DLL for testing, place `bit4xpki.dll` beside `VMSignAgent.exe`; the app will use that local DLL first, then fall back to `C:\Windows\System32\bit4xpki.dll`. Do not commit this vendor DLL to git.
 
 ## Cấu trúc
 

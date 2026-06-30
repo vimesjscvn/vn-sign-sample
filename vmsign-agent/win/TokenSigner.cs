@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.IO;
 
 namespace VMSignAgent;
 
@@ -15,7 +16,7 @@ public static class TokenSigner
 {
     /// <summary>
     /// Finds a signing certificate in CurrentUser\My.
-    /// Priority: exact serial → CN/email subject match → (only if no identifier) first cert.
+    /// Priority: exact serial, then CN/email subject match, then first cert only if no identifier.
     /// Never blindly falls back when an identifier was supplied (wrong-key safety).
     /// </summary>
     public static X509Certificate2? FindCert(string? serial, string? userName)
@@ -57,6 +58,17 @@ public static class TokenSigner
             .ToList();
     }
 
+    public static List<CertInfo> ListCerts(string? selectedSerial)
+    {
+        var certs = ListCerts();
+        if (string.IsNullOrWhiteSpace(selectedSerial))
+            return certs;
+
+        return certs
+            .Where(c => string.Equals(c.Serial, selectedSerial, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
     public static CertInfo ToInfo(X509Certificate2 c) => new(
         Serial: c.SerialNumber,
         SubjectDN: c.Subject,
@@ -73,7 +85,7 @@ public static class TokenSigner
     /// ECDSA signatures are converted from CNG P1363 to DER for iText7/PKCS7.
     ///
     /// <paramref name="pin"/> (optional): when supplied, the token PIN is set on the CNG
-    /// key handle before signing so the CSP does NOT show an interactive PIN dialog —
+    /// key handle before signing so the CSP does NOT show an interactive PIN dialog -
     /// required for unattended/headless agents. When null/empty, the token prompts as usual.
     /// </summary>
     public static SignResult SignDigest(X509Certificate2 cert, byte[] digest, string? pin = null)
@@ -91,6 +103,34 @@ public static class TokenSigner
         TrySetPin(rsaKey, pin);
         byte[] sig = rsaKey.SignHash(digest, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         return new SignResult(sig, cert.RawData, "RSA");
+    }
+
+    public static SignResult SignDigestPreferred(
+        X509Certificate2 cert,
+        byte[] digest,
+        string? pin,
+        string? pkcs11ModulePath = null)
+    {
+        if (string.IsNullOrEmpty(pin))
+            return SignDigest(cert, digest, null);
+
+        try
+        {
+            return Pkcs11Signer.SignDigest(cert, digest, pin!, pkcs11ModulePath);
+        }
+        catch (Exception ex) when (ShouldFallbackToWindowsKey(ex))
+        {
+            return SignDigest(cert, digest, pin);
+        }
+    }
+
+    private static bool ShouldFallbackToWindowsKey(Exception ex)
+    {
+        if (ex is FileNotFoundException)
+            return true;
+
+        return ex is InvalidOperationException &&
+               ex.Message.IndexOf("PKCS#11", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     /// <summary>
@@ -128,7 +168,7 @@ public static class TokenSigner
         }
         catch
         {
-            // KSP that rejects SmartCardPin (e.g. bit4id) — fall through; caller uses PKCS#11 path instead.
+            // KSP that rejects SmartCardPin (e.g. bit4id): fall through; caller uses PKCS#11 path instead.
         }
     }
 
@@ -153,7 +193,7 @@ public static class TokenSigner
         }
         catch
         {
-            // Software CSP / unsupported — fall through to normal prompt.
+            // Software CSP / unsupported: fall through to normal prompt.
         }
         finally
         {
@@ -161,7 +201,7 @@ public static class TokenSigner
         }
     }
 
-    // ── Legacy CSP P/Invoke (advapi32) ───────────────────────────────────────────
+    // Legacy CSP P/Invoke (advapi32)
     private const uint PP_KEYEXCHANGE_PIN = 32;   // 0x20
     private const uint PP_SIGNATURE_PIN   = 33;   // 0x21
     private const uint CRYPT_SILENT       = 0x40;
@@ -178,24 +218,24 @@ public static class TokenSigner
     private static extern bool CryptReleaseContext(IntPtr hProv, uint dwFlags);
 
     /// <summary>Presence/discovery payload for this machine: host + certs available.</summary>
-    public static DiscoveryReply BuildDiscoveryReply(int httpPort) => new(
+    public static DiscoveryReply BuildDiscoveryReply(int httpPort, string? selectedSerial = null) => new(
         Service: "vmsign-agent",
         Host: Dns.GetHostName(),
         HttpPort: httpPort,
-        Certs: SafeListCertsAsDiscovery());
+        Certs: SafeListCertsAsDiscovery(selectedSerial));
 
-    private static List<DiscoveryCert> SafeListCertsAsDiscovery()
+    private static List<DiscoveryCert> SafeListCertsAsDiscovery(string? selectedSerial)
     {
         try
         {
-            return ListCerts()
+            return ListCerts(selectedSerial)
                 .Select(c => new DiscoveryCert(c.Serial, c.SubjectDN, c.Algorithm))
                 .ToList();
         }
         catch { return new List<DiscoveryCert>(); }
     }
 
-    // ── ECDSA P1363 (R||S) → DER SEQUENCE{INTEGER r, INTEGER s} ──────────────────
+    // ECDSA P1363 (R||S) to DER SEQUENCE{INTEGER r, INTEGER s}
     public static byte[] EcdsaP1363ToDer(byte[] p1363)
     {
         int half = p1363.Length / 2;
@@ -217,7 +257,7 @@ public static class TokenSigner
         new byte[] { 0x02, (byte)val.Length }.Concat(val).ToArray();
 }
 
-// ── Shared DTOs ─────────────────────────────────────────────────────────────────
+// Shared DTOs
 public record SignResult(byte[] Signature, byte[] CertRawData, string Algorithm);
 
 public record CertInfo(

@@ -15,9 +15,9 @@ namespace VMSignAgent;
 /// appears.
 ///
 /// Byte contract matches <see cref="TokenSigner.SignDigest"/> exactly:
-///   • input  = the pre-computed SHA-256 digest (SHA256(authAttrs)) from SignPdfFile.createHash
-///   • RSA    → CKM_RSA_PKCS over DigestInfo(SHA-256 prefix || digest)  (= CAPI RSA.SignHash)
-///   • ECDSA  → CKM_ECDSA over the raw digest → P1363 (R||S) → DER       (= TokenSigner output)
+///   - input  = the pre-computed SHA-256 digest (SHA256(authAttrs)) from SignPdfFile.createHash
+///   - RSA    = CKM_RSA_PKCS over DigestInfo(SHA-256 prefix || digest)  (= CAPI RSA.SignHash)
+///   - ECDSA  = CKM_ECDSA over the raw digest, P1363 (R||S), DER        (= TokenSigner output)
 /// </summary>
 public static class Pkcs11Signer
 {
@@ -39,7 +39,7 @@ public static class Pkcs11Signer
     /// </summary>
     public static SignResult SignDigest(X509Certificate2 cert, byte[] digest, string pin, string? modulePath = null)
     {
-        modulePath ??= DefaultModulePath;
+        modulePath = ResolveModulePath(modulePath);
         if (!File.Exists(modulePath))
             throw new FileNotFoundException($"PKCS#11 module not found: {modulePath}");
         if (string.IsNullOrEmpty(pin))
@@ -57,7 +57,7 @@ public static class Pkcs11Signer
         {
             using var session = slot.OpenSession(SessionType.ReadOnly);
             try { session.Login(CKU.CKU_USER, pin); }
-            catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_ALREADY_LOGGED_IN) { /* token already authenticated — fine */ }
+            catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_ALREADY_LOGGED_IN) { /* token already authenticated; fine */ }
             try
             {
                 var priv = FindPrivateKeyForCert(session, cert);
@@ -132,6 +132,18 @@ public static class Pkcs11Signer
             session.Factories.ObjectAttributeFactory.Create(CKA.CKA_CLASS, CKO.CKO_PRIVATE_KEY),
         });
         return allKeys.Count == 1 ? allKeys[0] : null;
+    }
+
+    public static string ResolveModulePath(string? configuredPath = null)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+            return Environment.ExpandEnvironmentVariables(configuredPath.Trim());
+
+        var localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bit4xpki.dll");
+        if (File.Exists(localPath))
+            return localPath;
+
+        return DefaultModulePath;
     }
 
     private static CKK GetKeyType(ISession session, IObjectHandle key)
