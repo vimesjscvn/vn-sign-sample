@@ -176,17 +176,13 @@ public static class Program
         Console.WriteLine("[E2E Test] Initializing Headless E2E verification test...");
         
         string pdfPath = Path.Combine(Directory.GetCurrentDirectory(), "test_doc.pdf");
-        string certFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "certs");
         string signedPath = Path.Combine(Directory.GetCurrentDirectory(), "test_doc_signed.pdf");
-
-        // Ensure directories exist
-        Directory.CreateDirectory(certFolder);
+        string? certPath = null;
 
         // Calculate expected certificate file path based on default user name
         string defaultUser = "TestUser";
         string defaultPass = "password123";
         string serial = UtilSigner.ConvertStringToNumber(defaultUser);
-        string certPath = Path.Combine(certFolder, $"{serial}.pfx");
 
         try
         {
@@ -198,6 +194,12 @@ public static class Program
                 pdf.AddNewPage();
             }
             Console.WriteLine($"[E2E Test] PDF generated at: {pdfPath}");
+
+            // Resolve environment and setup cert paths
+            var env = Host!.Services.GetRequiredService<Core.Common.Abstractions.ISignEnvironment>();
+            string certFolder = Path.Combine(env.WebRootPath, "certs");
+            Directory.CreateDirectory(certFolder);
+            certPath = Path.Combine(certFolder, $"{serial}.pfx");
 
             // 2. Generate self-signed certificate using System.Security.Cryptography
             Console.WriteLine($"[E2E Test] Generating self-signed PFX certificate (Serial: {serial})...");

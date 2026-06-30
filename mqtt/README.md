@@ -90,7 +90,7 @@ MQTT broker dùng để kết nối **VMSign Agent** (máy người dùng) với
 cd mqtt/
 docker compose up -d
 
-# Agent config cho local:
+# Agent config cho local (override production defaults):
 # BrokerHost: localhost
 # BrokerPort: 1883
 # UseTls: false

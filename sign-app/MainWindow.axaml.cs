@@ -158,6 +158,10 @@ public partial class MainWindow : Window
             winMenu.IsVisible = false;
         }
 
+        // Register drag-and-drop event handlers
+        this.AddHandler(DragDrop.DragOverEvent, Canvas_DragOver);
+        this.AddHandler(DragDrop.DropEvent, Canvas_Drop);
+
         Log("Dashboard Initialized. Welcome to Vimes SignSDK Showcase Studio on Avalonia!", ColorFromHex("#38BDF8"));
     }
 
@@ -402,6 +406,7 @@ public partial class MainWindow : Window
             if (string.IsNullOrEmpty(pdfPath) || !File.Exists(pdfPath))
             {
                 imgPdfPage.Source = null;
+                panelEmptyState.IsVisible = true;
                 return;
             }
 
@@ -450,6 +455,7 @@ public partial class MainWindow : Window
 
                         imgPdfPage.Source = bitmap;
                         _renderedPageImage = bitmap;
+                        panelEmptyState.IsVisible = false;
 
                         LogSystem($"Rendered actual PDF Page {_activePageNum}/{_totalPdfPages} successfully!");
                     }
@@ -463,6 +469,7 @@ public partial class MainWindow : Window
         {
             LogWarning($"Note: Render actual PDF content failed (using fallback design layout): {ex.Message}");
             imgPdfPage.Source = null;
+            panelEmptyState.IsVisible = true;
         }
 
         UpdatePlacementRects();
@@ -679,6 +686,86 @@ public partial class MainWindow : Window
     {
         tabMain.SelectedIndex = index;
         LogSystem($"Switched context view to: {viewName}");
+        UpdateSidebarSelection(index);
+    }
+
+    private void UpdateSidebarSelection(int index)
+    {
+        btnSidebarPdf.Classes.Remove("active");
+        btnSidebarXml.Classes.Remove("active");
+        btnSidebarBatch.Classes.Remove("active");
+        btnSidebarSettings.Classes.Remove("active");
+
+        switch (index)
+        {
+            case 0:
+                btnSidebarPdf.Classes.Add("active");
+                break;
+            case 1:
+                btnSidebarXml.Classes.Add("active");
+                break;
+            case 2:
+                btnSidebarBatch.Classes.Add("active");
+                break;
+            case 3:
+                btnSidebarSettings.Classes.Add("active");
+                break;
+        }
+    }
+
+    // Sidebar navigation click handlers
+    private void SidebarPdf_Click(object? sender, RoutedEventArgs e) => SwitchTab(0, "Ký PDF");
+    private void SidebarXml_Click(object? sender, RoutedEventArgs e) => SwitchTab(1, "Ký XML");
+    private void SidebarBatch_Click(object? sender, RoutedEventArgs e) => SwitchTab(2, "Ký Hàng Loạt");
+    private void SidebarSettings_Click(object? sender, RoutedEventArgs e) => SwitchTab(3, "Cài Đặt SDK");
+
+    // Drag-and-drop file loading support
+    public void Canvas_DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains(DataFormats.Files))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+    }
+
+    public void Canvas_Drop(object? sender, DragEventArgs e)
+    {
+        var files = e.Data.GetFiles();
+        if (files != null)
+        {
+            var firstFile = files.FirstOrDefault();
+            if (firstFile != null)
+            {
+                var path = firstFile.TryGetLocalPath();
+                if (!string.IsNullOrEmpty(path))
+                {
+                    if (path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        LogSystem($"Dropped PDF detected: {Path.GetFileName(path)}. Loading...");
+                        lstFilePath.ItemsSource = new List<string> { path };
+                        lstFilePath.SelectedIndex = 0;
+                        _activePageNum = 1;
+                        RenderPdfPage();
+                        SwitchTab(0, "Ký PDF");
+                    }
+                    else if (path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        LogSystem($"Dropped XML detected: {Path.GetFileName(path)}. Loading...");
+                        lstXmlFilePath.ItemsSource = new List<string> { path };
+                        lstXmlFilePath.SelectedIndex = 0;
+                        SwitchTab(1, "Ký XML");
+                    }
+                    else
+                    {
+                        LogWarning("Dropped file is not a supported format (.pdf or .xml).");
+                    }
+                }
+            }
+        }
     }
 
     // In-window Menu handlers (Windows/Linux)
