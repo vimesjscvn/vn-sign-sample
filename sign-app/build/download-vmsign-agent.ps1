@@ -7,7 +7,7 @@ param(
 )
 
 $repo = "vimesjscvn/vn-sign-sample"
-$tagPrefix = "vmsign-agent-v"
+$tagPrefix = "vmsign-agent-"
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -22,7 +22,12 @@ try {
             exit 0
         }
     } else {
-        $tag = if ($Version -like "$tagPrefix*") { $Version } else { "$tagPrefix$Version" }
+        if ($Version -like "$tagPrefix*") {
+            $tag = $Version
+        } else {
+            $versionTag = if ($Version -like "v*") { $Version } else { "v$Version" }
+            $tag = "$tagPrefix$versionTag"
+        }
         $rel = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/tags/$tag" -Headers $headers
     }
     $tag = $rel.tag_name
