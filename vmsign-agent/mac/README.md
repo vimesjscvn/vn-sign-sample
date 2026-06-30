@@ -6,9 +6,10 @@ Agent chạy nền trên thanh menu macOS, cung cấp HTTP API để ký số qu
 
 - **HTTP API** tại `localhost:9999` — ký hash, liệt kê chứng thư
 - **MQTT** — hỗ trợ ký từ xa qua MQTT broker (cross-subnet)
+- **MQTT Auth** — xác thực phone + PIN qua MQTT (tương thích Windows agent)
 - **UDP Discovery** — tự phát hiện agent trên mạng LAN
 - **Menu bar** — chạy nền, không Dock icon
-- **Cửa sổ cài đặt** — cấu hình MQTT, PIN, PKCS#11 module
+- **Cửa sổ cài đặt** — cấu hình MQTT, PIN, PKCS#11 module, phone number
 
 ## Yêu cầu
 
@@ -50,6 +51,9 @@ File `Resources/appsettings.json` (hoặc copy sang `~/.config/vimes-sign/`):
   "DiscoveryPort": 9998,
   "Token": {
     "Pkcs11Module": "pkcs11/libbit4xpki.dylib"
+  },
+  "EndUser": {
+    "PhoneNumber": "0912345678"
   },
   "Mqtt": {
     "BrokerHost": "mqtt.example.com",

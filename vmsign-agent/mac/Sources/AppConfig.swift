@@ -6,6 +6,7 @@ struct AppConfig {
     var idleTimeoutMinutes: Int = 0
     var pkcs11Module: String = "pkcs11/libbit4xpki.dylib"
     var tokenPin: String? = nil
+    var endUserPhoneNumber: String? = nil
 
     // MQTT (optional)
     var mqttBrokerHost: String? = nil
@@ -31,6 +32,10 @@ struct AppConfig {
                 if let pin = token["Pin"] as? String, !pin.isEmpty {
                     config.tokenPin = pin
                 }
+            }
+
+            if let endUser = json["EndUser"] as? [String: Any] {
+                config.endUserPhoneNumber = endUser["PhoneNumber"] as? String
             }
 
             if let mqtt = json["Mqtt"] as? [String: Any] {

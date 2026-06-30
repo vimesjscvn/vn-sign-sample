@@ -31,6 +31,7 @@ struct SettingsView: View {
     @State private var port: String = "9999"
     @State private var discoveryPort: String = "9998"
     @State private var idleTimeout: String = "0"
+    @State private var endUserPhone: String = ""
 
     @State private var mqttEnabled: Bool = false
     @State private var mqttHost: String = ""
@@ -66,6 +67,11 @@ struct SettingsView: View {
                             Text("Idle Timeout:").frame(width: 120, alignment: .trailing)
                             TextField("0", text: $idleTimeout).frame(width: 80)
                             Text("minutes (0 = off)").foregroundColor(.secondary)
+                            Spacer()
+                        }
+                        HStack {
+                            Text("Phone Number:").frame(width: 120, alignment: .trailing)
+                            TextField("0912345678", text: $endUserPhone)
                             Spacer()
                         }
                     }
@@ -155,6 +161,10 @@ struct SettingsView: View {
         discoveryPort = "\(json["DiscoveryPort"] as? Int ?? 9998)"
         idleTimeout = "\(json["IdleTimeoutMinutes"] as? Int ?? 0)"
 
+        if let endUser = json["EndUser"] as? [String: Any] {
+            endUserPhone = endUser["PhoneNumber"] as? String ?? ""
+        }
+
         if let mqtt = json["Mqtt"] as? [String: Any] {
             let host = mqtt["BrokerHost"] as? String ?? ""
             mqttEnabled = !host.isEmpty
@@ -178,6 +188,9 @@ struct SettingsView: View {
             "Token": [
                 "_comment": "PIN must be set via env var TOKEN__PIN.",
                 "Pkcs11Module": "pkcs11/libbit4xpki.dylib",
+            ] as [String: Any],
+            "EndUser": [
+                "PhoneNumber": endUserPhone,
             ] as [String: Any],
             "Mqtt": [
                 "BrokerHost": mqttEnabled ? mqttHost : "",

@@ -28,6 +28,8 @@ class MqttSigningResponder {
     private var statusTopic: String { "usbagent/\(agentId)/status" }
     private var signReqTopic: String { "usbagent/\(agentId)/sign/req" }
     private var signResTopic: String { "usbagent/\(agentId)/sign/res" }
+    private var authReqTopic: String { "usbagent/\(agentId)/auth/req" }
+    private var authResTopic: String { "usbagent/\(agentId)/auth/res" }
 
     init(config: AppConfig, delegate: AppDelegate?) {
         self.host = config.mqttBrokerHost ?? ""
@@ -78,8 +80,9 @@ class MqttSigningResponder {
                 // Publish presence
                 publishPresence(conn, online: true)
 
-                // Subscribe to sign/req
+                // Subscribe to sign/req and auth/req
                 try subscribe(conn, topic: signReqTopic)
+                try subscribe(conn, topic: authReqTopic)
 
                 // Read loop
                 while running {
@@ -225,6 +228,8 @@ class MqttSigningResponder {
 
         if topic == signReqTopic {
             handleSignRequest(conn, message: message)
+        } else if topic == authReqTopic {
+            handleAuthRequest(conn, message: message)
         }
     }
 
@@ -282,6 +287,65 @@ class MqttSigningResponder {
         }
     }
 
+    private func handleAuthRequest(_ conn: NWConnectionWrapper, message: String) {
+        guard let data = message.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[MQTT] Auth request not parseable")
+            return
+        }
+
+        let correlationId = json["correlationId"] as? String ?? ""
+        let phoneNumber = json["phoneNumber"] as? String ?? ""
+        let pin = json["pin"] as? String ?? ""
+
+        let response: [String: Any]
+
+        guard let configPhone = config.endUserPhoneNumber, !configPhone.isEmpty,
+              let configPin = config.tokenPin, !configPin.isEmpty else {
+            response = [
+                "correlationId": correlationId,
+                "success": false,
+                "error": "agent phone number or PIN is not configured",
+            ]
+            if let responseData = try? JSONSerialization.data(withJSONObject: response),
+               let responseStr = String(data: responseData, encoding: .utf8) {
+                publish(conn, topic: authResTopic, message: responseStr, qos: 1)
+            }
+            print("[MQTT] Auth response sent (correlationId=\(correlationId), success=false)")
+            return
+        }
+
+        let phoneMatches = normalizePhone(phoneNumber) == normalizePhone(configPhone)
+        let pinMatches = pin == configPin
+
+        if phoneMatches && pinMatches {
+            response = [
+                "correlationId": correlationId,
+                "success": true,
+                "error": NSNull(),
+            ]
+        } else {
+            response = [
+                "correlationId": correlationId,
+                "success": false,
+                "error": "invalid phone number or PIN",
+            ]
+        }
+
+        if let responseData = try? JSONSerialization.data(withJSONObject: response),
+           let responseStr = String(data: responseData, encoding: .utf8) {
+            publish(conn, topic: authResTopic, message: responseStr, qos: 1)
+            let success = response["success"] as? Bool ?? false
+            print("[MQTT] Auth response sent (correlationId=\(correlationId), success=\(success))")
+        }
+    }
+
+    private func normalizePhone(_ phone: String) -> String {
+        return phone.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+    }
+
     // MARK: - Helpers
 
     private func buildPresenceJson(online: Bool) -> String {
@@ -301,6 +365,7 @@ class MqttSigningResponder {
             "host": ProcessInfo.processInfo.hostName,
             "httpPort": httpPort,
             "online": online,
+            "phoneNumber": config.endUserPhoneNumber ?? "",
             "certs": certs,
             "ts": ISO8601DateFormatter().string(from: Date()),
         ]
