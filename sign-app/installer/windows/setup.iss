@@ -39,8 +39,10 @@ Source: "..\..\build\win-publish\*"; DestDir: "{app}"; Flags: ignoreversion recu
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\VMSignAgent"; Filename: "{app}\VMSignAgent.exe"; Check: FileExists(ExpandConstant('{app}\VMSignAgent.exe'))
 Name: "{group}\Gỡ cài đặt {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
+Filename: "{app}\VMSignAgent.exe"; Description: "Start VMSignAgent"; Flags: nowait postinstall skipifsilent skipifdoesntexist
 Filename: "{app}\{#MyAppExeName}"; Description: "Khởi chạy {#MyAppName}"; Flags: nowait postinstall skipifsilent
