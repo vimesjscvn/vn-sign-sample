@@ -686,38 +686,7 @@ public partial class MainWindow : Window
     {
         tabMain.SelectedIndex = index;
         LogSystem($"Switched context view to: {viewName}");
-        UpdateSidebarSelection(index);
     }
-
-    private void UpdateSidebarSelection(int index)
-    {
-        btnSidebarPdf.Classes.Remove("active");
-        btnSidebarXml.Classes.Remove("active");
-        btnSidebarBatch.Classes.Remove("active");
-        btnSidebarSettings.Classes.Remove("active");
-
-        switch (index)
-        {
-            case 0:
-                btnSidebarPdf.Classes.Add("active");
-                break;
-            case 1:
-                btnSidebarXml.Classes.Add("active");
-                break;
-            case 2:
-                btnSidebarBatch.Classes.Add("active");
-                break;
-            case 3:
-                btnSidebarSettings.Classes.Add("active");
-                break;
-        }
-    }
-
-    // Sidebar navigation click handlers
-    private void SidebarPdf_Click(object? sender, RoutedEventArgs e) => SwitchTab(0, "Ký PDF");
-    private void SidebarXml_Click(object? sender, RoutedEventArgs e) => SwitchTab(1, "Ký XML");
-    private void SidebarBatch_Click(object? sender, RoutedEventArgs e) => SwitchTab(2, "Ký Hàng Loạt");
-    private void SidebarSettings_Click(object? sender, RoutedEventArgs e) => SwitchTab(3, "Cài Đặt SDK");
 
     // Drag-and-drop file loading support
     public void Canvas_DragOver(object? sender, DragEventArgs e)
