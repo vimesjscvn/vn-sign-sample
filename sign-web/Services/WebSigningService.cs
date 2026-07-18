@@ -147,6 +147,7 @@ public class WebSigningService
     public async Task<SigningResult> SignPdfAsync(PdfSigningRequest request)
     {
         _logger.LogInformation("SignPdf: {Path}, {Count} placements", request.FilePath, request.Placements.Count);
+        ApplySessionSettingsOverride(request.MerchantId);
 
         try
         {
@@ -155,8 +156,44 @@ public class WebSigningService
             int signed = 0;
             string? lastSignedUrl = null;
 
+            // Load the document once to get page heights
+            var pageHeights = new Dictionary<int, float>();
+            try
+            {
+                using var pdfReader = new iText.Kernel.Pdf.PdfReader(request.FilePath);
+                using var pdfDoc = new iText.Kernel.Pdf.PdfDocument(pdfReader);
+                int pageCount = pdfDoc.GetNumberOfPages();
+                for (int i = 1; i <= pageCount; i++)
+                {
+                    var page = pdfDoc.GetPage(i);
+                    if (page != null)
+                    {
+                        pageHeights[i] = page.GetPageSize().GetHeight();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read PDF page heights for coordinate conversion.");
+            }
+
             foreach (var placement in request.Placements)
             {
+                float pageHeight = pageHeights.TryGetValue(placement.Page, out var h) ? h : 842f;
+                // Convert screen Y (top-left) to PDF Y (bottom-left)
+                float convertedY = pageHeight - placement.Y - placement.Height;
+                float finalX = placement.X;
+                float finalY = convertedY;
+
+                // Only compensate if this is a custom drawn position (no pre-existing fieldId)
+                if (string.IsNullOrEmpty(placement.FieldId))
+                {
+                    // SignPdfAsynchronous shifts the coordinates by -Width/2 and -Height/2.
+                    // We add them here to compensate so the signature lands exactly on the drawn box bounds.
+                    finalX = placement.X + (placement.Width / 2f);
+                    finalY = convertedY + (placement.Height / 2f);
+                }
+
                 var sdkRequest = new SignDocumentRequest
                 {
                     UserName = request.UserName,
@@ -168,10 +205,11 @@ public class WebSigningService
                     SignerTitle = request.SignerTitle,
                     SignatureImage = request.SignatureImageBase64,
                     Page = placement.Page,
-                    X = placement.X,
-                    Y = placement.Y,
+                    X = finalX,
+                    Y = finalY,
                     Width = placement.Width,
                     Height = placement.Height,
+                    SignatureId = placement.FieldId
                 };
 
                 var result = await _signClient.SignDocumentAsync(sdkRequest);
@@ -180,6 +218,13 @@ public class WebSigningService
                 {
                     signed++;
                     lastSignedUrl = result.SignedFileUrl;
+
+                    // Update base64Data with intermediate signed file to allow sequential signature stacking
+                    if (!string.IsNullOrEmpty(lastSignedUrl) && File.Exists(lastSignedUrl))
+                    {
+                        var signedBytes = await File.ReadAllBytesAsync(lastSignedUrl);
+                        base64Data = Convert.ToBase64String(signedBytes);
+                    }
                 }
                 else
                 {
@@ -205,6 +250,7 @@ public class WebSigningService
     public async Task<SigningResult> SignXmlAsync(XmlSigningRequest request)
     {
         _logger.LogInformation("SignXml: {Path}", request.FilePath);
+        ApplySessionSettingsOverride(request.MerchantId);
         try
         {
             var fileData = await File.ReadAllBytesAsync(request.FilePath);

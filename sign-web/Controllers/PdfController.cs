@@ -89,6 +89,28 @@ public class PdfController : Controller
     }
 
     /// <summary>
+    /// Downloads a PDF file from the server.
+    /// GET /Pdf/Download?path=...
+    /// </summary>
+    [HttpGet]
+    public IActionResult Download(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+            return NotFound(new { error = "File not found" });
+
+        try
+        {
+            var fileBytes = System.IO.File.ReadAllBytes(path);
+            var fileName = System.IO.Path.GetFileName(path);
+            return File(fileBytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Wraps raw BGRA pixels from Docnet in a BMP file header (no SkiaSharp/ImageSharp
     /// dependency needed — browsers render BMP natively).
     /// </summary>
