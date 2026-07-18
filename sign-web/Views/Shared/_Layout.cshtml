@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vimes SignSDK Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <div class="topbar__logo">V</div>
+      <div class="topbar__title-group">
+        <span class="topbar__name">Vimes SignSDK</span>
+        <span class="topbar__subtitle">CROSS-PLATFORM STUDIO</span>
+      </div>
+    </div>
+
+    <div class="topbar__merchant">
+      <span class="topbar__merchant-label">Merchant</span>
+      <div class="topbar__merchant-btn" id="merchantBtn" tabindex="0">
+        <span id="merchantName">BCY</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9db4d4" stroke-width="2.4"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </div>
+      <!-- Merchant Dropdown -->
+      <div class="dropdown" id="merchantDropdown" style="display:none">
+        <div class="dropdown__backdrop" onclick="App.closeMerchantMenu()"></div>
+        <div class="dropdown__panel dropdown__panel--merchant" id="merchantList"></div>
+      </div>
+    </div>
+
+    <nav class="topbar__nav">
+      <button class="topbar__nav-item" onclick="App.switchMode('pdf')">
+        Chức năng
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9db4d4" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <button class="topbar__nav-item" onclick="App.switchMode('settings')">
+        Hệ thống
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9db4d4" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <button class="topbar__nav-item">Trợ giúp</button>
+    </nav>
+
+    <div class="topbar__spacer"></div>
+
+    <!-- Session Pill -->
+    <div class="topbar__session" id="sessionPill" onclick="Session.toggleFlyout()">
+      <span class="session-dot" id="sessionDot"></span>
+      <span class="session-label" id="sessionLabel">Chưa đăng nhập</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+
+    <!-- Session Flyout -->
+    <div class="flyout" id="sessionFlyout" style="display:none">
+      <div class="flyout__backdrop" onclick="Session.closeFlyout()"></div>
+      <div class="flyout__panel" id="sessionPanel"></div>
+    </div>
+  </header>
+
+  <!-- ============ CONTEXT BAR ============ -->
+  <div class="context-bar">
+    <span class="context-bar__icon" id="ctxIcon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </span>
+    <span class="context-bar__title" id="ctxTitle">Ký PDF</span>
+    <span class="context-bar__dot"></span>
+    <span class="context-bar__caption" id="ctxCaption">Chọn tệp và cấu hình chữ ký</span>
+  </div>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <div class="workspace">
+    @RenderBody()
+  </div>
+
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- Placement Action Dialog -->
+<div class="modal" id="placementDialog" style="display:none">
+  <div class="modal__backdrop" onclick="Signing.cancelPlacement()"></div>
+  <div class="modal__content" style="max-width:380px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <span style="width:40px;height:40px;border-radius:11px;background:rgba(30,95,212,.1);color:var(--accent);display:flex;align-items:center;justify-content:center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </span>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#16233a">Vị trí chữ ký</div>
+        <div style="font-size:12px;color:var(--muted)" id="placementCoords"></div>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--secondary);line-height:1.5;margin-bottom:18px">Chọn hành động cho ô chữ ký vừa vẽ:</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn--outline" style="width:100%;justify-content:flex-start;gap:10px;height:44px" onclick="Signing.confirmPlace()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Đặt ô chữ ký <span style="color:var(--muted);font-weight:400">(ký sau)</span></span>
+      </button>
+      <button class="btn btn--primary" style="width:100%;justify-content:flex-start;gap:10px;height:44px" onclick="Signing.confirmSignNow()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        <span>Ký ngay vị trí này</span>
+      </button>
+      <button class="btn btn--outline btn--danger" style="width:100%;justify-content:flex-start;gap:10px;height:44px" onclick="Signing.cancelPlacement()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <span>Hủy bỏ</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Credential Picker Dialog (shown only when the login has >1 registered certificate) -->
+<div class="modal" id="credentialPickerModal" style="display:none">
+  <div class="modal__backdrop" onclick="Signing.cancelCredentialPicker()"></div>
+  <div class="modal__content" style="max-width:420px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <span style="width:40px;height:40px;border-radius:11px;background:rgba(30,95,212,.1);color:var(--accent);display:flex;align-items:center;justify-content:center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </span>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#16233a">Chọn chứng thư ký số</div>
+        <div style="font-size:12px;color:var(--muted)">Tài khoản này có nhiều chứng thư đã đăng ký</div>
+      </div>
+    </div>
+    <div id="credentialPickerList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn--outline" style="flex:1" onclick="Signing.cancelCredentialPicker()">Hủy</button>
+      <button class="btn btn--primary" style="flex:1" onclick="Signing.confirmCredentialPicker()">Xác nhận &amp; Ký</button>
+    </div>
+  </div>
+</div>
+
+<!-- Config Guard Modal -->
+<div class="modal" id="configGuardModal" style="display:none">
+  <div class="modal__backdrop" onclick="App.closeGuide()"></div>
+  <div class="modal__content">
+    <div class="modal__header">
+      <span class="modal__icon modal__icon--warning">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span>
+      <div>
+        <h3 class="modal__title">Chưa cấu hình nhà cung cấp ký số</h3>
+        <p class="modal__desc" id="configGuardMsg">Merchant chưa có thông tin kết nối hợp lệ.</p>
+      </div>
+    </div>
+    <div class="modal__steps">
+      <div class="modal__step"><span class="badge badge--sm">1</span><span>Mở <b>Hệ thống › Cài Đặt SDK</b></span></div>
+      <div class="modal__step"><span class="badge badge--sm">2</span><span>Nhập URL, Profile ID, Client ID &amp; Secret</span></div>
+      <div class="modal__step"><span class="badge badge--sm">3</span><span>Bấm <b>Kiểm tra kết nối</b> rồi <b>Lưu cài đặt</b></span></div>
+    </div>
+    <div class="modal__actions">
+      <button class="btn btn--outline" onclick="App.closeGuide()">Đóng</button>
+      <button class="btn btn--primary" onclick="App.gotoSettings()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.87 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Mở Cài Đặt SDK
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script src="~/js/app.js"></script>
+<script src="~/js/toast.js"></script>
+<script src="~/js/session.js"></script>
+<script src="~/js/drag-drop.js"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

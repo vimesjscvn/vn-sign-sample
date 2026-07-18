@@ -1,0 +1,237 @@
+@{
+    ViewData["Title"] = "Vimes SignSDK Studio";
+}
+
+<!-- Left: Configuration Panel -->
+<div class="workspace__left" id="configPanel">
+  <!-- PDF Mode -->
+  <div id="pdfPanel" class="mode-panel">
+
+    <!-- Step 1: Document -->
+    <section class="card">
+      <div class="card__header">
+        <span class="badge">1</span>
+        <div>
+          <div class="card__title">Tài liệu PDF</div>
+          <div class="card__subtitle">Chọn tệp cần ký và thư mục đầu ra</div>
+        </div>
+      </div>
+
+      <label class="field-label">Tệp tài liệu</label>
+      <div class="file-input">
+        <div class="file-input__display" id="pdfFileDisplay">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d5473e" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span class="file-input__placeholder">Chưa chọn tệp…</span>
+        </div>
+        <input type="file" id="pdfFileInput" accept=".pdf" hidden />
+        <button class="btn btn--outline" onclick="document.getElementById('pdfFileInput').click()">Chọn File</button>
+      </div>
+
+      <label class="field-label" style="margin-top:16px">Thư mục đầu ra <span class="field-hint">(mặc định: \Signed)</span></label>
+      <div class="input-group">
+        <input type="text" class="input" id="pdfOutputDir" placeholder="Thư mục chứa tệp\Signed" />
+        <button class="btn btn--outline" style="width:48px;padding:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 2: Signature Config -->
+    <section class="card">
+      <div class="card__header">
+        <span class="badge">2</span>
+        <div>
+          <div class="card__title">Cấu hình chữ ký</div>
+          <div class="card__subtitle">Thông tin hiển thị và vị trí đóng dấu</div>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label class="field-label">Người ký</label>
+          <input type="text" class="input" id="signerName" value="Sample User" />
+        </div>
+        <div>
+          <label class="field-label">Chức danh</label>
+          <input type="text" class="input" id="signerTitle" placeholder="VD: Trưởng khoa" />
+        </div>
+        <div>
+          <label class="field-label">Loại chữ ký</label>
+          <select class="input" id="signatureType">
+            <option>Mặc định (DEFAULT)</option>
+            <option>Ký chính (PRIMARY)</option>
+            <option>Ký phụ (SECONDARY)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Chế độ hiển thị</label>
+          <select class="input" id="displayMode">
+            <option>Người ký &amp; Ảnh chữ ký</option>
+            <option>Chỉ ảnh chữ ký</option>
+          </select>
+        </div>
+      </div>
+
+      <label class="field-label" style="margin-top:16px">Ghi chú</label>
+      <input type="text" class="input" id="signNote" placeholder="Ghi chú tùy chọn hiển thị trên chữ ký" />
+
+      <!-- Timestamp Toggle -->
+      <div class="toggle" id="toggleTimestamp" style="margin-top:18px">
+        <span class="toggle__track active" id="tsTrack"><span class="toggle__knob"></span></span>
+        <div class="toggle__text">
+          <h4>Hiển thị thời gian ký</h4>
+          <p>Đóng dấu timestamp lên chữ ký</p>
+        </div>
+      </div>
+
+      <!-- Position Mode -->
+      <label class="field-label" style="margin-top:18px">Định vị ô chữ ký (PDF Point)</label>
+      <div class="radio-cards">
+        <div class="radio-card active" id="posSig" onclick="App.setPos('sig')">
+          <span class="radio-card__dot"></span>
+          <span class="radio-card__label">Vẽ ô chữ ký</span>
+        </div>
+        <div class="radio-card" id="posNote" onclick="App.setPos('note')">
+          <span class="radio-card__dot"></span>
+          <span class="radio-card__label">Vẽ ô ghi chú</span>
+        </div>
+      </div>
+
+      <!-- Signature Image -->
+      <label class="field-label" style="margin-top:18px">Ảnh chữ ký</label>
+      <div class="sig-image">
+        <div class="sig-image__preview" id="sigImagePreview">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <input type="file" id="sigImageInput" accept="image/*" hidden />
+        <button type="button" class="btn btn--outline" style="height:40px" onclick="document.getElementById('sigImageInput').click()">Chọn ảnh</button>
+        <button type="button" class="btn btn--danger" style="height:40px" onclick="Signing.clearSignatureImage()">Xóa ảnh</button>
+      </div>
+    </section>
+
+    <!-- Placement Hint -->
+    <div class="hint-banner" id="placementHint">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span class="hint-banner__text">Bấm vào ô chữ ký có sẵn trên tài liệu, hoặc bật "Vẽ ô ký" để chọn vị trí ký.</span>
+    </div>
+
+    <!-- Sign Button -->
+    <button class="btn btn--sign" id="btnSignPdf" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <span id="signBtnLabel">KÝ SỐ TÀI LIỆU PDF</span>
+    </button>
+  </div>
+
+  <!-- Settings Mode -->
+  <div id="settingsPanel" class="mode-panel" style="display:none">
+    <section class="card">
+      <div class="card__header">
+        <span class="badge">1</span>
+        <div>
+          <div class="card__title">Nhà cung cấp ký số</div>
+          <div class="card__subtitle">Chọn merchant cần cấu hình</div>
+        </div>
+      </div>
+
+      <label class="field-label">Merchant</label>
+      <select class="input" id="settingsMerchant"></select>
+    </section>
+
+    <section class="card">
+      <div class="card__header">
+        <span class="badge">2</span>
+        <div>
+          <div class="card__title">Thông tin kết nối</div>
+          <div class="card__subtitle">URL, Profile ID, Client ID &amp; Secret</div>
+        </div>
+      </div>
+
+      <label class="field-label">URL</label>
+      <input type="text" class="input" id="settingsBaseUrl" placeholder="https://..." />
+
+      <div class="form-grid" style="margin-top:16px">
+        <div>
+          <label class="field-label">Profile ID</label>
+          <input type="text" class="input" id="settingsProfileId" placeholder="adss:ras:profile:xxx" />
+        </div>
+        <div>
+          <label class="field-label">Client ID</label>
+          <input type="text" class="input" id="settingsClientId" placeholder="Client ID" />
+        </div>
+      </div>
+
+      <label class="field-label" style="margin-top:16px">Client Secret</label>
+      <input type="password" class="input" id="settingsClientSecret" placeholder="Client Secret" />
+
+      <div id="settingsTestStatus" style="margin-top:12px;font-size:12.5px;color:var(--muted)"></div>
+    </section>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn--outline" style="flex:1" id="btnTestConnection">Kiểm tra kết nối</button>
+      <button class="btn btn--primary" style="flex:1" id="btnSaveSettings">Lưu cài đặt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Right: Preview + Logs -->
+<div class="workspace__right">
+  <!-- PDF Preview -->
+  <div class="preview">
+    <div class="preview__toolbar">
+      <span class="preview__toolbar-title">Xem trước tài liệu</span>
+      <div class="preview__toolbar-spacer"></div>
+    </div>
+
+    <div class="preview__viewport" id="pdfViewport">
+      <!-- Empty / Drop state -->
+      <div class="drop-zone" id="dropZone">
+        <span class="drop-zone__icon">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </span>
+        <div class="drop-zone__title">Chưa nạp tài liệu PDF</div>
+        <div class="drop-zone__desc">Kéo &amp; thả file PDF vào đây hoặc nhấn nút bên dưới</div>
+        <button class="drop-zone__btn" onclick="document.getElementById('pdfFileInput').click()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Chọn tệp PDF
+        </button>
+      </div>
+
+      <!-- Fabric.js Canvas (shown after upload) -->
+      <div id="canvasContainer" style="display:none;width:100%;max-width:600px">
+        <canvas id="pdfCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="preview__pagebar">
+      <button class="btn btn--sm btn--outline" id="btnPrevPage">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+        Trang trước
+      </button>
+      <div class="preview__pagebar-info">
+        Trang <strong id="currentPage">1</strong> <span>/ <span id="totalPages">1</span></span>
+      </div>
+      <button class="btn btn--sm btn--outline" id="btnNextPage">
+        Trang sau
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Logs Panel -->
+  <div class="logs-panel">
+    <div class="logs-panel__header" id="logsHeader">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6fb0ff" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      <span class="logs-panel__title">Nhật ký hệ thống</span>
+      <span class="logs-panel__count" id="logCount">0 dòng</span>
+      <div class="logs-panel__spacer"></div>
+      <button class="btn btn--xs" onclick="App.copyLogs()">Sao chép</button>
+      <button class="btn btn--xs" onclick="App.clearLogs()">Xóa</button>
+    </div>
+    <div class="logs-panel__body" id="logsBody"></div>
+  </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/signing.js"></script>
+    <script src="~/js/settings.js"></script>
+}

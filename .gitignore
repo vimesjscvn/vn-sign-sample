@@ -34,3 +34,4 @@ mockup.html
 .build/
 mac/vmsign-agent-mac/.build/
 mac/vmsign-agent-mac/dist/
+mockups/
