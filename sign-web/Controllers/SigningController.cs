@@ -67,11 +67,14 @@ public class SigningController : Controller
             UserName = session.UserName,
             SignerName = request.SignerName,
             SignerTitle = request.SignerTitle,
+            SignerPosition = request.SignerPosition,
             Note = request.Note,
             ShowTimestamp = request.ShowTimestamp,
             SignatureImageBase64 = request.SignatureImageBase64,
             Placements = request.Placements,
-            SignAlgorithm = request.SignAlgorithm
+            SignAlgorithm = request.SignAlgorithm,
+            SignatureType = request.SignatureType,
+            DisplayNameMode = request.DisplayNameMode
         };
 
         var result = await _signingService.SignPdfAsync(finalRequest);

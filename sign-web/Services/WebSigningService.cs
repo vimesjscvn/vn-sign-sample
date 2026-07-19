@@ -199,17 +199,21 @@ public class WebSigningService
                     UserName = request.UserName,
                     CredentialID = request.CredentialId,
                     MerchantId = request.MerchantId,
+                    BearerToken = request.BearerToken,
                     FileName = Path.GetFileName(request.FilePath),
                     FileData = base64Data,
                     SignerName = request.SignerName,
                     SignerTitle = request.SignerTitle,
+                    SignerPosition = request.SignerPosition,
                     SignatureImage = request.SignatureImageBase64,
                     Page = placement.Page,
                     X = finalX,
                     Y = finalY,
                     Width = placement.Width,
                     Height = placement.Height,
-                    SignatureId = placement.FieldId
+                    SignatureId = placement.FieldId,
+                    SignatureType = request.SignatureType,
+                    DisplayNameMode = request.DisplayNameMode
                 };
 
                 var result = await _signClient.SignDocumentAsync(sdkRequest);

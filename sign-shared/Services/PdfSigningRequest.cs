@@ -17,6 +17,7 @@ public class PdfSigningRequest
     // Signature metadata
     public string? SignerName { get; init; }
     public string? SignerTitle { get; init; }
+    public string? SignerPosition { get; init; }
     public string? Note { get; init; }
     public bool ShowTimestamp { get; init; } = true;
     public string? SignatureImageBase64 { get; init; }
@@ -25,6 +26,9 @@ public class PdfSigningRequest
     public required List<FieldPlacement> Placements { get; init; }
 
     public string? SignAlgorithm { get; init; }
+
+    public int? SignatureType { get; init; }
+    public int? DisplayNameMode { get; init; }
 }
 
 public class FieldPlacement

@@ -56,18 +56,23 @@
           <input type="text" class="input" id="signerTitle" placeholder="VD: Trưởng khoa" />
         </div>
         <div>
+          <label class="field-label">Chức vụ / Vị trí</label>
+          <input type="text" class="input" id="signerPosition" placeholder="VD: Khoa nội" />
+        </div>
+        <div>
           <label class="field-label">Loại chữ ký</label>
           <select class="input" id="signatureType">
-            <option>Mặc định (DEFAULT)</option>
-            <option>Ký chính (PRIMARY)</option>
-            <option>Ký phụ (SECONDARY)</option>
+            <option value="0">Mặc định (DEFAULT)</option>
+            <option value="1">Ký chính (PRIMARY)</option>
+            <option value="2">Ký phụ (SECONDARY)</option>
           </select>
         </div>
         <div>
           <label class="field-label">Chế độ hiển thị</label>
           <select class="input" id="displayMode">
-            <option>Người ký &amp; Ảnh chữ ký</option>
-            <option>Chỉ ảnh chữ ký</option>
+            <option value="1">Người ký &amp; Ảnh chữ ký</option>
+            <option value="2">Người ký, người ủy quyền &amp; Ảnh chữ ký</option>
+            <option value="3">Chỉ ảnh chữ ký</option>
           </select>
         </div>
       </div>
