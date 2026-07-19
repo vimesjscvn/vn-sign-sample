@@ -233,7 +233,7 @@ public class WebSigningService
                 else
                 {
                     _logger.LogWarning("Sign placement failed: {Msg}", result.ErrorMessage);
-                    return new SigningResult { Success = false, ErrorMessage = result.ErrorMessage, SignedCount = signed };
+                    return new SigningResult { Success = false, ErrorMessage = MapErrorMessage(result.ErrorMessage), SignedCount = signed };
                 }
             }
 
@@ -273,13 +273,23 @@ public class WebSigningService
                 return new SigningResult { Success = true, SignedCount = 1, OutputPath = result.SignedFileUrl };
             }
 
-            return new SigningResult { Success = false, ErrorMessage = result.ErrorMessage };
+            return new SigningResult { Success = false, ErrorMessage = MapErrorMessage(result.ErrorMessage) };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "SignXml failed");
             return new SigningResult { Success = false, ErrorMessage = ex.Message };
         }
+    }
+
+    private string MapErrorMessage(string? error)
+    {
+        if (string.IsNullOrEmpty(error)) return "Đã xảy ra lỗi không xác định.";
+        if (error.Contains("Certificate not found") || error.Contains("Token không hợp lệ") || error.Contains("58038"))
+        {
+            return "Phiên làm việc với nhà cung cấp chữ ký số (Token) đã hết hạn hoặc không hợp lệ. Vui lòng đăng xuất và đăng nhập lại.";
+        }
+        return error;
     }
 }
 
