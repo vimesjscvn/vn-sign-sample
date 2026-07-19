@@ -1,10 +1,13 @@
 using Core.Config.Settings;
+using Core.Common.Common;
 using Newtonsoft.Json;
 using SignSDK;
 using Signature.Domain.API;
 using VMSign.Shared.Models;
 using VMSign.Shared.Services;
 using VMSign.Web.Controllers;
+using Docnet.Core;
+using Docnet.Core.Models;
 
 namespace VMSign.Web.Services;
 
@@ -17,17 +20,23 @@ public class WebSigningService
     private readonly ILogger<WebSigningService> _logger;
     private readonly AppSettings _appSettings;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly GeminiLayoutService _geminiService;
+    private readonly LocalVisionLayoutService _localVisionService;
 
     public WebSigningService(
         ISignSDKClient signClient,
         ILogger<WebSigningService> logger,
         AppSettings appSettings,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        GeminiLayoutService geminiService,
+        LocalVisionLayoutService localVisionService)
     {
         _signClient = signClient;
         _logger = logger;
         _appSettings = appSettings;
         _httpContextAccessor = httpContextAccessor;
+        _geminiService = geminiService;
+        _localVisionService = localVisionService;
     }
 
     public IReadOnlyList<string> GetRegisteredMerchants()
@@ -97,6 +106,292 @@ public class WebSigningService
         string userName, string bearerToken, string merchantId)
     {
         return await _signClient.GetCertificatesAsync(userName, bearerToken, merchantId: merchantId);
+    }
+
+    private byte[] RenderPdfPageToBmp(string pdfPath, int page)
+    {
+        using var library = DocLib.Instance;
+        using var docReader = library.GetDocReader(pdfPath, new PageDimensions(1.0d));
+        using var pageReader = docReader.GetPageReader(page - 1);
+        var width = pageReader.GetPageWidth();
+        var height = pageReader.GetPageHeight();
+        var rawBytes = pageReader.GetImage(RenderFlags.RenderAnnotations | (RenderFlags)0x800);
+        
+        // BMP file header (14 bytes) + DIB header (40 bytes) = 54 bytes total
+        int rowSize = width * 4;
+        int imageSize = rowSize * height;
+        int fileSize = 54 + imageSize;
+        var bmp = new byte[fileSize];
+        bmp[0] = 0x42; bmp[1] = 0x4D;
+        BitConverter.GetBytes(fileSize).CopyTo(bmp, 2);
+        BitConverter.GetBytes(54).CopyTo(bmp, 10);
+        BitConverter.GetBytes(40).CopyTo(bmp, 14);
+        BitConverter.GetBytes(width).CopyTo(bmp, 18);
+        BitConverter.GetBytes(-height).CopyTo(bmp, 22);
+        BitConverter.GetBytes((short)1).CopyTo(bmp, 26);
+        BitConverter.GetBytes((short)32).CopyTo(bmp, 28);
+        BitConverter.GetBytes(0).CopyTo(bmp, 30);
+        BitConverter.GetBytes(imageSize).CopyTo(bmp, 34);
+        Buffer.BlockCopy(rawBytes, 0, bmp, 54, imageSize);
+        return bmp;
+    }
+
+    public List<TextSearchFieldCreator.CreatedFieldResult> AutoCreateSignatureFields(string pdfPath, bool runVisualGrounding = false)
+    {
+        var results = new List<TextSearchFieldCreator.CreatedFieldResult>();
+        try
+        {
+            var autoCreateMode = _appSettings.InternalSetting?.AutoCreateAcroField ?? 0;
+            if (autoCreateMode != (int)AutoCreateAcroFieldMode.On)
+            {
+                _logger.LogInformation("AutoCreateAcroField is disabled");
+                return results;
+            }
+
+            var labelsJson = _appSettings.InternalSetting?.SignerLabels;
+            if (string.IsNullOrEmpty(labelsJson))
+            {
+                _logger.LogWarning("SignerLabels configuration is empty");
+                return results;
+            }
+
+            var labels = JsonConvert.DeserializeObject<List<TextSearchFieldCreator.SignerLabel>>(labelsJson);
+            if (labels == null || labels.Count == 0)
+            {
+                _logger.LogWarning("SignerLabels could not be parsed or contains no items");
+                return results;
+            }
+
+            // 1. Run algorithmic text search and field creation first (ultra-fast)
+            results = TextSearchFieldCreator.CreateFieldsFromLabels(pdfPath, labels);
+
+            // 2. Hybrid verification/adjustment with visual models if requested
+            if (runVisualGrounding)
+            {
+                results = AlignFieldsVisually(pdfPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to auto-create signature fields");
+        }
+        return results;
+    }
+
+    public List<TextSearchFieldCreator.CreatedFieldResult> AlignFieldsVisually(string pdfPath)
+    {
+        var results = new List<TextSearchFieldCreator.CreatedFieldResult>();
+        try
+        {
+            var labelsJson = _appSettings.InternalSetting?.SignerLabels;
+            if (string.IsNullOrEmpty(labelsJson)) return results;
+
+            var labels = JsonConvert.DeserializeObject<List<TextSearchFieldCreator.SignerLabel>>(labelsJson);
+            if (labels == null || labels.Count == 0) return results;
+
+            // First detect existing fields to construct results list
+            var existingFields = DetectFormFields(pdfPath);
+            foreach (var f in existingFields)
+            {
+                results.Add(new TextSearchFieldCreator.CreatedFieldResult
+                {
+                    FieldName = f.Name,
+                    Page = f.Page,
+                    X = f.X,
+                    Y = f.Y,
+                    Width = f.Width,
+                    Height = f.Height
+                });
+            }
+
+            var verifyMode = _appSettings.InternalSetting?.VertexAiVerification ?? 0;
+            bool useGemini = (verifyMode == 1);
+            bool useLocalVision = _localVisionService.IsEnabled;
+
+            if (useGemini || useLocalVision)
+            {
+                _logger.LogInformation("Visual alignment started (Gemini: {useGemini}, Local: {useLocalVision}). Querying layout model...", useGemini, useLocalVision);
+
+                int lastPage = 1;
+                double pageWidth = 0;
+                double pageHeight = 0;
+                using (var reader = new iText.Kernel.Pdf.PdfReader(pdfPath))
+                using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader))
+                {
+                    lastPage = pdfDoc.GetNumberOfPages();
+                    var pageObj = pdfDoc.GetPage(lastPage);
+                    pageWidth = pageObj.GetPageSize().GetWidth();
+                    pageHeight = pageObj.GetPageSize().GetHeight();
+                }
+
+                byte[] bmpBytes = RenderPdfPageToBmp(pdfPath, lastPage);
+                var aiBlocks = new List<LocalVisionLayoutService.DetectionResult>();
+                if (useLocalVision)
+                {
+                    aiBlocks = _localVisionService.DetectSignatureBlocksAsync(bmpBytes).GetAwaiter().GetResult();
+                }
+                else if (useGemini)
+                {
+                    var geminiBlocks = _geminiService.DetectSignatureBlocksAsync(bmpBytes).GetAwaiter().GetResult();
+                    foreach (var gb in geminiBlocks)
+                    {
+                        aiBlocks.Add(new LocalVisionLayoutService.DetectionResult
+                        {
+                            Label = gb.Label,
+                            Box2d = gb.Box2d
+                        });
+                    }
+                }
+
+                if (aiBlocks != null && aiBlocks.Count > 0)
+                {
+                    _logger.LogInformation("AI successfully detected {Count} signature blocks visually.", aiBlocks.Count);
+                    string tmpPath = pdfPath + ".tmp";
+                    using (var reader = new iText.Kernel.Pdf.PdfReader(pdfPath))
+                    using (var writer = new iText.Kernel.Pdf.PdfWriter(tmpPath))
+                    using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader, writer))
+                    {
+                        var acroForm = iText.Forms.PdfAcroForm.GetAcroForm(pdfDoc, true);
+                        var pageObj = pdfDoc.GetPage(lastPage);
+                        
+                        // Group the AI blocks into horizontal rows based on their visual Y center coordinates
+                        var groupedRows = new List<List<LocalVisionLayoutService.DetectionResult>>();
+                        foreach (var block in aiBlocks)
+                        {
+                            float ymin = block.Box2d[0];
+                            float ymax = block.Box2d[2];
+                            float centerY = (1000f - (ymin + ymax) / 2f) / 1000f * (float)pageHeight;
+
+                            bool placed = false;
+                            foreach (var row in groupedRows)
+                            {
+                                float rowYmin = row[0].Box2d[0];
+                                float rowYmax = row[0].Box2d[2];
+                                float rowCenterY = (1000f - (rowYmin + rowYmax) / 2f) / 1000f * (float)pageHeight;
+
+                                if (Math.Abs(centerY - rowCenterY) < 50f)
+                                {
+                                    row.Add(block);
+                                    placed = true;
+                                    break;
+                                }
+                            }
+                            if (!placed)
+                            {
+                                groupedRows.Add(new List<LocalVisionLayoutService.DetectionResult> { block });
+                            }
+                        }
+
+                        // Process each row to align fields on the same Y axis
+                        foreach (var row in groupedRows)
+                        {
+                            // Gather any existing text-matched Y coordinates in this row
+                            var matchedYCoordinates = new List<float>();
+                            foreach (var block in row)
+                            {
+                                var matchedLabel = labels.Find(l => 
+                                    l.Label.ToLower().Contains(block.Label.ToLower()) ||
+                                    block.Label.ToLower().Contains(l.Label.ToLower()));
+
+                                if (matchedLabel != null)
+                                {
+                                    var matchedRes = results.Find(r => r.FieldName == matchedLabel.FieldName);
+                                    if (matchedRes != null)
+                                    {
+                                        // Convert from frontend Y (top-down) back to PDF Y (bottom-up)
+                                        float pdfY = (float)pageHeight - matchedRes.Y - matchedRes.Height;
+                                        matchedYCoordinates.Add(pdfY);
+                                    }
+                                }
+                            }
+
+                            // Determine the common Y position for this row
+                            float commonRowY;
+                            if (matchedYCoordinates.Count > 0)
+                            {
+                                commonRowY = matchedYCoordinates.Average();
+                            }
+                            else
+                            {
+                                // Fallback: use the average visual center of blocks in this row, offset down
+                                float avgVisualCenterY = 0f;
+                                foreach (var block in row)
+                                {
+                                    float ymin = block.Box2d[0];
+                                    float ymax = block.Box2d[2];
+                                    avgVisualCenterY += (1000f - (ymin + ymax) / 2f) / 1000f * (float)pageHeight;
+                                }
+                                avgVisualCenterY /= row.Count;
+                                commonRowY = avgVisualCenterY - 30f - (60f / 2f); // shift down by 30 points to avoid overlaying label text
+                            }
+
+                            // Align each block horizontally and apply the common Y row position
+                            foreach (var block in row)
+                            {
+                                var matchedLabel = labels.Find(l => 
+                                    l.Label.ToLower().Contains(block.Label.ToLower()) ||
+                                    block.Label.ToLower().Contains(l.Label.ToLower()));
+
+                                float desiredWidth = matchedLabel?.Width ?? 150f;
+                                float desiredHeight = matchedLabel?.Height ?? 60f;
+
+                                string fieldName = matchedLabel?.FieldName ?? $"sig_ai_{Guid.NewGuid().ToString().Substring(0, 4)}";
+
+                                var existingField = acroForm.GetField(fieldName);
+                                if (existingField != null)
+                                {
+                                    // Keep deterministic local algorithm alignment!
+                                    _logger.LogInformation("Preserved deterministic text-search coordinates for matched field '{FieldName}'", fieldName);
+                                }
+                                else
+                                {
+                                    // Auto-create missing field using visual AI coordinates
+                                    float xmin = block.Box2d[1];
+                                    float xmax = block.Box2d[3];
+                                    float aiCenterX = (float)((xmin + xmax) / 2000f * pageWidth);
+
+                                    float fieldX = aiCenterX - (desiredWidth / 2f);
+                                    float fieldY = commonRowY;
+
+                                    // Prevent fields from falling off the page edges (margin protection)
+                                    if (fieldX < 5) fieldX = 5;
+                                    if (fieldX + desiredWidth > pageWidth - 5) fieldX = (float)pageWidth - desiredWidth - 5;
+                                    if (fieldY < 5) fieldY = 5;
+                                    if (fieldY + desiredHeight > pageHeight - 5) fieldY = (float)pageHeight - desiredHeight - 5;
+
+                                    var sigField = iText.Forms.Fields.PdfFormField.CreateSignature(pdfDoc, new iText.Kernel.Geom.Rectangle(fieldX, fieldY, desiredWidth, desiredHeight));
+                                    sigField.SetFieldName(fieldName);
+                                    acroForm.AddField(sigField, pageObj);
+                                    _logger.LogInformation("Auto-created missing field '{FieldName}' at visual position detected by local/Gemini AI", fieldName);
+
+                                    var newRes = results.Find(r => r.FieldName == fieldName);
+                                    if (newRes == null)
+                                    {
+                                        results.Add(new TextSearchFieldCreator.CreatedFieldResult
+                                        {
+                                            FieldName = fieldName,
+                                            Page = lastPage,
+                                            X = fieldX,
+                                            Y = (float)pageHeight - (fieldY + desiredHeight),
+                                            Width = desiredWidth,
+                                            Height = desiredHeight
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    File.Delete(pdfPath);
+                    File.Move(tmpPath, pdfPath);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to auto-create signature fields");
+        }
+        return results;
     }
 
     public List<SignatureFieldInfo> DetectFormFields(string pdfPath)

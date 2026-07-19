@@ -116,6 +116,25 @@ public class PdfController : Controller
     /// </summary>
     private static byte[] ConvertBgraToBmp(byte[] bgra, int width, int height)
     {
+        // 1. Perform alpha-blending with white background
+        int pixelCount = bgra.Length / 4;
+        for (int i = 0; i < pixelCount; i++)
+        {
+            int offset = i * 4;
+            byte a = bgra[offset + 3];
+            if (a < 255)
+            {
+                byte b = bgra[offset];
+                byte g = bgra[offset + 1];
+                byte r = bgra[offset + 2];
+
+                bgra[offset]     = (byte)((b * a + 255 * (255 - a)) / 255);
+                bgra[offset + 1] = (byte)((g * a + 255 * (255 - a)) / 255);
+                bgra[offset + 2] = (byte)((r * a + 255 * (255 - a)) / 255);
+                bgra[offset + 3] = 255;
+            }
+        }
+
         // BMP file header (14 bytes) + DIB header (40 bytes) = 54 bytes total
         int rowSize = width * 4; // BGRA = 4 bytes per pixel
         int imageSize = rowSize * height;

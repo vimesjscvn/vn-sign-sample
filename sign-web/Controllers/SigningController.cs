@@ -18,6 +18,11 @@ public class SigningController : Controller
         _fileService = fileService;
     }
 
+    public class AnalyzeLayoutRequest
+    {
+        public string FilePath { get; set; }
+    }
+
     /// <summary>
     /// Upload a PDF and detect form fields.
     /// Returns field coordinates for client-side overlay rendering.
@@ -29,13 +34,35 @@ public class SigningController : Controller
             return BadRequest(new { error = "No file provided." });
 
         var savedPath = await _fileService.SaveUploadedFileAsync(file);
+        // Fast baseline auto-creation (text matching only)
+        var autoCreatedFields = _signingService.AutoCreateSignatureFields(savedPath, runVisualGrounding: false);
         var fields = _signingService.DetectFormFields(savedPath);
 
         return Json(new
         {
             filePath = savedPath,
             fileName = file.FileName,
-            fields
+            fields,
+            autoCreatedFields
+        });
+    }
+
+    /// <summary>
+    /// Asynchronously align fields visually using Gemini / local vision models in the background.
+    /// </summary>
+    [HttpPost]
+    public IActionResult VerifyAndAlignLayoutVisual([FromBody] AnalyzeLayoutRequest request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.FilePath))
+            return BadRequest(new { error = "Invalid file path." });
+
+        var autoCreatedFields = _signingService.AlignFieldsVisually(request.FilePath);
+        var fields = _signingService.DetectFormFields(request.FilePath);
+
+        return Json(new
+        {
+            fields,
+            autoCreatedFields
         });
     }
 

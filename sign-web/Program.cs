@@ -69,6 +69,8 @@ builder.Services.AddControllersWithViews()
 // Application services
 builder.Services.AddScoped<WebSigningService>();
 builder.Services.AddScoped<FileUploadService>();
+builder.Services.AddScoped<GeminiLayoutService>();
+builder.Services.AddScoped<LocalVisionLayoutService>();
 
 var app = builder.Build();
 
