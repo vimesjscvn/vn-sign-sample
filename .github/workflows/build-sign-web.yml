@@ -1,0 +1,71 @@
+name: Release sign-web
+
+on:
+  push:
+    tags:
+      - 'sign-web-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+  PROJECT: sign-web/sign-web.csproj
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Strip 'sign-web-' prefix, e.g. sign-web-v1.2.0 → v1.2.0
+            TAG="${GITHUB_REF_NAME}"
+            echo "VERSION=${TAG#sign-web-}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Restore
+        run: dotnet restore "${{ env.PROJECT }}"
+
+      - name: Publish Release
+        shell: bash
+        run: |
+          ver="${{ steps.ver.outputs.VERSION }}"
+          # Strip 'v' prefix if present
+          ver_num="${ver#v}"
+          dotnet publish "${{ env.PROJECT }}" -c Release -o publish/ --no-restore -p:Version="$ver_num"
+
+      - name: Zip release
+        shell: bash
+        run: |
+          ver="${{ steps.ver.outputs.VERSION }}"
+          cd publish
+          zip -r "../sign-web-$ver.zip" .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "sign-web ${{ steps.ver.outputs.VERSION }}"
+          files: |
+            sign-web-*.zip
+          body: |
+            ## sign-web ${{ steps.ver.outputs.VERSION }}
+            ASP.NET Core Web application sample demonstrating visual signature placement and signing integrations.
