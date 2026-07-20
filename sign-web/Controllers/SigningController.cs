@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using VMSign.Shared.Services;
 using VMSign.Web.Services;
 
@@ -28,14 +29,20 @@ public class SigningController : Controller
     /// Returns field coordinates for client-side overlay rendering.
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> UploadPdf(IFormFile file)
+    public async Task<IActionResult> UploadPdf(IFormFile file, bool autoCreateAcro = true)
     {
         if (file == null || file.Length == 0)
             return BadRequest(new { error = "No file provided." });
 
         var savedPath = await _fileService.SaveUploadedFileAsync(file);
-        // Fast baseline auto-creation (text matching only)
-        var autoCreatedFields = _signingService.AutoCreateSignatureFields(savedPath, runVisualGrounding: false);
+
+        // Only auto-create acro fields if the toggle is enabled
+        var autoCreatedFields = new List<TextSearchFieldCreator.CreatedFieldResult>();
+        if (autoCreateAcro)
+        {
+            autoCreatedFields = _signingService.AutoCreateSignatureFields(savedPath, runVisualGrounding: false);
+        }
+
         var fields = _signingService.DetectFormFields(savedPath);
 
         return Json(new
