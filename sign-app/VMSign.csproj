@@ -22,7 +22,7 @@
   <PropertyGroup>
     <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
     <SdkSrc>..\..\vn-sign-sdk\src</SdkSrc>
-    <SdkPkgVersion>1.0.23</SdkPkgVersion>
+    <SdkPkgVersion>1.0.24</SdkPkgVersion>
   </PropertyGroup>
 
   <!-- Development: direct source references -->

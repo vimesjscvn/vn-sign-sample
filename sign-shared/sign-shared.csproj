@@ -10,7 +10,7 @@
   <PropertyGroup>
     <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
     <SdkSrc>..\..\signsdk\src</SdkSrc>
-    <SdkPkgVersion>1.0.23</SdkPkgVersion>
+    <SdkPkgVersion>1.0.24</SdkPkgVersion>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(UseSdkSource)' == 'true'">
