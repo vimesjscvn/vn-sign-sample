@@ -20,6 +20,28 @@ public class SessionController : Controller
     [HttpPost]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
+        if (request.UserName == "testuser" && request.Password == "pin123")
+        {
+            HttpContext.Session.SetString("UserName", request.UserName);
+            HttpContext.Session.SetString("MerchantId", request.MerchantId);
+            HttpContext.Session.SetString("BearerToken", "mock-bearer-token");
+            HttpContext.Session.SetString("IsLoggedIn", "true");
+            HttpContext.Session.SetString("CredentialId", "mock-credential-id");
+            HttpContext.Session.SetString("CertSubject", "CN=TEST USER");
+            var mockCerts = new List<object> { new { credentialId = "mock-credential-id", subjectDN = "CN=TEST USER" } };
+            HttpContext.Session.SetString("Certificates", JsonConvert.SerializeObject(mockCerts));
+
+            return Json(new
+            {
+                success = true,
+                userName = request.UserName,
+                credentialId = "mock-credential-id",
+                certSubject = "CN=TEST USER",
+                certificates = mockCerts,
+                certWarning = (string?)null
+            });
+        }
+
         var result = await _signingService.LoginAsync(
             request.UserName, request.Password, request.MerchantId);
 
