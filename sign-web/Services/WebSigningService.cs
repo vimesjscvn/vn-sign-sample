@@ -1,7 +1,13 @@
 using Core.Config.Settings;
 using Core.Common.Common;
 using Newtonsoft.Json;
+
+#if USE_SDK_SOURCE
 using SignSDK;
+#else
+using Vimes.SignSDK;
+#endif
+
 using Signature.Domain.API;
 using VMSign.Shared.Models;
 using VMSign.Shared.Services;
@@ -483,8 +489,13 @@ public class WebSigningService
                     Width = placement.Width,
                     Height = placement.Height,
                     SignatureId = placement.FieldId,
+#if USE_SDK_SOURCE
                     SignatureType = request.SignatureType,
                     DisplayNameMode = request.DisplayNameMode
+#else
+                    SignatureType = (SignatureType)(request.SignatureType ?? 0),
+                    DisplayNameMode = (DisplayNameMode)(request.DisplayNameMode ?? 0)
+#endif
                 };
 
                 var result = await _signClient.SignDocumentAsync(sdkRequest);

@@ -1,5 +1,7 @@
 using Serilog;
 using VMSign.Web.Services;
+
+#if USE_SDK_SOURCE
 using SignSDK;
 using Signature.Merchant.MySign.Extensions;
 using Signature.Merchant.SmartCA.Extensions;
@@ -9,6 +11,17 @@ using Vimes.SignSDK.Merchants.BCY.Extensions;
 using Vimes.SignSDK.Merchants.SIM.Extensions;
 using Vimes.SignSDK.Merchants.InTrust.Extensions;
 using Vimes.SignSDK.Merchants.CMC.Extensions;
+#else
+using Vimes.SignSDK;
+using Vimes.SignSDK.Merchants.MySign;
+using Vimes.SignSDK.Merchants.SmartCA;
+using Vimes.SignSDK.Merchants.USB;
+using Vimes.SignSDK.Merchants.Self;
+using Vimes.SignSDK.Merchants.BCY;
+using Vimes.SignSDK.Merchants.SIM;
+using Vimes.SignSDK.Merchants.InTrust;
+using Vimes.SignSDK.Merchants.CMC;
+#endif
 
 var builder = WebApplication.CreateBuilder(args);
 
