@@ -50,7 +50,7 @@ jobs:
           ver="${{ steps.ver.outputs.VERSION }}"
           # Strip 'v' prefix if present
           ver_num="${ver#v}"
-          dotnet publish "${{ env.PROJECT }}" -c Release -o publish/ --no-restore -p:Version="$ver_num"
+          dotnet publish "${{ env.PROJECT }}" -c Release -o publish/ -p:Version="$ver_num"
 
       - name: Zip release
         shell: bash
