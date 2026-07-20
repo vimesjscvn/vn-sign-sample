@@ -189,7 +189,7 @@ public class WebSigningService
             var labels = JsonConvert.DeserializeObject<List<TextSearchFieldCreator.SignerLabel>>(labelsJson);
             if (labels == null || labels.Count == 0) return results;
 
-            // First detect existing fields to construct results list
+            // Detect existing fields (already placed by text search with collision avoidance)
             var existingFields = DetectFormFields(pdfPath);
             foreach (var f in existingFields)
             {
@@ -210,11 +210,13 @@ public class WebSigningService
 
             if (useGemini || useLocalVision)
             {
-                _logger.LogInformation("Visual alignment started (Gemini: {useGemini}, Local: {useLocalVision}). Querying layout model...", useGemini, useLocalVision);
+                _logger.LogInformation("Visual AI scan started (Gemini: {useGemini}, Local: {useLocalVision}). Looking for missed labels...", useGemini, useLocalVision);
 
                 int lastPage = 1;
                 double pageWidth = 0;
                 double pageHeight = 0;
+                List<TextSearchFieldCreator.TextRect> textRects;
+
                 using (var reader = new iText.Kernel.Pdf.PdfReader(pdfPath))
                 using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader))
                 {
@@ -222,6 +224,8 @@ public class WebSigningService
                     var pageObj = pdfDoc.GetPage(lastPage);
                     pageWidth = pageObj.GetPageSize().GetWidth();
                     pageHeight = pageObj.GetPageSize().GetHeight();
+                    // Extract text rects for collision checking on AI-created fields
+                    textRects = TextSearchFieldCreator.ExtractAllTextRects(pageObj);
                 }
 
                 byte[] bmpBytes = RenderPdfPageToBmp(pdfPath, lastPage);
@@ -245,151 +249,123 @@ public class WebSigningService
 
                 if (aiBlocks != null && aiBlocks.Count > 0)
                 {
-                    _logger.LogInformation("AI successfully detected {Count} signature blocks visually.", aiBlocks.Count);
+                    _logger.LogInformation("AI detected {Count} signature blocks visually.", aiBlocks.Count);
+
+                    // Only create fields for labels that are MISSING (not already placed by text search)
                     string tmpPath = pdfPath + ".tmp";
+                    bool anyCreated = false;
+
                     using (var reader = new iText.Kernel.Pdf.PdfReader(pdfPath))
                     using (var writer = new iText.Kernel.Pdf.PdfWriter(tmpPath))
                     using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader, writer))
                     {
                         var acroForm = iText.Forms.PdfAcroForm.GetAcroForm(pdfDoc, true);
                         var pageObj = pdfDoc.GetPage(lastPage);
+
+                        // Find the average Y of existing text-matched fields on this page for row alignment
+                        var existingYValues = results
+                            .Where(r => r.Page == lastPage && !r.WasSkipped)
+                            .Select(r => (float)pageHeight - r.Y - r.Height)
+                            .ToList();
                         
-                        // Group the AI blocks into horizontal rows based on their visual Y center coordinates
-                        var groupedRows = new List<List<LocalVisionLayoutService.DetectionResult>>();
-                        foreach (var block in aiBlocks)
+                        // Group existing fields into rows by proximity
+                        var rowYGroups = new List<List<float>>();
+                        foreach (var y in existingYValues)
                         {
-                            float ymin = block.Box2d[0];
-                            float ymax = block.Box2d[2];
-                            float centerY = (1000f - (ymin + ymax) / 2f) / 1000f * (float)pageHeight;
-
                             bool placed = false;
-                            foreach (var row in groupedRows)
+                            foreach (var group in rowYGroups)
                             {
-                                float rowYmin = row[0].Box2d[0];
-                                float rowYmax = row[0].Box2d[2];
-                                float rowCenterY = (1000f - (rowYmin + rowYmax) / 2f) / 1000f * (float)pageHeight;
-
-                                if (Math.Abs(centerY - rowCenterY) < 50f)
+                                if (Math.Abs(y - group.Average()) < 50f)
                                 {
-                                    row.Add(block);
+                                    group.Add(y);
                                     placed = true;
                                     break;
                                 }
                             }
-                            if (!placed)
-                            {
-                                groupedRows.Add(new List<LocalVisionLayoutService.DetectionResult> { block });
-                            }
+                            if (!placed) rowYGroups.Add(new List<float> { y });
                         }
 
-                        // Process each row to align fields on the same Y axis
-                        foreach (var row in groupedRows)
+                        foreach (var block in aiBlocks)
                         {
-                            // Gather any existing text-matched Y coordinates in this row
-                            var matchedYCoordinates = new List<float>();
-                            foreach (var block in row)
-                            {
-                                var matchedLabel = labels.Find(l => 
-                                    l.Label.ToLower().Contains(block.Label.ToLower()) ||
-                                    block.Label.ToLower().Contains(l.Label.ToLower()));
+                            var matchedLabel = labels.Find(l =>
+                                l.Label.ToLower().Contains(block.Label.ToLower()) ||
+                                block.Label.ToLower().Contains(l.Label.ToLower()));
 
-                                if (matchedLabel != null)
+                            string fieldName = matchedLabel?.FieldName ?? $"sig_ai_{Guid.NewGuid().ToString().Substring(0, 4)}";
+                            float desiredWidth = matchedLabel?.Width ?? 150f;
+                            float desiredHeight = matchedLabel?.Height ?? 60f;
+
+                            // Skip if field already exists
+                            if (acroForm.GetField(fieldName) != null)
+                            {
+                                _logger.LogInformation("Field '{FieldName}' already exists, preserving text-search position", fieldName);
+                                continue;
+                            }
+
+                            // Calculate initial position from AI visual coordinates
+                            float xmin = block.Box2d[1];
+                            float xmax = block.Box2d[3];
+                            float ymin = block.Box2d[0];
+                            float ymax = block.Box2d[2];
+                            float aiCenterX = (float)((xmin + xmax) / 2000f * pageWidth);
+                            float aiCenterY = (float)((1000f - (ymin + ymax) / 2f) / 1000f * pageHeight);
+
+                            float fieldX = aiCenterX - (desiredWidth / 2f);
+
+                            // Try to align Y with the nearest existing row
+                            float fieldY = aiCenterY - (desiredHeight / 2f);
+                            foreach (var group in rowYGroups)
+                            {
+                                float rowAvgY = group.Average();
+                                if (Math.Abs(fieldY - rowAvgY) < 60f)
                                 {
-                                    var matchedRes = results.Find(r => r.FieldName == matchedLabel.FieldName);
-                                    if (matchedRes != null)
-                                    {
-                                        // Convert from frontend Y (top-down) back to PDF Y (bottom-up)
-                                        float pdfY = (float)pageHeight - matchedRes.Y - matchedRes.Height;
-                                        matchedYCoordinates.Add(pdfY);
-                                    }
+                                    fieldY = rowAvgY;
+                                    _logger.LogInformation("Aligned new field '{FieldName}' Y to existing row at {RowY}", fieldName, rowAvgY);
+                                    break;
                                 }
                             }
 
-                            // Determine the common Y position for this row
-                            float commonRowY;
-                            if (matchedYCoordinates.Count > 0)
+                            // Run collision-aware nudging
+                            var (nudgedX, nudgedY) = TextSearchFieldCreator.NudgeToAvoidCollision(
+                                fieldX, fieldY, desiredWidth, desiredHeight,
+                                textRects, (float)pageWidth, (float)pageHeight);
+
+                            var sigField = iText.Forms.Fields.PdfFormField.CreateSignature(pdfDoc,
+                                new iText.Kernel.Geom.Rectangle(nudgedX, nudgedY, desiredWidth, desiredHeight));
+                            sigField.SetFieldName(fieldName);
+                            acroForm.AddField(sigField, pageObj);
+                            anyCreated = true;
+
+                            _logger.LogInformation("Auto-created missing field '{FieldName}' at collision-free position X={X}, Y={Y}", 
+                                fieldName, nudgedX, nudgedY);
+
+                            results.Add(new TextSearchFieldCreator.CreatedFieldResult
                             {
-                                commonRowY = matchedYCoordinates.Average();
-                            }
-                            else
-                            {
-                                // Fallback: use the average visual center of blocks in this row, offset down
-                                float avgVisualCenterY = 0f;
-                                foreach (var block in row)
-                                {
-                                    float ymin = block.Box2d[0];
-                                    float ymax = block.Box2d[2];
-                                    avgVisualCenterY += (1000f - (ymin + ymax) / 2f) / 1000f * (float)pageHeight;
-                                }
-                                avgVisualCenterY /= row.Count;
-                                commonRowY = avgVisualCenterY - 30f - (60f / 2f); // shift down by 30 points to avoid overlaying label text
-                            }
-
-                            // Align each block horizontally and apply the common Y row position
-                            foreach (var block in row)
-                            {
-                                var matchedLabel = labels.Find(l => 
-                                    l.Label.ToLower().Contains(block.Label.ToLower()) ||
-                                    block.Label.ToLower().Contains(l.Label.ToLower()));
-
-                                float desiredWidth = matchedLabel?.Width ?? 150f;
-                                float desiredHeight = matchedLabel?.Height ?? 60f;
-
-                                string fieldName = matchedLabel?.FieldName ?? $"sig_ai_{Guid.NewGuid().ToString().Substring(0, 4)}";
-
-                                var existingField = acroForm.GetField(fieldName);
-                                if (existingField != null)
-                                {
-                                    // Keep deterministic local algorithm alignment!
-                                    _logger.LogInformation("Preserved deterministic text-search coordinates for matched field '{FieldName}'", fieldName);
-                                }
-                                else
-                                {
-                                    // Auto-create missing field using visual AI coordinates
-                                    float xmin = block.Box2d[1];
-                                    float xmax = block.Box2d[3];
-                                    float aiCenterX = (float)((xmin + xmax) / 2000f * pageWidth);
-
-                                    float fieldX = aiCenterX - (desiredWidth / 2f);
-                                    float fieldY = commonRowY;
-
-                                    // Prevent fields from falling off the page edges (margin protection)
-                                    if (fieldX < 5) fieldX = 5;
-                                    if (fieldX + desiredWidth > pageWidth - 5) fieldX = (float)pageWidth - desiredWidth - 5;
-                                    if (fieldY < 5) fieldY = 5;
-                                    if (fieldY + desiredHeight > pageHeight - 5) fieldY = (float)pageHeight - desiredHeight - 5;
-
-                                    var sigField = iText.Forms.Fields.PdfFormField.CreateSignature(pdfDoc, new iText.Kernel.Geom.Rectangle(fieldX, fieldY, desiredWidth, desiredHeight));
-                                    sigField.SetFieldName(fieldName);
-                                    acroForm.AddField(sigField, pageObj);
-                                    _logger.LogInformation("Auto-created missing field '{FieldName}' at visual position detected by local/Gemini AI", fieldName);
-
-                                    var newRes = results.Find(r => r.FieldName == fieldName);
-                                    if (newRes == null)
-                                    {
-                                        results.Add(new TextSearchFieldCreator.CreatedFieldResult
-                                        {
-                                            FieldName = fieldName,
-                                            Page = lastPage,
-                                            X = fieldX,
-                                            Y = (float)pageHeight - (fieldY + desiredHeight),
-                                            Width = desiredWidth,
-                                            Height = desiredHeight
-                                        });
-                                    }
-                                }
-                            }
+                                FieldName = fieldName,
+                                Page = lastPage,
+                                X = nudgedX,
+                                Y = (float)pageHeight - (nudgedY + desiredHeight),
+                                Width = desiredWidth,
+                                Height = desiredHeight
+                            });
                         }
                     }
 
-                    File.Delete(pdfPath);
-                    File.Move(tmpPath, pdfPath);
+                    if (anyCreated)
+                    {
+                        File.Delete(pdfPath);
+                        File.Move(tmpPath, pdfPath);
+                    }
+                    else
+                    {
+                        if (File.Exists(tmpPath)) File.Delete(tmpPath);
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to auto-create signature fields");
+            _logger.LogError(ex, "Failed during visual alignment");
         }
         return results;
     }
