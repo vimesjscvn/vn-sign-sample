@@ -2,6 +2,10 @@
 
 Bộ ứng dụng ký số đa nền tảng — **desktop** (macOS + Windows, Avalonia) và **web** (ASP.NET Core MVC) — cho USB Token, chữ ký số đám mây và chữ ký số cục bộ. Cả hai front-end dùng chung một tầng gọi SDK (`Vimes.SignSDK` trên NuGet.org) nên hành vi ký và danh sách merchant hỗ trợ giống hệt nhau.
 
+| sign-app (desktop) | sign-web (trình duyệt) |
+|---|---|
+| ![sign-app](docs/images/sign-app.png) | ![sign-web](docs/images/sign-web.png) |
+
 ## Kiến trúc hệ thống
 
 ```mermaid
