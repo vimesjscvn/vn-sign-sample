@@ -564,6 +564,8 @@ public partial class MainWindow : Window
         panelSessionLoginForm.IsVisible = true;
         btnMerchantSelector.Opacity = 1.0;
         btnMerchantSelector.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+
+        txtSignerName.Text = "Sample User";
     }
 
     private void ApplyLoggedInUi()
@@ -628,6 +630,11 @@ public partial class MainWindow : Window
         lblInfoRowAccount.Text = _activeUserName ?? "—";
         lblInfoRowMerchant.Text = MerchantRegistry.GetDisplayInfo(_activeMerchantId ?? "").Name;
         lblInfoRowCert.Text = cn ?? subjectDN ?? "Chưa có chứng thư";
+
+        // Mirrors sign-web's applySelectedCredential: the "Người ký" field on the
+        // signature-config panel should reflect whoever's certificate is actually
+        // active, not stay on the "Sample User" placeholder.
+        if (!string.IsNullOrEmpty(cn)) txtSignerName.Text = cn;
     }
 
     #region Merchant Header Selector (card-list dropdown, mirrors sign-web)
