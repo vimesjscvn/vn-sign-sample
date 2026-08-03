@@ -1874,6 +1874,19 @@ public partial class MainWindow : Window
         int signed = 0;
         foreach (var placement in placements)
         {
+            // SignPdfAsynchronous (SDK) treats X/Y as the CENTER of the signature rect,
+            // subtracting Width/2 and Height/2 internally, so a raw drawn-box position
+            // lands shifted left/down by half the box's own size. Only compensate for
+            // custom drawn positions (no pre-existing fieldId) — matches sign-web's
+            // WebSigningService.SignPdfAsync, which already does this.
+            float finalX = placement.X;
+            float finalY = placement.Y;
+            if (string.IsNullOrEmpty(placement.FieldId))
+            {
+                finalX = placement.X + (placement.W / 2f);
+                finalY = placement.Y + (placement.H / 2f);
+            }
+
             var request = new SignDocumentRequest
             {
                 FileName = Path.GetFileName(filePath),
@@ -1886,8 +1899,8 @@ public partial class MainWindow : Window
                 IsShowSignatureTime = chkShowSignatureTime.IsChecked == true,
                 SignerPosition = txtSignerPosition.Text ?? "",
                 Page = placement.Page,
-                X = placement.X,
-                Y = placement.Y,
+                X = finalX,
+                Y = finalY,
                 Width = placement.W,
                 Height = placement.H,
                 SignatureId = placement.FieldId,
