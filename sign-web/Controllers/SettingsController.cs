@@ -42,7 +42,17 @@ public class SettingsController : Controller
             BaseUrl = request.BaseUrl,
             ProfileId = request.ProfileId,
             ClientId = request.ClientId,
-            ClientSecret = request.ClientSecret
+            ClientSecret = request.ClientSecret,
+            RelyingParty = request.RelyingParty,
+            SignAlgorithm = request.SignAlgorithm,
+            SigningProfileId = request.SigningProfileId,
+            KeyAuth = request.KeyAuth,
+            BasicAuthorization = request.BasicAuthorization,
+            ApPassword = request.ApPassword,
+            MsspId = request.MsspId,
+            UsbAgentIp = request.UsbAgentIp,
+            UsbAgentPort = request.UsbAgentPort,
+            UsbAgentExePath = request.UsbAgentExePath
         };
         HttpContext.Session.SetString($"MerchantSettings:{request.MerchantId}", JsonConvert.SerializeObject(o));
         return Json(new { success = true });
@@ -71,6 +81,26 @@ public class SaveSettingsRequest
     public string? ProfileId { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
+
+    // BCY
+    public string? RelyingParty { get; set; }
+    public string? SignAlgorithm { get; set; }
+
+    // CMC
+    public string? SigningProfileId { get; set; }
+    public string? KeyAuth { get; set; }
+
+    // InTrust
+    public string? BasicAuthorization { get; set; }
+
+    // SIM (MSSP) — BaseUrl above doubles as ApId, matching sign-app's "AP ID (URL)" field
+    public string? ApPassword { get; set; }
+    public string? MsspId { get; set; }
+
+    // USB
+    public string? UsbAgentIp { get; set; }
+    public int? UsbAgentPort { get; set; }
+    public string? UsbAgentExePath { get; set; }
 }
 
 public class MerchantSettingsOverride
@@ -79,4 +109,14 @@ public class MerchantSettingsOverride
     public string? ProfileId { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
+    public string? RelyingParty { get; set; }
+    public string? SignAlgorithm { get; set; }
+    public string? SigningProfileId { get; set; }
+    public string? KeyAuth { get; set; }
+    public string? BasicAuthorization { get; set; }
+    public string? ApPassword { get; set; }
+    public string? MsspId { get; set; }
+    public string? UsbAgentIp { get; set; }
+    public int? UsbAgentPort { get; set; }
+    public string? UsbAgentExePath { get; set; }
 }

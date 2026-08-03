@@ -36,10 +36,23 @@
     </div>
 
     <nav class="topbar__nav">
-      <button class="topbar__nav-item" onclick="App.switchMode('pdf')">
-        Chức năng
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9db4d4" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
+      <div style="position:relative">
+        <button class="topbar__nav-item" onclick="App.toggleFunctionMenu()">
+          Chức năng
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9db4d4" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="dropdown" id="functionDropdown" style="display:none">
+          <div class="dropdown__backdrop" onclick="App.closeFunctionMenu()"></div>
+          <div class="dropdown__panel">
+            <div class="dropdown__item" onclick="App.selectFunction('pdf')">
+              <span>Ký PDF</span>
+            </div>
+            <div class="dropdown__item" onclick="App.selectFunction('xml')">
+              <span>Ký XML</span>
+            </div>
+          </div>
+        </div>
+      </div>
       <button class="topbar__nav-item" onclick="App.switchMode('settings')">
         Hệ thống
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9db4d4" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>

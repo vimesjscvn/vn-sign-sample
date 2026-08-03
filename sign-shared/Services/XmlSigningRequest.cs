@@ -12,6 +12,10 @@ public class XmlSigningRequest
     public string? BearerToken { get; init; }
     public string? UserName { get; init; }
 
+    /// <summary>Hardware-token PIN (USB merchant) — forwarded to the USB Token Agent
+    /// so it can sign via PKCS#11 without the token's interactive PIN dialog.</summary>
+    public string? Pin { get; init; }
+
     public string? SignatureName { get; init; }
     public string? SignTag { get; init; }
     public string? ParentXPath { get; init; }

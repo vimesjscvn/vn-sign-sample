@@ -55,6 +55,39 @@ public class SigningController : Controller
     }
 
     /// <summary>
+    /// Upload an XML document for signing (no field detection — see AnalyzeXml for the
+    /// SignTag/ParentXPath/ReferenceId pre-fill step).
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> UploadXml(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "No file provided." });
+
+        var savedPath = await _fileService.SaveUploadedFileAsync(file);
+
+        return Json(new
+        {
+            filePath = savedPath,
+            fileName = file.FileName
+        });
+    }
+
+    /// <summary>
+    /// Detect HOC_BA/TONG_KET/LY_LICH document shape and return SignTag/ParentXPath/
+    /// ReferenceId options to pre-fill the XML signing form.
+    /// </summary>
+    [HttpPost]
+    public IActionResult AnalyzeXml([FromBody] AnalyzeLayoutRequest request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.FilePath))
+            return BadRequest(new { error = "Invalid file path." });
+
+        var result = _signingService.AnalyzeXmlDocument(request.FilePath);
+        return Json(result);
+    }
+
+    /// <summary>
     /// Asynchronously align fields visually using Gemini / local vision models in the background.
     /// </summary>
     [HttpPost]
@@ -79,7 +112,7 @@ public class SigningController : Controller
     [HttpPost]
     public async Task<IActionResult> SignPdf([FromBody] PdfSigningRequest request)
     {
-        var session = GetSessionState();
+        var session = GetSessionState(request.MerchantId);
         var guard = new SigningGuard();
         var guardResult = guard.CanProceed(session, request.MerchantId);
 
@@ -99,6 +132,7 @@ public class SigningController : Controller
             CredentialId = !string.IsNullOrEmpty(request.CredentialId) ? request.CredentialId : session.SelectedCredentialId,
             BearerToken = session.BearerToken,
             UserName = session.UserName,
+            Pin = session.Pin,
             SignerName = request.SignerName,
             SignerTitle = request.SignerTitle,
             SignerPosition = request.SignerPosition,
@@ -121,7 +155,7 @@ public class SigningController : Controller
     [HttpPost]
     public async Task<IActionResult> SignXml([FromBody] XmlSigningRequest request)
     {
-        var session = GetSessionState();
+        var session = GetSessionState(request.MerchantId);
         var guard = new SigningGuard();
         var guardResult = guard.CanProceed(session, request.MerchantId);
 
@@ -130,7 +164,23 @@ public class SigningController : Controller
             return Json(new { success = false, guardStatus = guardResult.Status.ToString(), message = guardResult.Message });
         }
 
-        var result = await _signingService.SignXmlAsync(request);
+        // Inject session credentials — same pattern as SignPdf.
+        var finalRequest = new XmlSigningRequest
+        {
+            FilePath = request.FilePath,
+            OutputDirectory = request.OutputDirectory,
+            MerchantId = request.MerchantId,
+            CredentialId = !string.IsNullOrEmpty(request.CredentialId) ? request.CredentialId : session.SelectedCredentialId,
+            BearerToken = session.BearerToken,
+            UserName = session.UserName,
+            Pin = session.Pin,
+            SignatureName = request.SignatureName,
+            SignTag = request.SignTag,
+            ParentXPath = request.ParentXPath,
+            ReferenceUri = request.ReferenceUri
+        };
+
+        var result = await _signingService.SignXmlAsync(finalRequest);
         return Json(result);
     }
 
@@ -151,7 +201,7 @@ public class SigningController : Controller
         return PhysicalFile(path, contentType, fileName);
     }
 
-    private SessionState GetSessionState()
+    private SessionState GetSessionState(string merchantId)
     {
         return new SessionState
         {
@@ -160,7 +210,8 @@ public class SigningController : Controller
             BearerToken = HttpContext.Session.GetString("BearerToken"),
             ActiveMerchantId = HttpContext.Session.GetString("MerchantId"),
             SelectedCredentialId = HttpContext.Session.GetString("CredentialId"),
-            IsConfigured = true // TODO: check actual config
+            Pin = HttpContext.Session.GetString("Pin"),
+            IsConfigured = _signingService.IsMerchantConfigured(merchantId)
         };
     }
 }

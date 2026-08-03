@@ -77,6 +77,15 @@
         </div>
       </div>
 
+      <!-- BCY-only: sign algorithm (ECDSA/RSA) — mirrors sign-app's panelSignAlgorithm/cboSignAlgorithm -->
+      <div id="panelSignAlgorithm" style="display:none;margin-top:16px">
+        <label class="field-label">Thuật toán ký</label>
+        <select class="input" id="signAlgorithm">
+          <option value="ECDSA">ECDSA</option>
+          <option value="RSA">RSA</option>
+        </select>
+      </div>
+
       <label class="field-label" style="margin-top:16px">Ghi chú</label>
       <input type="text" class="input" id="signNote" placeholder="Ghi chú tùy chọn hiển thị trên chữ ký" />
 
@@ -127,54 +136,228 @@
     </button>
   </div>
 
-  <!-- Settings Mode -->
-  <div id="settingsPanel" class="mode-panel" style="display:none">
+  <!-- XML Mode -->
+  <div id="xmlPanel" class="mode-panel" style="display:none">
+
+    <!-- Step 1: Document -->
     <section class="card">
       <div class="card__header">
         <span class="badge">1</span>
         <div>
-          <div class="card__title">Nhà cung cấp ký số</div>
-          <div class="card__subtitle">Chọn merchant cần cấu hình</div>
+          <div class="card__title">Tài liệu XML</div>
+          <div class="card__subtitle">Chọn tệp XML cần ký số</div>
         </div>
       </div>
 
-      <label class="field-label">Merchant</label>
-      <select class="input" id="settingsMerchant"></select>
+      <label class="field-label">Tệp tài liệu</label>
+      <div class="file-input">
+        <div class="file-input__display" id="xmlFileDisplay">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d5473e" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span class="file-input__placeholder">Chưa chọn tệp…</span>
+        </div>
+        <input type="file" id="xmlFileInput" accept=".xml" hidden />
+        <button class="btn btn--outline" onclick="document.getElementById('xmlFileInput').click()">Chọn File</button>
+      </div>
+
+      <label class="field-label" style="margin-top:16px">Thư mục đầu ra <span class="field-hint">(mặc định: \Signed)</span></label>
+      <div class="input-group">
+        <input type="text" class="input" id="xmlOutputDir" placeholder="Thư mục chứa tệp\Signed" />
+      </div>
     </section>
 
+    <!-- Step 2: Sign tag config -->
     <section class="card">
       <div class="card__header">
         <span class="badge">2</span>
         <div>
-          <div class="card__title">Thông tin kết nối</div>
-          <div class="card__subtitle">URL, Profile ID, Client ID &amp; Secret</div>
+          <div class="card__title">Cấu hình thẻ ký XML</div>
+          <div class="card__subtitle">Khai báo thẻ ký và reference node</div>
         </div>
       </div>
 
-      <label class="field-label">URL</label>
-      <input type="text" class="input" id="settingsBaseUrl" placeholder="https://..." />
+      <div class="form-grid">
+        <div>
+          <label class="field-label">Tên chữ ký (Signature Name)</label>
+          <input type="text" class="input" id="xmlSignatureName" placeholder="Auto (UUID)" />
+        </div>
+        <div>
+          <label class="field-label">Thẻ ký (Sign Tag)</label>
+          <select class="input" id="xmlSignTag"><option value="">(Trống)</option></select>
+        </div>
+        <div>
+          <label class="field-label">Đường dẫn cha (Parent XPath)</label>
+          <select class="input" id="xmlParentXPath"><option value="">(Không đặt)</option></select>
+        </div>
+        <div>
+          <label class="field-label">Reference URI ID</label>
+          <select class="input" id="xmlReferenceId"><option value="">(Trống)</option></select>
+        </div>
+      </div>
+    </section>
 
-      <div class="form-grid" style="margin-top:16px">
+    <!-- Analysis Hint -->
+    <div class="hint-banner" id="xmlAnalysisHint">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span class="hint-banner__text">Bấm "Phân tích XML" để tự động nhận diện loại tài liệu (Học Bạ / Lý Lịch / Tổng Kết) và gợi ý cấu hình ký.</span>
+    </div>
+
+    <!-- Action Buttons -->
+    <button class="btn btn--outline" id="btnAnalyzeXml" disabled style="width:100%;height:44px;margin-top:4px">Phân tích XML</button>
+
+    <button class="btn btn--sign" id="btnSignXml" disabled style="margin-top:10px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <span>KÝ SỐ TÀI LIỆU XML</span>
+    </button>
+
+    <button class="btn btn--outline" id="downloadXmlBtn" disabled style="width:100%;height:40px;margin-top:10px">Tải xuống tệp đã ký</button>
+  </div>
+
+  <!-- Settings Mode -->
+  <div id="settingsPanel" class="mode-panel" style="display:none">
+
+    <!-- Viettel MySign -->
+    <section class="card">
+      <div class="card__title" style="color:var(--accent)">Viettel MySign</div>
+      <label class="field-label" style="margin-top:10px">URL kết nối</label>
+      <div class="input-group">
+        <input type="text" class="input" id="mysignUrl" placeholder="https://remotesigning.viettel.vn" />
+        <button class="btn btn--outline" data-test-url="mysignUrl" data-test-status="mysignTestStatus">Kiểm tra</button>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
         <div>
           <label class="field-label">Profile ID</label>
-          <input type="text" class="input" id="settingsProfileId" placeholder="adss:ras:profile:xxx" />
+          <input type="text" class="input" id="mysignProfile" placeholder="adss:ras:profile:xxx" />
         </div>
         <div>
           <label class="field-label">Client ID</label>
-          <input type="text" class="input" id="settingsClientId" placeholder="Client ID" />
+          <input type="text" class="input" id="mysignClientId" />
         </div>
       </div>
-
-      <label class="field-label" style="margin-top:16px">Client Secret</label>
-      <input type="password" class="input" id="settingsClientSecret" placeholder="Client Secret" />
-
-      <div id="settingsTestStatus" style="margin-top:12px;font-size:12.5px;color:var(--muted)"></div>
+      <label class="field-label" style="margin-top:12px">Client Secret</label>
+      <input type="password" class="input" id="mysignSecret" />
+      <div id="mysignTestStatus" class="field-hint" style="margin-top:8px"></div>
     </section>
 
-    <div style="display:flex;gap:10px">
-      <button class="btn btn--outline" style="flex:1" id="btnTestConnection">Kiểm tra kết nối</button>
-      <button class="btn btn--primary" style="flex:1" id="btnSaveSettings">Lưu cài đặt</button>
-    </div>
+    <!-- VNPT SmartCA -->
+    <section class="card">
+      <div class="card__title" style="color:var(--accent)">VNPT SmartCA</div>
+      <label class="field-label" style="margin-top:10px">URL kết nối</label>
+      <div class="input-group">
+        <input type="text" class="input" id="smartcaUrl" placeholder="https://gwsca.vnpt.vn" />
+        <button class="btn btn--outline" data-test-url="smartcaUrl" data-test-status="smartcaTestStatus">Kiểm tra</button>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div>
+          <label class="field-label">Profile ID</label>
+          <input type="text" class="input" id="smartcaProfile" placeholder="adss:ras:profile:xxx" />
+        </div>
+        <div>
+          <label class="field-label">Client ID</label>
+          <input type="text" class="input" id="smartcaClientId" />
+        </div>
+      </div>
+      <label class="field-label" style="margin-top:12px">Client Secret</label>
+      <input type="password" class="input" id="smartcaSecret" />
+      <div id="smartcaTestStatus" class="field-hint" style="margin-top:8px"></div>
+    </section>
+
+    <!-- BCY (Ban Cơ Yếu Chính phủ) -->
+    <section class="card">
+      <div class="card__title" style="color:var(--accent)">BCY (Ban Cơ Yếu Chính phủ)</div>
+      <label class="field-label" style="margin-top:10px">URL kết nối</label>
+      <div class="input-group">
+        <input type="text" class="input" id="bcyUrl" placeholder="https://mpki2.ca.gov.vn/mpki/v2/" />
+        <button class="btn btn--outline" data-test-url="bcyUrl" data-test-status="bcyTestStatus">Kiểm tra</button>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div>
+          <label class="field-label">Relying Party (RP)</label>
+          <input type="text" class="input" id="bcyRelyingParty" />
+        </div>
+        <div>
+          <label class="field-label">Thuật toán ký</label>
+          <select class="input" id="bcySignAlgorithm">
+            <option value="ECDSA">ECDSA</option>
+            <option value="RSA">RSA</option>
+          </select>
+        </div>
+      </div>
+      <div id="bcyTestStatus" class="field-hint" style="margin-top:8px"></div>
+    </section>
+
+    <!-- CMC CA -->
+    <section class="card">
+      <div class="card__title" style="color:var(--accent)">CMC CA</div>
+      <label class="field-label" style="margin-top:10px">URL kết nối</label>
+      <div class="input-group">
+        <input type="text" class="input" id="cmcUrl" />
+        <button class="btn btn--outline" data-test-url="cmcUrl" data-test-status="cmcTestStatus">Kiểm tra</button>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div>
+          <label class="field-label">Signing Profile ID</label>
+          <input type="text" class="input" id="cmcProfileId" />
+        </div>
+        <div>
+          <label class="field-label">Key Auth</label>
+          <input type="password" class="input" id="cmcKeyAuth" />
+        </div>
+      </div>
+      <div id="cmcTestStatus" class="field-hint" style="margin-top:8px"></div>
+    </section>
+
+    <!-- InTrust -->
+    <section class="card">
+      <div class="card__title" style="color:var(--accent)">InTrust</div>
+      <label class="field-label" style="margin-top:10px">URL kết nối</label>
+      <div class="input-group">
+        <input type="text" class="input" id="intrustUrl" />
+        <button class="btn btn--outline" data-test-url="intrustUrl" data-test-status="intrustTestStatus">Kiểm tra</button>
+      </div>
+      <label class="field-label" style="margin-top:12px">Basic Authorization</label>
+      <input type="password" class="input" id="intrustBasicAuth" />
+      <div id="intrustTestStatus" class="field-hint" style="margin-top:8px"></div>
+    </section>
+
+    <!-- SIM (MSSP) -->
+    <section class="card">
+      <div class="card__title" style="color:var(--accent)">SIM (MSSP)</div>
+      <label class="field-label" style="margin-top:10px">AP ID (URL)</label>
+      <div class="input-group">
+        <input type="text" class="input" id="simApId" />
+        <button class="btn btn--outline" data-test-url="simApId" data-test-status="simTestStatus">Kiểm tra</button>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div>
+          <label class="field-label">AP Password</label>
+          <input type="password" class="input" id="simApPassword" />
+        </div>
+        <div>
+          <label class="field-label">MSSP ID</label>
+          <input type="text" class="input" id="simMsspId" />
+        </div>
+      </div>
+      <div id="simTestStatus" class="field-hint" style="margin-top:8px"></div>
+    </section>
+
+    <!-- USB Token Agent -->
+    <section class="card">
+      <div class="card__title" style="color:var(--accent)">USB Token Agent Settings</div>
+      <div class="form-grid" style="margin-top:10px">
+        <div>
+          <label class="field-label">Agent IP</label>
+          <input type="text" class="input" id="usbAgentIp" placeholder="127.0.0.1" />
+        </div>
+        <div>
+          <label class="field-label">Agent Port</label>
+          <input type="text" class="input" id="usbAgentPort" placeholder="9999" />
+        </div>
+      </div>
+      <label class="field-label" style="margin-top:12px">Đường dẫn file chạy agent (.exe / binary)</label>
+      <input type="text" class="input" id="usbAgentExePath" />
+    </section>
+
+    <button class="btn btn--primary" style="width:100%;height:44px" id="btnSaveSettings">LƯU CÀI ĐẶT</button>
   </div>
 </div>
 
@@ -311,5 +494,6 @@
 
 @section Scripts {
     <script src="~/js/signing.js" asp-append-version="true"></script>
+    <script src="~/js/xml-signing.js" asp-append-version="true"></script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
 }

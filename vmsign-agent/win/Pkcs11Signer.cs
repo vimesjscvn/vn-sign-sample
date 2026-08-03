@@ -63,6 +63,14 @@ public static class Pkcs11Signer
                 var priv = FindPrivateKeyForCert(session, cert);
                 if (priv == null) continue;
 
+                // Guard against silently signing with the wrong on-token key: if the cert's
+                // CKA_ID couldn't be matched, FindPrivateKeyForCert falls back to "the only
+                // private key on the token" — which is WRONG the moment a second, unrelated
+                // key/cert has ever been provisioned there (e.g. leftover from earlier testing).
+                // A mismatched key produces a signature that looks successful here but always
+                // fails downstream CMS/XML-DSig verification, so fail loud now instead.
+                EnsureKeyMatchesCertificate(session, priv, cert);
+
                 var keyType = GetKeyType(session, priv);
                 if (keyType == CKK.CKK_EC)
                 {
@@ -144,6 +152,44 @@ public static class Pkcs11Signer
             return localPath;
 
         return DefaultModulePath;
+    }
+
+    /// <summary>
+    /// Verifies the on-token private key object actually pairs with <paramref name="cert"/>'s
+    /// public key before it gets used to sign anything. For RSA this compares CKA_MODULUS
+    /// (not sensitive, always readable) against the certificate's RSA modulus byte-for-byte.
+    /// </summary>
+    private static void EnsureKeyMatchesCertificate(ISession session, IObjectHandle priv, X509Certificate2 cert)
+    {
+        var keyType = GetKeyType(session, priv);
+        if (keyType != CKK.CKK_RSA) return; // EC key/point comparison not implemented; RSA is the reproduced case.
+
+        var rsaPub = cert.GetRSAPublicKey();
+        if (rsaPub == null) return;
+
+        var certModulus = rsaPub.ExportParameters(false).Modulus ?? Array.Empty<byte>();
+        var attrs = session.GetAttributeValue(priv, new List<CKA> { CKA.CKA_MODULUS });
+        var keyModulus = attrs[0].GetValueAsByteArray() ?? Array.Empty<byte>();
+
+        // Both are big-endian unsigned integers but may differ by a leading zero byte
+        // (two's-complement sign padding) — trim before comparing.
+        static byte[] TrimLeadingZeros(byte[] b)
+        {
+            int i = 0;
+            while (i < b.Length - 1 && b[i] == 0) i++;
+            var result = new byte[b.Length - i];
+            Buffer.BlockCopy(b, i, result, 0, result.Length);
+            return result;
+        }
+
+        if (!TrimLeadingZeros(certModulus).SequenceEqual(TrimLeadingZeros(keyModulus)))
+        {
+            throw new InvalidOperationException(
+                $"PKCS#11 key mismatch: the on-token private key (modulus {keyModulus.Length * 8} bits) does not " +
+                $"match certificate '{cert.Subject}' (modulus {certModulus.Length * 8} bits). " +
+                "This certificate's private key is not actually provisioned on this PKCS#11 token — " +
+                "signing with the wrong key would produce a signature that fails downstream verification.");
+        }
     }
 
     private static CKK GetKeyType(ISession session, IObjectHandle key)

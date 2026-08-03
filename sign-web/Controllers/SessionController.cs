@@ -27,6 +27,7 @@ public class SessionController : Controller
             HttpContext.Session.SetString("BearerToken", "mock-bearer-token");
             HttpContext.Session.SetString("IsLoggedIn", "true");
             HttpContext.Session.SetString("CredentialId", "mock-credential-id");
+            HttpContext.Session.SetString("Pin", request.Password ?? "");
             HttpContext.Session.SetString("CertSubject", "CN=TEST USER");
             var mockCerts = new List<object> { new { credentialId = "mock-credential-id", subjectDN = "CN=TEST USER" } };
             HttpContext.Session.SetString("Certificates", JsonConvert.SerializeObject(mockCerts));
@@ -52,6 +53,7 @@ public class SessionController : Controller
             HttpContext.Session.SetString("MerchantId", request.MerchantId);
             HttpContext.Session.SetString("BearerToken", result.BearerToken ?? "");
             HttpContext.Session.SetString("IsLoggedIn", "true");
+            HttpContext.Session.SetString("Pin", request.Password ?? "");
             HttpContext.Session.Remove("CredentialId");
 
             // Signing requires a registered credential/certificate. A single login can have

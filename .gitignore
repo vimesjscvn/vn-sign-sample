@@ -18,6 +18,9 @@ logs/
 **/wwwroot/certs/
 **/wwwroot/screenshots/
 
+# Runtime scratch data (uploaded/signed files from local testing) — not source.
+**/temp/
+
 # Local secrets — real credentials live here; use appsettings.example.json as the template
 **/appsettings.json
 test-data/

@@ -1,11 +1,16 @@
+using System.Text;
+using System.Xml;
 using Core.Config.Settings;
 using Core.Common.Common;
 using Newtonsoft.Json;
+using VMSign.Web.Models;
 
 #if USE_SDK_SOURCE
 using SignSDK;
+using Signature.API.ViewModels;
 #else
 using Vimes.SignSDK;
+using Vimes.SignSDK.ViewModels;
 #endif
 
 using Signature.Domain.API;
@@ -51,6 +56,215 @@ public class WebSigningService
     }
 
     /// <summary>
+    /// Best-effort "is this merchant usable" check, mirrored in sign-app's
+    /// IsMerchantConfigured (MainWindow.axaml.cs) so both front-ends gate signing
+    /// the same way. Local/USB merchants need no remote credentials so they're
+    /// always considered configured.
+    /// </summary>
+    public bool IsMerchantConfigured(string merchantId)
+    {
+        var info = MerchantRegistry.GetDisplayInfo(merchantId);
+        if (info.CertMode != MerchantCertMode.Remote) return true;
+
+        return merchantId.ToUpperInvariant() switch
+        {
+            "VIETTEL" => !string.IsNullOrWhiteSpace(_appSettings.MySignSetting?.ClientId)
+                         && !string.IsNullOrWhiteSpace(_appSettings.MySignSetting?.ClientSecret),
+            "VNPT" => !string.IsNullOrWhiteSpace(_appSettings.SmartCASetting?.ClientId)
+                      && !string.IsNullOrWhiteSpace(_appSettings.SmartCASetting?.ClientSecret),
+            "BCY" => !string.IsNullOrWhiteSpace(_appSettings.TerminalSetting?.BaseUrl),
+            "CMC" => !string.IsNullOrWhiteSpace(_appSettings.CmcSetting?.BaseUrl),
+            "INTRUST" => !string.IsNullOrWhiteSpace(_appSettings.InTrustSetting?.BaseUrl),
+            "SIM" => !string.IsNullOrWhiteSpace(_appSettings.MsspSetting?.ApId),
+            _ => true
+        };
+    }
+
+    /// <summary>
+    /// Detects HOC_BA / TONG_KET / LY_LICH document shape and pre-fills SignTag/ParentXPath/
+    /// ReferenceId signing options — ported from sign-app's btnAnalyzeXml_Click (MainWindow.axaml.cs)
+    /// so both front-ends offer the same NEAC-safe defaults.
+    /// </summary>
+    public XmlAnalysisResult AnalyzeXmlDocument(string filePath)
+    {
+        var result = new XmlAnalysisResult();
+        if (!File.Exists(filePath))
+        {
+            result.Success = false;
+            result.ErrorMessage = $"Tệp không tồn tại: {filePath}";
+            return result;
+        }
+
+        void Log(string level, string message) => result.Logs.Add(new XmlAnalysisLogEntry { Level = level, Message = message });
+
+        try
+        {
+            var doc = new XmlDocument();
+            doc.Load(filePath);
+            var nsmgr = new XmlNamespaceManager(doc.NameTable);
+            nsmgr.AddNamespace("ds", "http://www.w3.org/2000/09/xmldsig#");
+
+            Log("info", $"=== Phân tích: {Path.GetFileName(filePath)} ===");
+
+            bool isHocBa = doc.SelectSingleNode("//*[local-name()='DANH_SACH_THONG_TIN_KY']") != null;
+            bool isTongKet = doc.SelectSingleNode("//*[local-name()='TONG_KET_CA_NAM']") != null;
+            bool isLyLich = doc.SelectSingleNode("//*[local-name()='THONG_TIN'][@Id='lyLich']") != null
+                            || doc.SelectSingleNode("//*[local-name()='THONG_TIN' and @Id]") != null;
+
+            result.DocumentType = isHocBa ? "HOC_BA" : isTongKet ? "TONG_KET" : isLyLich ? "LY_LICH" : "UNKNOWN";
+
+            var idNodes = doc.SelectNodes("//*[@Id]");
+            var seenIds = new HashSet<string>();
+            var seenTags = new HashSet<string>();
+            string? firstDataId = null;
+
+            var refIds = new List<string> { "" };
+            var knownTags = new List<string> { "", "CHUKYDONVI", "GVBM", "GVCN", "CBQL", "KY_PHAT_HANH" };
+            var parentXPaths = new List<XmlParentXPathOption> { new() { XPath = "", Label = "(Không đặt — ký toàn tài liệu)" } };
+
+            if (idNodes?.Count > 0)
+            {
+                Log("info", $"Phần tử có Id=\"...\" ({idNodes.Count} tìm thấy) — chọn làm ReferenceId:");
+                foreach (XmlElement el in idNodes)
+                {
+                    string id = el.GetAttribute("Id");
+                    if (el.LocalName == "Signature") continue;
+                    Log("info", $"  <{el.LocalName} Id=\"{id}\">");
+
+                    if (seenIds.Add(id)) refIds.Add(id);
+                    if (seenTags.Add(el.LocalName) && !knownTags.Contains(el.LocalName))
+                        knownTags.Add(el.LocalName);
+
+                    if (firstDataId == null) firstDataId = id;
+                }
+
+                result.ReferenceIds = refIds;
+                result.DefaultReferenceId = firstDataId ?? "";
+            }
+            else
+            {
+                Log("warn", "  Không tìm thấy phần tử nào có Id=\"...\" — ReferenceId để trống sẽ ký cả tài liệu.");
+                result.ReferenceIds = refIds;
+                result.DefaultReferenceId = "";
+            }
+
+            if (isHocBa)
+            {
+                Log("info", "Loại: HOC_BA — chọn XPath vị trí theo vai trò ký:");
+
+                var xpathGvbm = "//*[local-name()='DANH_SACH_THONG_TIN_KY']//*[local-name()='GVBM'][not(*)][1]";
+                var xpathGvcn = "//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='GVCN']";
+                var xpathCbql = "//*[local-name()='PHAT_HANH_HOC_BA']//*[local-name()='CBQL'][not(*)][1]";
+                var xpathKyPhatHanh = "//*[local-name()='PHAT_HANH_HOC_BA']/*[local-name()='KY_PHAT_HANH']";
+
+                parentXPaths.Add(new() { XPath = xpathCbql, Label = "CBQL (cán bộ quản lý)", ReferenceId = "data" });
+                parentXPaths.Add(new() { XPath = xpathKyPhatHanh, Label = "KY_PHAT_HANH (phát hành)", ReferenceId = "data" });
+                parentXPaths.Add(new() { XPath = xpathGvcn, Label = "GVCN (giáo viên chủ nhiệm)", ReferenceId = "thongtinhocba" });
+                parentXPaths.Add(new() { XPath = xpathGvbm, Label = "GVBM (giáo viên bộ môn — vị trí đầu tiên)" });
+
+                var gvbmSlotNodes = doc.SelectNodes(
+                    "//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='DANH_SACH_GVBM']/*[local-name()='GVBM']");
+                var gvbmPairList = new List<(string teacherId, string diemId)>();
+                if (gvbmSlotNodes?.Count > 0)
+                {
+                    foreach (XmlNode gvbmNode in gvbmSlotNodes)
+                    {
+                        if (gvbmNode is not XmlElement gvbmEl) continue;
+                        string teacherId = gvbmEl.GetAttribute("Id");
+                        if (string.IsNullOrEmpty(teacherId)) continue;
+                        var diemEl = doc.SelectSingleNode(
+                            $"//*[local-name()='DIEM_TONG_KET'][@Id][.//*[local-name()='GVBM'][@Id='{teacherId}']]") as XmlElement;
+                        if (diemEl == null) continue;
+                        string diemId = diemEl.GetAttribute("Id");
+                        if (string.IsNullOrEmpty(diemId)) continue;
+                        string xpathSlot = $"//*[local-name()='DANH_SACH_THONG_TIN_KY']/*[local-name()='DANH_SACH_GVBM']/*[local-name()='GVBM'][@Id='{teacherId}']";
+                        parentXPaths.Add(new() { XPath = xpathSlot, Label = $"GVBM Id={teacherId} → RefID={diemId}", ReferenceId = diemId });
+                        gvbmPairList.Add((teacherId, diemId));
+                    }
+                }
+
+                result.ParentXPaths = parentXPaths;
+                result.DefaultParentXPath = xpathCbql;
+                result.SignTags = knownTags;
+                result.DefaultSignTag = "CBQL";
+                result.DefaultReferenceId = "data";
+
+                Log("info", $"  CBQL (cán bộ quản lý)   : {xpathCbql}  → RefID=data  ← mặc định (NEAC-safe)");
+                Log("info", $"  KY_PHAT_HANH (phát hành): {xpathKyPhatHanh}  → RefID=data");
+                Log("info", $"  GVCN (chủ nhiệm)        : {xpathGvcn}  → RefID=thongtinhocba");
+                Log("info", $"  GVBM (giáo viên bộ môn) : {xpathGvbm}  → RefID=Id học sinh (chọn cụ thể bên dưới)");
+                if (gvbmPairList.Count > 0)
+                {
+                    Log("info", $"  GVBM cá nhân ({gvbmPairList.Count} cặp — chọn từ dropdown XPath, RefID tự động cập nhật):");
+                    int gi = 1;
+                    foreach (var (tId, dId) in gvbmPairList)
+                        Log("info", $"    [{gi++}] GVBM Id={tId}  →  RefID={dId}");
+                }
+                Log("warn", "Lưu ý NEAC: Chữ ký phải đặt NGOÀI phần tử được tham chiếu. CBQL nằm ngoài DU_LIEU_HOC_BA (#data) → NEAC xác minh được.");
+            }
+            else if (isTongKet)
+            {
+                Log("info", "Loại: BCY (TONG_KET_CA_NAM) → Thẻ Ký để TRỐNG, ReferenceId = Id của TONG_KET_CA_NAM.");
+                result.SignTags = knownTags;
+                result.DefaultSignTag = "";
+                result.ParentXPaths = parentXPaths;
+                result.DefaultParentXPath = "";
+            }
+            else if (isLyLich)
+            {
+                Log("info", "Loại: Lý Lịch (THONG_TIN) → Thẻ Ký để TRỐNG, ReferenceId = Id của THONG_TIN.");
+                result.SignTags = knownTags;
+                result.DefaultSignTag = "";
+                result.ParentXPaths = parentXPaths;
+                result.DefaultParentXPath = "";
+            }
+            else
+            {
+                Log("warn", "Không nhận diện được loại tài liệu — tự chọn SignTag và ReferenceId phù hợp.");
+                result.SignTags = knownTags;
+                result.DefaultSignTag = knownTags.Count > 0 ? knownTags[0] : "";
+                result.ParentXPaths = parentXPaths;
+                result.DefaultParentXPath = "";
+            }
+
+            var existingSigs = doc.SelectNodes("//ds:Signature", nsmgr);
+            result.ExistingSignatureCount = existingSigs?.Count ?? 0;
+            if (existingSigs?.Count > 0)
+            {
+                Log("warn", $"Cảnh báo: tệp đã có {existingSigs.Count} chữ ký — ký lại sẽ THÊM chữ ký mới, không xóa chữ ký cũ.");
+                foreach (XmlElement sig in existingSigs)
+                {
+                    string sigId = sig.GetAttribute("Id");
+                    var signerNode = sig.SelectSingleNode(".//ds:X509SubjectName", nsmgr) as XmlElement;
+                    string signerInfo = signerNode?.InnerText ?? "(không rõ)";
+                    int cnIdx = signerInfo.IndexOf("CN=", StringComparison.OrdinalIgnoreCase);
+                    if (cnIdx >= 0)
+                    {
+                        int start = cnIdx + 3;
+                        int end = signerInfo.IndexOf(',', start);
+                        signerInfo = end > start ? signerInfo.Substring(start, end - start) : signerInfo.Substring(start);
+                    }
+                    Log("warn", $"  Chữ ký [{(string.IsNullOrEmpty(sigId) ? "?" : sigId.Substring(0, Math.Min(8, sigId.Length)))}...] — người ký: {signerInfo}");
+                }
+            }
+            else
+            {
+                Log("ok", "Chưa có chữ ký — tệp sẵn sàng ký.");
+            }
+
+            result.Success = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AnalyzeXmlDocument failed");
+            result.Success = false;
+            result.ErrorMessage = $"Lỗi phân tích XML: {ex.Message}";
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Applies any session-saved "Cài Đặt SDK" override for this merchant onto the
     /// process-wide AppSettings singleton before the SDK reads it.
     /// NOTE: AppSettings is shared across ALL concurrent users/requests — this mutates
@@ -81,8 +295,32 @@ public class WebSigningService
                 if (!string.IsNullOrWhiteSpace(o.ClientId)) _appSettings.SmartCASetting.ClientId = o.ClientId;
                 if (!string.IsNullOrWhiteSpace(o.ClientSecret)) _appSettings.SmartCASetting.ClientSecret = o.ClientSecret;
                 break;
-            // Other merchants (BCY, USB, SIM, InTrust, CMC) use a different settings
-            // shape and aren't wired to this generic URL/ProfileId/ClientId/Secret form.
+            case "BCY":
+                if (!string.IsNullOrWhiteSpace(o.BaseUrl)) _appSettings.TerminalSetting.BaseUrl = o.BaseUrl;
+                if (!string.IsNullOrWhiteSpace(o.RelyingParty)) _appSettings.TerminalSetting.RelyingParty = o.RelyingParty;
+                if (!string.IsNullOrWhiteSpace(o.SignAlgorithm)) _appSettings.TerminalSetting.SignAlgorithm = o.SignAlgorithm;
+                break;
+            case "CMC":
+                if (!string.IsNullOrWhiteSpace(o.BaseUrl)) _appSettings.CmcSetting.BaseUrl = o.BaseUrl;
+                if (!string.IsNullOrWhiteSpace(o.SigningProfileId)) _appSettings.CmcSetting.SigningProfileId = o.SigningProfileId;
+                if (!string.IsNullOrWhiteSpace(o.KeyAuth)) _appSettings.CmcSetting.KeyAuth = o.KeyAuth;
+                break;
+            case "INTRUST":
+                if (!string.IsNullOrWhiteSpace(o.BaseUrl)) _appSettings.InTrustSetting.BaseUrl = o.BaseUrl;
+                if (!string.IsNullOrWhiteSpace(o.BasicAuthorization)) _appSettings.InTrustSetting.BasicAuthorization = o.BasicAuthorization;
+                break;
+            case "SIM":
+                // Mirrors sign-app: the "AP ID (URL)" field maps to MsspSetting.ApId, which
+                // doubles as the MSSP endpoint URL for this merchant (not a separate BaseUrl).
+                if (!string.IsNullOrWhiteSpace(o.BaseUrl)) _appSettings.MsspSetting.ApId = o.BaseUrl;
+                if (!string.IsNullOrWhiteSpace(o.ApPassword)) _appSettings.MsspSetting.ApPassword = o.ApPassword;
+                if (!string.IsNullOrWhiteSpace(o.MsspId)) _appSettings.MsspSetting.MsspId = o.MsspId;
+                break;
+            case "USB":
+                if (!string.IsNullOrWhiteSpace(o.UsbAgentIp)) _appSettings.UsbSetting.UsbAgentIp = o.UsbAgentIp;
+                if (o.UsbAgentPort.HasValue) _appSettings.UsbSetting.UsbAgentPort = o.UsbAgentPort.Value;
+                if (!string.IsNullOrWhiteSpace(o.UsbAgentExePath)) _appSettings.UsbSetting.UsbAgentExePath = o.UsbAgentExePath;
+                break;
         }
     }
 
@@ -432,6 +670,13 @@ public class WebSigningService
             var base64Data = Convert.ToBase64String(fileData);
             int signed = 0;
             string? lastSignedUrl = null;
+            var outputDirectory = string.IsNullOrWhiteSpace(request.OutputDirectory)
+                ? Path.Combine(Path.GetDirectoryName(request.FilePath)!, "Signed")
+                : request.OutputDirectory;
+            Directory.CreateDirectory(outputDirectory);
+            var normalizedOutputPath = Path.Combine(
+                outputDirectory,
+                $"{DateTime.Now:yyMMddHHmmss}_{Path.GetFileNameWithoutExtension(request.FilePath)}_signed.pdf");
 
             // Load the document once to get page heights
             var pageHeights = new Dictionary<int, float>();
@@ -482,6 +727,8 @@ public class WebSigningService
                     SignerName = request.SignerName,
                     SignerTitle = request.SignerTitle,
                     SignerPosition = request.SignerPosition,
+                    Note = request.Note,
+                    IsShowSignatureTime = request.ShowTimestamp,
                     SignatureImage = request.SignatureImageBase64,
                     Page = placement.Page,
                     X = finalX,
@@ -498,19 +745,62 @@ public class WebSigningService
 #endif
                 };
 
-                var result = await _signClient.SignDocumentAsync(sdkRequest);
+                var batchRequest = new SignDocumentsRequest
+                {
+                    UserName = request.UserName,
+                    CredentialID = request.CredentialId,
+                    MerchantId = request.MerchantId,
+                    BearerToken = request.BearerToken,
+                    Pin = request.Pin,
+                    Documents = new List<SignDocumentRequest> { sdkRequest }
+                };
+
+                var results = await _signClient.SignDocumentsAsync(batchRequest);
+                var result = results?.FirstOrDefault();
+
+                if (result == null)
+                {
+                    return new SigningResult
+                    {
+                        Success = false,
+                        ErrorMessage = "Không nhận được phản hồi từ dịch vụ ký số.",
+                        SignedCount = signed
+                    };
+                }
 
                 if (result.Success)
                 {
                     signed++;
                     lastSignedUrl = result.SignedFileUrl;
 
-                    // Update base64Data with intermediate signed file to allow sequential signature stacking
+                    byte[] signedBytes;
                     if (!string.IsNullOrEmpty(lastSignedUrl) && File.Exists(lastSignedUrl))
                     {
-                        var signedBytes = await File.ReadAllBytesAsync(lastSignedUrl);
-                        base64Data = Convert.ToBase64String(signedBytes);
+                        signedBytes = await File.ReadAllBytesAsync(lastSignedUrl);
                     }
+                    else if (!string.IsNullOrWhiteSpace(lastSignedUrl))
+                    {
+                        var base64Payload = lastSignedUrl.Contains(',')
+                            ? lastSignedUrl[(lastSignedUrl.LastIndexOf(',') + 1)..]
+                            : lastSignedUrl;
+                        signedBytes = Convert.FromBase64String(base64Payload);
+                    }
+                    else
+                    {
+                        return new SigningResult
+                        {
+                            Success = false,
+                            ErrorMessage = "MySign returned success without signed PDF data.",
+                            SignedCount = signed - 1
+                        };
+                    }
+
+                    // Normalize SDK file/base64 responses into one stable local PDF.
+                    // Browser preview/download and subsequent placement stacking can
+                    // then use the same path regardless of merchant response shape.
+                    await File.WriteAllBytesAsync(normalizedOutputPath, signedBytes);
+                    lastSignedUrl = normalizedOutputPath;
+                    base64Data = Convert.ToBase64String(signedBytes);
                 }
                 else
                 {
@@ -539,23 +829,56 @@ public class WebSigningService
         ApplySessionSettingsOverride(request.MerchantId);
         try
         {
-            var fileData = await File.ReadAllBytesAsync(request.FilePath);
-            var sdkRequest = new SignDocumentRequest
+            var fileContent = await File.ReadAllTextAsync(request.FilePath);
+            var signatureName = string.IsNullOrWhiteSpace(request.SignatureName)
+                ? "Signature_" + Guid.NewGuid().ToString().Substring(0, 8)
+                : request.SignatureName;
+
+            var xmlRequest = new XmlMultiSignRequest
             {
                 UserName = request.UserName,
                 CredentialID = request.CredentialId,
-                MerchantId = request.MerchantId,
-                FileName = Path.GetFileName(request.FilePath),
-                FileData = Convert.ToBase64String(fileData),
+                MID = request.MerchantId,
+                BearerToken = request.BearerToken,
+                Pin = request.Pin,
+                FileDatas = new List<XmlFileDataItem>
+                {
+                    new XmlFileDataItem
+                    {
+                        FileName = Path.GetFileName(request.FilePath),
+                        XmlData = Convert.ToBase64String(Encoding.UTF8.GetBytes(fileContent)),
+                        SignatureName = signatureName,
+                        SignTag = string.IsNullOrWhiteSpace(request.SignTag) ? "CHUKYDONVI" : request.SignTag,
+                        ReferenceId = request.ReferenceUri,
+                        ParentXPath = request.ParentXPath
+                    }
+                }
             };
 
-            var result = await _signClient.SignDocumentAsync(sdkRequest);
-            if (result.Success)
+            var results = await _signClient.SignXmlDocumentsAsync(xmlRequest);
+            var result = results?.FirstOrDefault();
+
+            if (result == null)
             {
-                return new SigningResult { Success = true, SignedCount = 1, OutputPath = result.SignedFileUrl };
+                return new SigningResult { Success = false, ErrorMessage = "Không nhận được phản hồi từ dịch vụ ký XML." };
             }
 
-            return new SigningResult { Success = false, ErrorMessage = MapErrorMessage(result.ErrorMessage) };
+            if (!result.Success)
+            {
+                return new SigningResult { Success = false, ErrorMessage = MapErrorMessage(result.ErrorMessage) };
+            }
+
+            var signedBytes = Convert.FromBase64String(result.SignedXmlBase64);
+            var outputDirectory = string.IsNullOrWhiteSpace(request.OutputDirectory)
+                ? Path.Combine(Path.GetDirectoryName(request.FilePath)!, "Signed")
+                : request.OutputDirectory;
+            Directory.CreateDirectory(outputDirectory);
+            var outputPath = Path.Combine(
+                outputDirectory,
+                $"{DateTime.Now:yyMMddHHmmss}_{Path.GetFileName(request.FilePath)}");
+            await File.WriteAllBytesAsync(outputPath, signedBytes);
+
+            return new SigningResult { Success = true, SignedCount = 1, OutputPath = outputPath };
         }
         catch (Exception ex)
         {

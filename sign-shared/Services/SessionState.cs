@@ -13,5 +13,8 @@ public class SessionState
     public string? CertificateDisplayName { get; set; }
     public DateTime? CertificateExpiry { get; set; }
 
+    /// <summary>Login password, reused as the hardware-token PIN (USB merchant) at sign time.</summary>
+    public string? Pin { get; set; }
+
     public bool IsConfigured { get; set; }
 }
