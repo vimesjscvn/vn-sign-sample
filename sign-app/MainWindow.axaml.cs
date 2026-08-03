@@ -7,6 +7,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
@@ -17,6 +18,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Vimes.SignSDK;
+using Vimes.SignSDK.Helpers;
 using Vimes.SignSDK.ViewModels;
 using Signature.Domain.API;
 using Core.Common.Common;
@@ -2568,6 +2570,40 @@ public partial class MainWindow : Window
             }
             if (!Directory.Exists(outFolder)) Directory.CreateDirectory(outFolder);
 
+            // SELF merchant always signs with whatever is provisioned as
+            // CertificateSetting.DefaultUserName/{serial}.pfx under WebRootPath/certs,
+            // regardless of what's passed to LoginAsync's certFileName/certPassword params.
+            // So we provision the user-picked PFX there first, matching Program.cs's
+            // proven-working --test-e2e flow, instead of stuffing the cert bytes into
+            // UserName/CredentialID (which SignDocumentsAsync never reads that way — it
+            // always requires a prior LoginAsync session for the given user/merchant).
+            const string batchUser = "BatchSignUser";
+            var env = Program.Host!.Services.GetRequiredService<Core.Common.Abstractions.ISignEnvironment>();
+            string certsFolder = Path.Combine(env.WebRootPath, "certs");
+            Directory.CreateDirectory(certsFolder);
+            string serial = UtilSigner.ConvertStringToNumber(batchUser);
+            string pfxDestPath = Path.Combine(certsFolder, $"{serial}.pfx");
+            File.Copy(certPath, pfxDestPath, overwrite: true);
+
+            _appSettings.CertificateSetting ??= new CertificateSetting();
+            _appSettings.CertificateSetting.DefaultUserName = batchUser;
+            _appSettings.CertificateSetting.DefaultPassword = certPass;
+
+            var loginResult = await _signClient.LoginAsync(batchUser, certPass, "SELF", "", "");
+            if (!loginResult.Success)
+            {
+                LogError($"Đăng nhập Self CA thất bại: {loginResult.ErrorMessage}");
+                return;
+            }
+
+            var certs = await _signClient.GetCertificatesAsync(loginResult.UserName, loginResult.BearerToken ?? "", "", "SELF");
+            var cert = certs?.FirstOrDefault();
+            if (cert == null)
+            {
+                LogError("Không lấy được chứng thư từ file PFX đã chọn.");
+                return;
+            }
+
             LogSystem($"Bắt đầu ký hàng loạt {pdfFiles.Length} files bằng Self CA...");
             batchProgressBar.Value = 0;
 
@@ -2576,16 +2612,10 @@ public partial class MainWindow : Window
             {
                 string file = pdfFiles[i];
                 lblBatchStatus.Text = $"Đang ký: {Path.GetFileName(file)}";
-                
+
                 try
                 {
-                    // For Self CA we package it with the cert data in local config and sign it
-                    var certBytes = await File.ReadAllBytesAsync(certPath);
                     var docBytes = await File.ReadAllBytesAsync(file);
-
-                    // Re-use signClient's local SignCertificatedDocument method if exposed, or make normal call
-                    // Actually, self signing usually proceeds by creating a SignDocumentsRequest and setting credentialID to the PFX content / config.
-                    // Let's call client sign workflow
                     var docRequest = new SignDocumentRequest
                     {
                         FileName = Path.GetFileName(file),
@@ -2600,8 +2630,8 @@ public partial class MainWindow : Window
 
                     var batchRequest = new SignDocumentsRequest
                     {
-                        UserName = Convert.ToBase64String(certBytes), // SDK can accept base64 cert or load it from config
-                        CredentialID = certPass, // password
+                        UserName = batchUser,
+                        CredentialID = cert.credentialID,
                         MerchantId = "SELF",
                         Documents = new List<SignDocumentRequest> { docRequest }
                     };
@@ -2623,6 +2653,10 @@ public partial class MainWindow : Window
 
                         await File.WriteAllBytesAsync(outPath, signedBytes);
                         success++;
+                    }
+                    else
+                    {
+                        LogError($"Lỗi ký file {Path.GetFileName(file)}: {res?.ErrorMessage ?? "Không nhận được phản hồi từ dịch vụ ký số."}");
                     }
                 }
                 catch (Exception ex)
