@@ -212,6 +212,65 @@
     <button class="btn btn--outline" id="downloadXmlBtn" disabled style="width:100%;height:40px;margin-top:10px">Tải xuống tệp đã ký</button>
   </div>
 
+  <!-- Batch Mode -->
+  <div id="batchPanel" class="mode-panel" style="display:none">
+
+    <!-- Step 1: Folders -->
+    <section class="card">
+      <div class="card__header">
+        <span class="badge">1</span>
+        <div>
+          <div class="card__title">Chọn thư mục</div>
+          <div class="card__subtitle">Chỉ định thư mục tệp nguồn và đầu ra (đường dẫn trên máy chủ)</div>
+        </div>
+      </div>
+
+      <label class="field-label">Thư mục nguồn chứa file PDF</label>
+      <input type="text" class="input" id="batchSourceDir" placeholder="VD: D:\Hoso\CanKy" />
+
+      <label class="field-label" style="margin-top:16px">Thư mục đầu ra <span class="field-hint">(mặc định: \Signed)</span></label>
+      <input type="text" class="input" id="batchOutputDir" placeholder="Để trống = <thư mục nguồn>\Signed" />
+    </section>
+
+    <!-- Step 2: Self CA cert -->
+    <section class="card">
+      <div class="card__header">
+        <span class="badge">2</span>
+        <div>
+          <div class="card__title">Chứng thư cục bộ (Self CA)</div>
+          <div class="card__subtitle">Cấu hình tệp khóa ký và mật khẩu PFX</div>
+        </div>
+      </div>
+
+      <label class="field-label">File PFX / P12</label>
+      <div class="file-input">
+        <div class="file-input__display" id="batchCertDisplay">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d5473e" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="16" r="1.5"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="file-input__placeholder">Chưa chọn tệp…</span>
+        </div>
+        <input type="file" id="batchCertInput" accept=".pfx,.p12" hidden />
+        <button class="btn btn--outline" onclick="document.getElementById('batchCertInput').click()">Chọn File</button>
+      </div>
+
+      <label class="field-label" style="margin-top:16px">Mật khẩu chứng thư</label>
+      <input type="password" class="input" id="batchCertPass" />
+    </section>
+
+    <button class="btn btn--sign" id="btnBatchSign" disabled style="margin-top:4px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <span>KÝ HÀNG LOẠT</span>
+    </button>
+
+    <div style="margin-top:10px">
+      <div id="batchStatus" class="field-hint">Sẵn sàng.</div>
+      <div style="height:8px;border-radius:4px;background:#eef1f5;margin-top:6px;overflow:hidden">
+        <div id="batchProgressBar" style="height:100%;width:0%;background:var(--accent);transition:width .2s"></div>
+      </div>
+    </div>
+
+    <div id="batchResults" style="margin-top:12px;display:flex;flex-direction:column;gap:4px"></div>
+  </div>
+
   <!-- Settings Mode -->
   <div id="settingsPanel" class="mode-panel" style="display:none">
 
@@ -495,5 +554,6 @@
 @section Scripts {
     <script src="~/js/signing.js" asp-append-version="true"></script>
     <script src="~/js/xml-signing.js" asp-append-version="true"></script>
+    <script src="~/js/batch-signing.js" asp-append-version="true"></script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
 }

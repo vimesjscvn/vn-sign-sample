@@ -8,9 +8,11 @@ using VMSign.Web.Models;
 #if USE_SDK_SOURCE
 using SignSDK;
 using Signature.API.ViewModels;
+using Signature.API.Helpers;
 #else
 using Vimes.SignSDK;
 using Vimes.SignSDK.ViewModels;
+using Vimes.SignSDK.Helpers;
 #endif
 
 using Signature.Domain.API;
@@ -823,7 +825,148 @@ public class WebSigningService
         }
     }
 
-    public async Task<SigningResult> SignXmlAsync(XmlSigningRequest request)
+    /// <summary>
+    /// Signs every *.pdf in SourceDirectory with a single placement each, using an
+    /// uploaded PFX (SELF/LOCAL merchant only — the scope sign-app's own "Ký Hàng Loạt"
+    /// tab actually supports). Unlike sign-app's batch handler (which smuggles the PFX
+    /// bytes through the UserName field and never really logs in — LocalService.Login
+    /// always re-derives the cert path from CertificateSetting.DefaultUserName/Password,
+    /// ignoring whatever the request carries), this provisions the uploaded PFX as that
+    /// process-wide default identity first, mirroring Program.cs's --test-e2e harness.
+    /// </summary>
+    public async Task<List<BatchFileStatus>> SignBatchAsync(
+        BatchSigningRequest request, Action<BatchFileStatus>? onProgress = null)
+    {
+        var files = Directory.Exists(request.SourceDirectory)
+            ? Directory.GetFiles(request.SourceDirectory, "*.pdf")
+                .Select(f => new BatchFileStatus { FileName = Path.GetFileName(f), FilePath = f })
+                .ToList()
+            : new List<BatchFileStatus>();
+
+        if (files.Count == 0) return files;
+
+        Directory.CreateDirectory(request.OutputDirectory);
+
+        if (!string.Equals(request.MerchantId, "SELF", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var f in files)
+            {
+                f.State = BatchFileState.Error;
+                f.ErrorMessage = $"Merchant '{request.MerchantId}' chưa được hỗ trợ cho ký hàng loạt.";
+                onProgress?.Invoke(f);
+            }
+            return files;
+        }
+
+        const string batchUser = "BatchSignUser";
+        string webRoot = ResolveWebRootPath();
+        string certsFolder = Path.Combine(webRoot, _appSettings.FileStorageSetting?.CertsFolderName ?? "certs");
+        Directory.CreateDirectory(certsFolder);
+
+        // LocalService.Login/GetCertificateInfos always derive the PFX path from
+        // UtilSigner.ConvertStringToNumber(CertificateSetting.DefaultUserName) — placing
+        // the uploaded PFX there (and pointing DefaultUserName/Password at it) is the only
+        // way this merchant plugin actually resolves a certificate.
+        string serial = UtilSigner.ConvertStringToNumber(batchUser);
+        string pfxDestPath = Path.Combine(certsFolder, $"{serial}.pfx");
+        File.Copy(request.PfxFilePath!, pfxDestPath, overwrite: true);
+
+        _appSettings.CertificateSetting ??= new CertificateSetting();
+        _appSettings.CertificateSetting.DefaultUserName = batchUser;
+        _appSettings.CertificateSetting.DefaultPassword = request.PfxPassword ?? "";
+
+        var loginResult = await _signClient.LoginAsync(batchUser, request.PfxPassword ?? "", "SELF", "", "");
+        if (!loginResult.Success)
+        {
+            foreach (var f in files)
+            {
+                f.State = BatchFileState.Error;
+                f.ErrorMessage = $"Đăng nhập Self CA thất bại: {loginResult.ErrorMessage}";
+                onProgress?.Invoke(f);
+            }
+            return files;
+        }
+
+        var certs = await _signClient.GetCertificatesAsync(batchUser, loginResult.BearerToken ?? "", merchantId: "SELF");
+        var cert = certs?.FirstOrDefault();
+        if (cert == null)
+        {
+            foreach (var f in files)
+            {
+                f.State = BatchFileState.Error;
+                f.ErrorMessage = "Không lấy được chứng thư từ file PFX đã tải lên.";
+                onProgress?.Invoke(f);
+            }
+            return files;
+        }
+
+        foreach (var file in files)
+        {
+            file.State = BatchFileState.Signing;
+            onProgress?.Invoke(file);
+            try
+            {
+                var fileBytes = await File.ReadAllBytesAsync(file.FilePath);
+                var docRequest = new SignDocumentRequest
+                {
+                    FileName = file.FileName,
+                    FileData = Convert.ToBase64String(fileBytes),
+                    SignerName = "Self Signed",
+                    Page = 1,
+                    X = 100,
+                    Y = 100,
+                    Width = 150,
+                    Height = 150
+                };
+                var batchRequest = new SignDocumentsRequest
+                {
+                    UserName = batchUser,
+                    CredentialID = cert.credentialID,
+                    MerchantId = "SELF",
+                    Documents = new List<SignDocumentRequest> { docRequest }
+                };
+
+                var results = await _signClient.SignDocumentsAsync(batchRequest);
+                var result = results?.FirstOrDefault();
+                if (result == null || !result.Success)
+                {
+                    file.State = BatchFileState.Error;
+                    file.ErrorMessage = MapErrorMessage(result?.ErrorMessage) ?? "Không nhận được phản hồi từ dịch vụ ký số.";
+                }
+                else
+                {
+                    byte[] signedBytes = result.SignedFileUrl.Contains(',')
+                        ? Convert.FromBase64String(result.SignedFileUrl[(result.SignedFileUrl.LastIndexOf(',') + 1)..])
+                        : (File.Exists(result.SignedFileUrl)
+                            ? await File.ReadAllBytesAsync(result.SignedFileUrl)
+                            : Convert.FromBase64String(result.SignedFileUrl));
+                    var outPath = Path.Combine(request.OutputDirectory, file.FileName);
+                    await File.WriteAllBytesAsync(outPath, signedBytes);
+                    file.State = BatchFileState.Done;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SignBatch failed for {File}", file.FileName);
+                file.State = BatchFileState.Error;
+                file.ErrorMessage = ex.Message;
+            }
+            onProgress?.Invoke(file);
+        }
+
+        return files;
+    }
+
+    /// <summary>Mirrors the SDK's own FileHelper.GetWebRootPath() fallback so the PFX we
+    /// provision for SELF signing lands exactly where LocalService will look for it.</summary>
+    private string ResolveWebRootPath()
+    {
+        var path = _appSettings.FileStorageSetting?.WebRootFallback;
+        if (string.IsNullOrWhiteSpace(path)) path = "wwwroot";
+        return Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
+    }
+
+    public async Task<SigningResult> SignXmlAsync(VMSign.Shared.Services.XmlSigningRequest request)
     {
         _logger.LogInformation("SignXml: {Path}", request.FilePath);
         ApplySessionSettingsOverride(request.MerchantId);

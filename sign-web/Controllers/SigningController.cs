@@ -185,6 +185,48 @@ public class SigningController : Controller
     }
 
     /// <summary>
+    /// Upload the PFX/P12 used for batch signing (SELF/LOCAL merchant — no login required,
+    /// mirrors sign-app's "Ký Hàng Loạt" tab which just browses to a local cert file).
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> UploadBatchCert(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "No file provided." });
+
+        var savedPath = await _fileService.SaveUploadedFileAsync(file);
+        return Json(new { filePath = savedPath, fileName = file.FileName });
+    }
+
+    /// <summary>
+    /// Sign every PDF in a source folder with a single placement each, using the uploaded
+    /// PFX. Currently SELF/LOCAL merchant only — the same scope sign-app's batch tab covers.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> SignBatch([FromBody] BatchSigningRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.SourceDirectory) || !Directory.Exists(request.SourceDirectory))
+            return Json(new { success = false, message = "Vui lòng chọn thư mục nguồn hợp lệ." });
+
+        if (string.Equals(request.MerchantId, "SELF", StringComparison.OrdinalIgnoreCase)
+            && (string.IsNullOrWhiteSpace(request.PfxFilePath) || !System.IO.File.Exists(request.PfxFilePath)))
+        {
+            return Json(new { success = false, message = "Vui lòng tải lên file chứng thư Self CA." });
+        }
+
+        var results = await _signingService.SignBatchAsync(request);
+        var successCount = results.Count(r => r.State == VMSign.Shared.Models.BatchFileState.Done);
+        return Json(new
+        {
+            success = true,
+            total = results.Count,
+            successCount,
+            failedCount = results.Count - successCount,
+            files = results
+        });
+    }
+
+    /// <summary>
     /// Download a signed file.
     /// </summary>
     [HttpGet]

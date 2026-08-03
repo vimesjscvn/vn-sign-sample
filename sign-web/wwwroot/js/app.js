@@ -28,8 +28,7 @@ const App = {
         if (el('ctxTitle')) el('ctxTitle').textContent = title;
         if (el('ctxCaption')) el('ctxCaption').textContent = caption;
 
-        // batch is not implemented yet.
-        const panelIds = { pdf: 'pdfPanel', xml: 'xmlPanel', settings: 'settingsPanel' };
+        const panelIds = { pdf: 'pdfPanel', xml: 'xmlPanel', batch: 'batchPanel', settings: 'settingsPanel' };
         const targetId = panelIds[mode];
         if (targetId) {
             Object.values(panelIds).forEach(id => {
