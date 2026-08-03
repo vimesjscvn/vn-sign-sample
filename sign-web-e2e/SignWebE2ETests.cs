@@ -1,5 +1,6 @@
 using Microsoft.Playwright;
 using Microsoft.Playwright.NUnit;
+using iText.Kernel.Pdf;
 
 namespace VMSign.Web.E2E;
 
@@ -144,6 +145,64 @@ public class SignWebE2ETests : PageTest
 
         // Verify visual feedback class
         await Expect(dropZone).ToHaveClassAsync(new System.Text.RegularExpressions.Regex("drag-over"));
+    }
+
+    [Test]
+    public async Task PdfUploadAndManualPlacement_EnablesSignAction()
+    {
+        var pdfPath = Path.Combine(
+            Path.GetTempPath(), $"vmsign-web-ui-{Guid.NewGuid():N}.pdf");
+
+        try
+        {
+            using (var writer = new PdfWriter(pdfPath))
+            using (var pdf = new PdfDocument(writer))
+            {
+                pdf.AddNewPage();
+                pdf.AddNewPage();
+            }
+
+            await Page.GotoAsync(BaseUrl);
+            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+            // Keep this UI test deterministic and local: disable optional automatic
+            // field creation/visual alignment before uploading the fixture.
+            await Page.Locator("#toggleAutoAcro").ClickAsync();
+            await Expect(Page.Locator("#autoAcroTrack"))
+                .Not.ToHaveClassAsync(new System.Text.RegularExpressions.Regex("active"));
+
+            await Page.Locator("#pdfFileInput").SetInputFilesAsync(pdfPath);
+
+            await Expect(Page.Locator("#canvasContainer"))
+                .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await Expect(Page.Locator("#dropZone")).ToBeHiddenAsync();
+            await Expect(Page.Locator("#totalPages")).ToHaveTextAsync("2");
+            await Expect(Page.Locator("#btnSignPdf")).ToBeDisabledAsync();
+
+            var canvas = Page.Locator(".upper-canvas");
+            await Expect(canvas).ToBeVisibleAsync();
+            var bounds = await canvas.BoundingBoxAsync();
+            Assert.That(bounds, Is.Not.Null, "Fabric canvas must expose drawable bounds.");
+
+            await Page.Mouse.MoveAsync(bounds!.X + 70, bounds.Y + 80);
+            await Page.Mouse.DownAsync();
+            await Page.Mouse.MoveAsync(
+                bounds.X + 220,
+                bounds.Y + 170,
+                new MouseMoveOptions { Steps = 10 });
+            await Page.Mouse.UpAsync();
+
+            await Expect(Page.Locator("#placementDialog")).ToBeVisibleAsync();
+            await Page.Locator("#btnConfirmPlace").ClickAsync();
+
+            await Expect(Page.Locator("#placementDialog")).ToBeHiddenAsync();
+            await Expect(Page.Locator("#btnSignPdf")).ToBeEnabledAsync();
+            await Expect(Page.Locator("#signBtnLabel")).ToContainTextAsync("1 vị trí");
+        }
+        finally
+        {
+            if (File.Exists(pdfPath)) File.Delete(pdfPath);
+        }
     }
 
     [Test]

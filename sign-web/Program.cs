@@ -1,4 +1,5 @@
 using Serilog;
+using Core.Config.Settings;
 using VMSign.Web.Services;
 
 #if USE_SDK_SOURCE
@@ -40,6 +41,9 @@ builder.Host.UseSerilog((ctx, cfg) =>
     }
 });
 
+// HttpContextAccessor
+builder.Services.AddHttpContextAccessor();
+
 // MVC
 builder.Services.AddControllersWithViews();
 
@@ -57,6 +61,10 @@ builder.Services.AddSession(options =>
 
 // === SignSDK (same as sign-app) ===
 builder.Services.AddSignSDK(builder.Configuration);
+// Package builds bind an "AppSettings" wrapper while source builds bind the
+// supplied root. sign-web keeps SDK settings at the root, so explicitly bind
+// that shape as well and make both build modes behave identically.
+builder.Services.Configure<AppSettings>(builder.Configuration);
 builder.Services.AddSignSDKMySign();
 builder.Services.AddSignSDKSmartCA();
 builder.Services.AddSignSDKUSB();

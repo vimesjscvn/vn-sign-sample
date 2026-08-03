@@ -30,6 +30,11 @@ namespace VMSign;
 public static class Program
 {
     public static IHost? Host { get; private set; }
+    public static string UserConfigDirectory { get; private set; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".config", "vimes-sign");
+    public static string UserConfigFilePath { get; private set; } = Path.Combine(
+        UserConfigDirectory, "appsettings.json");
 
     private static readonly string[] _redirectedAssemblies =
     [
@@ -61,26 +66,29 @@ public static class Program
         };
 
         // User config directory: ~/.config/vimes-sign/
-        var userConfigDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".config", "vimes-sign");
-        var userConfigFile = Path.Combine(userConfigDir, "appsettings.json");
+        var configuredUserConfigDir = Environment.GetEnvironmentVariable("VMSIGN_CONFIG_DIR");
+        UserConfigDirectory = string.IsNullOrWhiteSpace(configuredUserConfigDir)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".config", "vimes-sign")
+            : Path.GetFullPath(configuredUserConfigDir);
+        UserConfigFilePath = Path.Combine(UserConfigDirectory, "appsettings.json");
 
         // Auto-copy bundled appsettings.json on first run if user config doesn't exist
-        if (!File.Exists(userConfigFile))
+        if (!File.Exists(UserConfigFilePath))
         {
-            Directory.CreateDirectory(userConfigDir);
+            Directory.CreateDirectory(UserConfigDirectory);
             var bundledConfig = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
             if (File.Exists(bundledConfig))
             {
-                File.Copy(bundledConfig, userConfigFile);
+                File.Copy(bundledConfig, UserConfigFilePath);
             }
         }
 
         var builder = new ConfigurationBuilder()
             .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddJsonFile(userConfigFile, optional: true, reloadOnChange: true);
+            .AddJsonFile(UserConfigFilePath, optional: true, reloadOnChange: true);
 
         var configuration = builder.Build();
 
@@ -90,8 +98,7 @@ public static class Program
             .WriteTo.Console()
             .WriteTo.File(
                 Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    ".config", "vimes-sign", "logs", "vimes_sample-.txt"),
+                    UserConfigDirectory, "logs", "vimes_sample-.txt"),
                 rollingInterval: RollingInterval.Day)
             .CreateLogger();
 
@@ -103,6 +110,7 @@ public static class Program
             .ConfigureServices((context, services) =>
             {
                 services.AddSignSDK(context.Configuration);
+                services.Configure<AppSettings>(context.Configuration.GetSection("AppSettings"));
                 
                 services.AddSignSDKMySign();
                 services.AddSignSDKSmartCA();
@@ -127,7 +135,10 @@ public static class Program
         else
         {
             // Check for updates in background after app starts
-            Task.Run(CheckForUpdatesAsync);
+            if (!args.Contains("--disable-updates", StringComparer.OrdinalIgnoreCase))
+            {
+                Task.Run(CheckForUpdatesAsync);
+            }
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
     }
@@ -342,9 +353,9 @@ public class DesktopSignEnvironment : Core.Common.Abstractions.ISignEnvironment
 {
     private static string GetDataDirectory()
     {
-        // Use ~/.config/vimes-sign/ as writable data directory on macOS
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var dataDir = Path.Combine(home, ".config", "vimes-sign");
+        // Keep SDK output alongside the active user config. E2E runs can isolate
+        // both by setting VMSIGN_CONFIG_DIR.
+        var dataDir = Program.UserConfigDirectory;
         Directory.CreateDirectory(dataDir);
         return dataDir;
     }

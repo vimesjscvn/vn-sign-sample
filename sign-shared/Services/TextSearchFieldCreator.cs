@@ -11,7 +11,7 @@ using System.IO;
 using System.Linq;
 using Serilog;
 
-namespace VMSign.Web.Services
+namespace VMSign.Shared.Services
 {
     public class TextSearchFieldCreator
     {

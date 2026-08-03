@@ -1,16 +1,19 @@
 using Avalonia;
 using Avalonia.Controls;
+using Ellipse = Avalonia.Controls.Shapes.Ellipse;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Vimes.SignSDK;
@@ -18,6 +21,8 @@ using Vimes.SignSDK.ViewModels;
 using Signature.Domain.API;
 using Core.Common.Common;
 using Core.Config.Settings;
+using VMSign.Shared.Services;
+using VMSign.Shared.Models;
 
 namespace VMSign;
 
@@ -27,9 +32,13 @@ public partial class MainWindow : Window
     private readonly ILogger<MainWindow> _logger;
     private string? _bearerToken;
     private string? _activeUserName;
+    private string? _activeMerchantId;
+    private bool _isLoggedIn;
+    private bool _isRestoringMerchantSelection;
     private System.Diagnostics.Process? _agentProcess;
 
     private readonly AppSettings _appSettings;
+    private readonly IConfiguration _configuration;
     private SignDocumentRequest _advancedRequest = new();
     
     // Custom signature image variable
@@ -41,14 +50,19 @@ public partial class MainWindow : Window
     private Rect _selectionRect;
 
     // Selected coordinates
-    private int _sigX = 100;
-    private int _sigY = 100;
-    private int _sigW = 150;
-    private int _sigH = 150;
+    private int _sigX;
+    private int _sigY;
+    private int _sigW;
+    private int _sigH;
+    private string? _selectedSignatureFieldId;
+    private string? _signaturePlacementFilePath;
+    private int? _signaturePlacementPage;
     private int? _noteX = null;
     private int? _noteY = null;
     private int? _noteW = null;
     private int? _noteH = null;
+    private string? _notePlacementFilePath;
+    private int? _notePlacementPage;
     private bool _isDrawingNote = false;
 
     // Rendered PDF Page cache
@@ -63,6 +77,32 @@ public partial class MainWindow : Window
     // HOC_BA: maps each XPath dropdown entry to its recommended ReferenceId.
     private readonly Dictionary<string, string> _xpathRefMap = new();
 
+    // Credential picker (multi-certificate accounts)
+    private TaskCompletionSource<string?>? _credentialPickerTcs;
+    private string? _credentialPickerChoice;
+    private static readonly HttpClient _testConnectionHttp = new() { Timeout = TimeSpan.FromSeconds(5) };
+
+    // Session flyout: subject DNs of the active session's registered certificates, keyed by credentialID
+    private readonly Dictionary<string, string?> _certSubjectsByCredentialId = new();
+
+    // Multi-placement signing state (mirrors sign-web's Signing.placements / drawnBoxes):
+    // AcroFields the user has marked "placed" (pending, not yet signed) this document.
+    private readonly HashSet<string> _placedFieldIds = new(StringComparer.Ordinal);
+    // AcroFields already signed this document (belt-and-suspenders alongside the PDF's own isSigned flag).
+    private readonly HashSet<string> _signedFieldIds = new(StringComparer.Ordinal);
+    // Hand-drawn (non-AcroField) placements queued for the next sign.
+    private sealed class DrawnPlacement { public int Page; public int X, Y, W, H; }
+    private readonly List<DrawnPlacement> _drawnPlacements = new();
+    // Rects of all AcroFields detected on the currently rendered page, keyed by field name.
+    private readonly Dictionary<string, (int page, int x, int y, int w, int h)> _detectedFieldRects = new();
+    // Live button references for detected fields so placement toggles can restyle in place
+    // without re-parsing the PDF.
+    private readonly Dictionary<string, Button> _fieldButtons = new();
+    // Overlay borders rendered for queued drawn placements.
+    private readonly List<Border> _drawnPlacementOverlays = new();
+
+    private sealed class PendingPlacement { public string? FieldId; public int Page; public int X, Y, W, H; }
+
     public MainWindow()
     {
         // Parameterless constructor for designer preview
@@ -70,14 +110,16 @@ public partial class MainWindow : Window
         _signClient = null!;
         _logger = null!;
         _appSettings = null!;
+        _configuration = null!;
     }
 
-    public MainWindow(ISignSDKClient signClient, ILogger<MainWindow> logger, AppSettings appSettings)
+    public MainWindow(ISignSDKClient signClient, ILogger<MainWindow> logger, AppSettings appSettings, IConfiguration configuration)
     {
         InitializeComponent();
         _signClient = signClient;
         _logger = logger;
         _appSettings = appSettings;
+        _configuration = configuration;
 
         InitializeApp();
     }
@@ -87,12 +129,20 @@ public partial class MainWindow : Window
         // Populate merchants
         var merchants = _signClient.GetRegisteredMerchants();
         cboMerchant.ItemsSource = merchants;
+        cboMerchant.SelectionChanged += cboMerchant_SelectionChanged;
         if (merchants.Count > 0)
         {
-            cboMerchant.SelectedIndex = 0;
+            var configuredMerchant = _appSettings.InternalSetting?.DefaultMerchantId;
+            cboMerchant.SelectedItem = merchants.FirstOrDefault(
+                merchant => string.Equals(
+                    merchant,
+                    configuredMerchant,
+                    StringComparison.OrdinalIgnoreCase))
+                ?? merchants[0];
         }
-
-        cboMerchant.SelectionChanged += cboMerchant_SelectionChanged;
+        RefreshMerchantHeaderDisplay();
+        RenderMerchantDropdownList();
+        RenderLoginMerchantGrid();
 
         // Populate Signature Type combobox
         cboSignatureType.ItemsSource = new List<ComboboxItem<SignatureType>>
@@ -122,6 +172,11 @@ public partial class MainWindow : Window
         // Load initial settings UI
         LoadSettingsToUi();
 
+        if (_appSettings?.InternalSetting != null)
+        {
+            chkAutoCreateAcroField.IsChecked = _appSettings.InternalSetting.AutoCreateAcroField == 1;
+        }
+
         // Initialize advanced request defaults
         _advancedRequest = new SignDocumentRequest 
         { 
@@ -150,8 +205,19 @@ public partial class MainWindow : Window
         txtPassword.TextChanged += (s, e) => { if (txtPasswordXml.Text != txtPassword.Text) txtPasswordXml.Text = txtPassword.Text; };
         txtPasswordXml.TextChanged += (s, e) => { if (txtPassword.Text != txtPasswordXml.Text) txtPassword.Text = txtPasswordXml.Text; };
 
-        cboCerts.SelectionChanged += (s, e) => { if (cboCertsXml.SelectedIndex != cboCerts.SelectedIndex) cboCertsXml.SelectedIndex = cboCerts.SelectedIndex; };
-        cboCertsXml.SelectionChanged += (s, e) => { if (cboCerts.SelectedIndex != cboCertsXml.SelectedIndex) cboCerts.SelectedIndex = cboCertsXml.SelectedIndex; };
+        cboCerts.SelectionChanged += (s, e) =>
+        {
+            if (cboCertsXml.SelectedIndex != cboCerts.SelectedIndex)
+                cboCertsXml.SelectedIndex = cboCerts.SelectedIndex;
+            UpdateSigningActionStates();
+            RefreshSessionInfoRows();
+        };
+        cboCertsXml.SelectionChanged += (s, e) =>
+        {
+            if (cboCerts.SelectedIndex != cboCertsXml.SelectedIndex)
+                cboCerts.SelectedIndex = cboCertsXml.SelectedIndex;
+            UpdateSigningActionStates();
+        };
 
         if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
         {
@@ -162,6 +228,12 @@ public partial class MainWindow : Window
         this.AddHandler(DragDrop.DragOverEvent, Canvas_DragOver);
         this.AddHandler(DragDrop.DropEvent, Canvas_Drop);
 
+        // Escape closes header overlays/dialogs. Tunnel so it fires even while a TextBox
+        // inside an overlay holds focus.
+        this.AddHandler(KeyDownEvent, MainWindow_KeyDown, RoutingStrategies.Tunnel);
+
+        ApplyLoggedOutUi();
+        UpdateSigningActionStates();
         Log("Dashboard Initialized. Welcome to Vimes SignSDK Showcase Studio on Avalonia!", ColorFromHex("#38BDF8"));
     }
 
@@ -192,85 +264,716 @@ public partial class MainWindow : Window
     private void LogSystem(string message) => Log(message, ColorFromHex("#38BDF8"));
     #endregion
 
+    #region Toast Notifications
+    private void ToastSuccess(string title, string message) => ShowToast("success", title, message);
+    private void ToastWarning(string title, string message) => ShowToast("warning", title, message);
+    private void ToastError(string title, string message) => ShowToast("error", title, message);
+    private void ToastInfo(string title, string message) => ShowToast("info", title, message);
+
+    /// <summary>
+    /// Ephemeral top-right notification card, matching sign-web's Toast system
+    /// (auto-dismiss ~4.2s). Also mirrors the message into the system log panel,
+    /// same pairing as web's Toast.show → App.log.
+    /// </summary>
+    private void ShowToast(string type, string title, string message)
+    {
+        string accentHex = type switch
+        {
+            "success" => "#0F9D6E",
+            "error" => "#CC4238",
+            "warning" => "#D9891F",
+            _ => "#1E5FD4"
+        };
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            var textStack = new StackPanel { Spacing = 2 };
+            textStack.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontWeight = Avalonia.Media.FontWeight.Bold,
+                FontSize = 13.5,
+                Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#16233A")),
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap
+            });
+            textStack.Children.Add(new TextBlock
+            {
+                Text = message,
+                FontSize = 12,
+                Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#5B6472")),
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap
+            });
+
+            var closeBtn = new Button
+            {
+                Content = "✕",
+                Background = Avalonia.Media.Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#8A93A1")),
+                Padding = new Thickness(4),
+                MinHeight = 0,
+                FontSize = 12,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+            };
+
+            var content = new Grid { ColumnDefinitions = new ColumnDefinitions("*, Auto") };
+            Grid.SetColumn(textStack, 0);
+            Grid.SetColumn(closeBtn, 1);
+            content.Children.Add(textStack);
+            content.Children.Add(closeBtn);
+
+            var card = new Border
+            {
+                Background = Avalonia.Media.Brushes.White,
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(14, 12),
+                BorderThickness = new Thickness(4, 0, 0, 0),
+                BorderBrush = new Avalonia.Media.SolidColorBrush(ColorFromHex(accentHex)),
+                BoxShadow = Avalonia.Media.BoxShadows.Parse("0 8 24 0 #33000000"),
+                Child = content
+            };
+
+            closeBtn.Click += (s, e) => toastHost.Children.Remove(card);
+            toastHost.Children.Insert(0, card);
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4200) };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                toastHost.Children.Remove(card);
+            };
+            timer.Start();
+        });
+
+        string logColorHex = type switch
+        {
+            "success" => "#10B981",
+            "error" => "#EF4444",
+            "warning" => "#F59E0B",
+            _ => "#38BDF8"
+        };
+        Log($"{title}: {message}", ColorFromHex(logColorHex));
+    }
+    #endregion
+
+    #region Signing Progress Modal
+    private static string GetMobileAppName(string? merchantId)
+    {
+        if (string.IsNullOrWhiteSpace(merchantId)) return "ứng dụng xác thực ký số";
+        var id = merchantId.ToUpperInvariant();
+        if (id.Contains("VIETTEL") || id.Contains("MYSIGN")) return "Viettel MySign";
+        if (id.Contains("SMARTCA") || id.Contains("VNPT")) return "VNPT SmartCA";
+        if (id.Contains("VGCA") || id.Contains("BCY")) return "VGCA Sign Service";
+        if (id.Contains("FPT")) return "FPT SmartCA";
+        if (id.Contains("MISA")) return "MISA eSign";
+        if (id.Contains("CA2")) return "SmartSign (CA2)";
+        if (id.Contains("BKAV")) return "BkavCA";
+        return $"ứng dụng ký số ({merchantId})";
+    }
+
+    private void ShowSigningProgress(bool show, string? merchantId = null)
+    {
+        if (show)
+        {
+            lblProgressAppLine.Text = $"2. Mở ứng dụng xác thực ký số (ví dụ: {GetMobileAppName(merchantId)}).";
+        }
+        panelSigningProgress.IsVisible = show;
+    }
+    #endregion
+
+    #region Config Guard Modal
+    /// <summary>
+    /// Best-effort "is this merchant usable" check, mirroring sign-web's SigningGuard
+    /// config-guard (VMSign.Shared.Services.SigningGuard). Local/USB merchants need no
+    /// remote credentials so they're always considered configured.
+    /// </summary>
+    private bool IsMerchantConfigured(string merchantId)
+    {
+        var info = MerchantRegistry.GetDisplayInfo(merchantId);
+        if (info.CertMode != MerchantCertMode.Remote) return true;
+        if (_appSettings == null) return true;
+
+        return merchantId.ToUpperInvariant() switch
+        {
+            "VIETTEL" => !string.IsNullOrWhiteSpace(_appSettings.MySignSetting?.ClientId)
+                         && !string.IsNullOrWhiteSpace(_appSettings.MySignSetting?.ClientSecret),
+            "VNPT" => !string.IsNullOrWhiteSpace(_appSettings.SmartCASetting?.ClientId)
+                      && !string.IsNullOrWhiteSpace(_appSettings.SmartCASetting?.ClientSecret),
+            "BCY" => !string.IsNullOrWhiteSpace(_appSettings.TerminalSetting?.BaseUrl),
+            "CMC" => !string.IsNullOrWhiteSpace(_appSettings.CmcSetting?.BaseUrl),
+            "INTRUST" => !string.IsNullOrWhiteSpace(_appSettings.InTrustSetting?.BaseUrl),
+            "SIM" => !string.IsNullOrWhiteSpace(_appSettings.MsspSetting?.ApId),
+            _ => true
+        };
+    }
+
+    private void ShowConfigGuard(string merchantId)
+    {
+        var info = MerchantRegistry.GetDisplayInfo(merchantId);
+        lblConfigGuardMsg.Text = $"Merchant {info.Name} chưa có thông tin kết nối hợp lệ tới nhà cung cấp chữ ký số.";
+        panelConfigGuard.IsVisible = true;
+    }
+
+    private void btnConfigGuardClose_Click(object? sender, RoutedEventArgs e) => panelConfigGuard.IsVisible = false;
+    private void ConfigGuardBackground_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.Source == panelConfigGuard) panelConfigGuard.IsVisible = false;
+    }
+    private void btnConfigGuardGoto_Click(object? sender, RoutedEventArgs e)
+    {
+        panelConfigGuard.IsVisible = false;
+        SwitchTab(3, "Cài Đặt SDK");
+    }
+    #endregion
+
+    #region Credential Picker Modal
+    /// <summary>
+    /// Resolves which credential to sign with — mirrors sign-web's Signing.resolveCredentialId.
+    /// Returns the sole/selected credential immediately when there's 0-or-1 certs; otherwise
+    /// shows a picker modal and awaits the user's choice (null = user cancelled).
+    /// </summary>
+    private Task<string?> ResolveCredentialIdAsync()
+    {
+        var certs = (cboCerts.ItemsSource as IEnumerable<ComboboxItem<string>>)?.ToList() ?? new List<ComboboxItem<string>>();
+        if (certs.Count <= 1)
+        {
+            var selected = cboCerts.SelectedItem as ComboboxItem<string>;
+            return Task.FromResult(selected?.Value);
+        }
+
+        _credentialPickerChoice = (cboCerts.SelectedItem as ComboboxItem<string>)?.Value ?? certs[0].Value;
+        RenderCredentialPickerList(certs);
+        panelCredentialPicker.IsVisible = true;
+
+        _credentialPickerTcs = new TaskCompletionSource<string?>();
+        return _credentialPickerTcs.Task;
+    }
+
+    private void RenderCredentialPickerList(List<ComboboxItem<string>> certs)
+    {
+        var items = new List<Control>();
+        foreach (var cert in certs)
+        {
+            bool isSelected = cert.Value == _credentialPickerChoice;
+            var row = new Border
+            {
+                Padding = new Thickness(12, 10),
+                CornerRadius = new CornerRadius(10),
+                BorderThickness = new Thickness(1),
+                BorderBrush = new Avalonia.Media.SolidColorBrush(ColorFromHex(isSelected ? "#CFE0FB" : "#E7EAEF")),
+                Background = new Avalonia.Media.SolidColorBrush(ColorFromHex(isSelected ? "#EEF4FE" : "#FFFFFF")),
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+                Tag = cert.Value
+            };
+            var dot = new Ellipse
+            {
+                Width = 16,
+                Height = 16,
+                Stroke = new Avalonia.Media.SolidColorBrush(ColorFromHex(isSelected ? "#1E5FD4" : "#CDD3DC")),
+                StrokeThickness = 2,
+                Fill = isSelected ? new Avalonia.Media.SolidColorBrush(ColorFromHex("#1E5FD4")) : Avalonia.Media.Brushes.Transparent,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var label = new TextBlock { Text = cert.Text, FontSize = 13, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+            var stack = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 10 };
+            stack.Children.Add(dot);
+            stack.Children.Add(label);
+            row.Child = stack;
+            row.PointerPressed += (s, e) =>
+            {
+                _credentialPickerChoice = cert.Value;
+                RenderCredentialPickerList(certs);
+            };
+            items.Add(row);
+        }
+        lstCredentialPicker.Children.Clear();
+        foreach (var item in items) lstCredentialPicker.Children.Add(item);
+    }
+
+    private void btnCredentialPickerConfirm_Click(object? sender, RoutedEventArgs e)
+    {
+        panelCredentialPicker.IsVisible = false;
+        var chosen = _credentialPickerChoice;
+        var tcs = _credentialPickerTcs;
+        _credentialPickerTcs = null;
+        tcs?.SetResult(chosen);
+    }
+
+    private void btnCredentialPickerCancel_Click(object? sender, RoutedEventArgs e)
+    {
+        panelCredentialPicker.IsVisible = false;
+        var tcs = _credentialPickerTcs;
+        _credentialPickerTcs = null;
+        tcs?.SetResult(null);
+    }
+    #endregion
+
     #region CA Authentication Flow
+    private static bool UsesLocalIdentity(string merchantId) =>
+        merchantId.Equals("LOCAL", StringComparison.OrdinalIgnoreCase)
+        || merchantId.Equals("USB", StringComparison.OrdinalIgnoreCase)
+        || merchantId.Equals("SELF", StringComparison.OrdinalIgnoreCase);
+
+    private bool HasActiveSessionForCurrentMerchant()
+    {
+        var selectedMerchant = cboMerchant.SelectedItem?.ToString();
+        return _isLoggedIn
+            && !string.IsNullOrWhiteSpace(_activeMerchantId)
+            && string.Equals(
+                selectedMerchant,
+                _activeMerchantId,
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ClearCertificateControls()
+    {
+        cboCerts.ItemsSource = null;
+        cboCerts.SelectedIndex = -1;
+        if (cboCertsXml != null)
+        {
+            cboCertsXml.ItemsSource = null;
+            cboCertsXml.SelectedIndex = -1;
+        }
+    }
+
+    private void ApplyLoggedOutUi()
+    {
+        _isLoggedIn = false;
+        cboMerchant.IsEnabled = true;
+
+        var merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+        txtUserName.IsEnabled = !UsesLocalIdentity(merchantId);
+        txtPassword.IsEnabled = true;
+        btnLogin.IsVisible = true;
+        btnLogin.IsEnabled = true;
+        btnSyncCertificates.IsEnabled = false;
+        btnLogout.IsVisible = false;
+
+        lblSessionStatus.Text = "Chưa đăng nhập";
+        lblSessionStatus.Foreground = Avalonia.Media.Brushes.Red;
+        panelStatusDot.Fill = Avalonia.Media.Brushes.Red;
+        btnSession.BorderBrush = Avalonia.Media.Brushes.Red;
+        btnSession.Background = new Avalonia.Media.SolidColorBrush(
+            Avalonia.Media.Color.Parse("#11EF4444"));
+
+        panelSessionLoggedInHeader.IsVisible = false;
+        panelSessionInfoRows.IsVisible = false;
+        panelSessionLoggedOutHeader.IsVisible = true;
+        panelSessionLoginForm.IsVisible = true;
+        btnMerchantSelector.Opacity = 1.0;
+        btnMerchantSelector.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+    }
+
+    private void ApplyLoggedInUi()
+    {
+        _isLoggedIn = true;
+        cboMerchant.IsEnabled = false;
+        txtUserName.IsEnabled = false;
+        txtPassword.IsEnabled = false;
+        btnLogin.IsVisible = false;
+        btnLogin.IsEnabled = false;
+        btnSyncCertificates.IsEnabled = true;
+        btnLogout.IsVisible = true;
+
+        lblSessionStatus.Text = $"Active Session: {_activeUserName} ({_activeMerchantId})";
+        lblSessionStatus.Foreground = Avalonia.Media.Brushes.Green;
+        panelStatusDot.Fill = Avalonia.Media.Brushes.Green;
+        btnSession.BorderBrush = Avalonia.Media.Brushes.Green;
+        btnSession.Background = new Avalonia.Media.SolidColorBrush(
+            Avalonia.Media.Color.Parse("#1139D98A"));
+
+        panelSessionLoggedOutHeader.IsVisible = false;
+        panelSessionLoginForm.IsVisible = false;
+        panelSessionLoggedInHeader.IsVisible = true;
+        panelSessionInfoRows.IsVisible = true;
+        btnMerchantSelector.Opacity = 0.6;
+        btnMerchantSelector.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.No);
+
+        var displayName = ExtractCN(GetActiveCertSubjectDN()) ?? _activeUserName ?? "User";
+        lblSessionDisplayName.Text = displayName;
+        lblSessionAvatarInitial.Text = displayName.Length > 0 ? displayName.Substring(0, 1).ToUpperInvariant() : "U";
+        RefreshSessionInfoRows();
+    }
+
+    private string? GetActiveCertSubjectDN()
+    {
+        var selected = cboCerts.SelectedItem as ComboboxItem<string>;
+        if (selected == null) return null;
+        return _certSubjectsByCredentialId.TryGetValue(selected.Value, out var subj) ? subj : null;
+    }
+
+    private static string? ExtractCN(string? subjectDN)
+    {
+        if (string.IsNullOrWhiteSpace(subjectDN)) return null;
+        int i = subjectDN.IndexOf("CN=", StringComparison.OrdinalIgnoreCase);
+        if (i < 0) return null;
+        int start = i + 3;
+        int end = subjectDN.IndexOf(',', start);
+        var cn = (end > start ? subjectDN.Substring(start, end - start) : subjectDN.Substring(start)).Trim();
+        return string.IsNullOrEmpty(cn) ? null : cn;
+    }
+
+    private void RefreshSessionInfoRows()
+    {
+        if (!_isLoggedIn) return;
+
+        var subjectDN = GetActiveCertSubjectDN();
+        var cn = ExtractCN(subjectDN);
+        var displayName = cn ?? _activeUserName ?? "User";
+
+        lblSessionDisplayName.Text = displayName;
+        lblSessionAvatarInitial.Text = displayName.Length > 0 ? displayName.Substring(0, 1).ToUpperInvariant() : "U";
+        lblInfoRowAccount.Text = _activeUserName ?? "—";
+        lblInfoRowMerchant.Text = MerchantRegistry.GetDisplayInfo(_activeMerchantId ?? "").Name;
+        lblInfoRowCert.Text = cn ?? subjectDN ?? "Chưa có chứng thư";
+    }
+
+    #region Merchant Header Selector (card-list dropdown, mirrors sign-web)
+    private void RefreshMerchantHeaderDisplay()
+    {
+        var merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+        var info = MerchantRegistry.GetDisplayInfo(merchantId);
+        lblMerchantTag.Text = info.Tag;
+        lblMerchantName.Text = info.Name;
+    }
+
+    private void RenderMerchantDropdownList()
+    {
+        var merchants = (cboMerchant.ItemsSource as IEnumerable<string>)?.ToList() ?? new List<string>();
+        var currentMerchant = cboMerchant.SelectedItem?.ToString();
+
+        merchantDropdownList.Children.Clear();
+        foreach (var merchantId in merchants)
+        {
+            var info = MerchantRegistry.GetDisplayInfo(merchantId);
+            bool isActive = string.Equals(merchantId, currentMerchant, StringComparison.OrdinalIgnoreCase);
+
+            var row = new Border
+            {
+                Padding = new Thickness(10, 9),
+                CornerRadius = new CornerRadius(9),
+                Background = isActive
+                    ? new Avalonia.Media.SolidColorBrush(ColorFromHex("#EEF4FE"))
+                    : Avalonia.Media.Brushes.Transparent,
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
+            };
+            var tagBadge = new Border
+            {
+                Width = 28,
+                Height = 28,
+                CornerRadius = new CornerRadius(8),
+                Background = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1A1E5FD4")),
+                Child = new TextBlock { Text = info.Tag, FontWeight = Avalonia.Media.FontWeight.Bold, FontSize = 12, Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1E5FD4")), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center }
+            };
+            var textStack = new StackPanel { Spacing = 1, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            textStack.Children.Add(new TextBlock { Text = info.Name, FontSize = 13, FontWeight = Avalonia.Media.FontWeight.SemiBold, Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1A2230")) });
+            textStack.Children.Add(new TextBlock { Text = info.Description, FontSize = 11, Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#8A93A1")) });
+
+            var content = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto, *, Auto") };
+            Grid.SetColumn(tagBadge, 0);
+            Grid.SetColumn(textStack, 1);
+            textStack.Margin = new Thickness(10, 0, 0, 0);
+            content.Children.Add(tagBadge);
+            content.Children.Add(textStack);
+            if (isActive)
+            {
+                var check = new TextBlock { Text = "✓", Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1E5FD4")), FontWeight = Avalonia.Media.FontWeight.Bold, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+                Grid.SetColumn(check, 2);
+                content.Children.Add(check);
+            }
+            row.Child = content;
+
+            row.PointerPressed += (s, e) => SelectMerchantFromDropdown(merchantId);
+            merchantDropdownList.Children.Add(row);
+        }
+    }
+
+    private void RenderLoginMerchantGrid()
+    {
+        var merchants = (cboMerchant.ItemsSource as IEnumerable<string>)?.ToList() ?? new List<string>();
+        var currentMerchant = cboMerchant.SelectedItem?.ToString();
+
+        panelLoginMerchantGrid.Children.Clear();
+        foreach (var merchantId in merchants)
+        {
+            var info = MerchantRegistry.GetDisplayInfo(merchantId);
+            bool isSelected = string.Equals(merchantId, currentMerchant, StringComparison.OrdinalIgnoreCase);
+
+            var chip = new Border
+            {
+                Padding = new Thickness(8, 5),
+                CornerRadius = new CornerRadius(7),
+                BorderThickness = new Thickness(1.5),
+                BorderBrush = new Avalonia.Media.SolidColorBrush(ColorFromHex(isSelected ? "#1E5FD4" : "#CDD3DC")),
+                Background = isSelected ? new Avalonia.Media.SolidColorBrush(ColorFromHex("#0A1E5FD4")) : Avalonia.Media.Brushes.White,
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+                Child = new TextBlock { Text = info.Name, FontSize = 11.5, FontWeight = Avalonia.Media.FontWeight.Medium, Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex(isSelected ? "#1E5FD4" : "#334155")) }
+            };
+            chip.PointerPressed += (s, e) => SelectMerchantFromDropdown(merchantId);
+            panelLoginMerchantGrid.Children.Add(chip);
+        }
+    }
+
+    private void SelectMerchantFromDropdown(string merchantId)
+    {
+        if (_isLoggedIn)
+        {
+            CloseMerchantDropdown();
+            ToastInfo("Merchant đã khóa", "Đăng xuất để chọn merchant khác — merchant hiện tại gắn với phiên đăng nhập.");
+            return;
+        }
+        cboMerchant.SelectedItem = merchantId;
+        CloseMerchantDropdown();
+    }
+    #endregion
+
+    #region Header Overlays (in-window replacements for Flyout popups)
+    /// <summary>
+    /// Anchors a top-aligned overlay panel just below <paramref name="anchor"/>, mirroring
+    /// where a Flyout would have opened. Measured from the live control bounds rather than
+    /// hard-coded offsets so it stays correct across DPI and header layout changes.
+    /// </summary>
+    private void PositionOverlayUnder(Control anchor, Control panel, bool alignRight)
+    {
+        var origin = anchor.TranslatePoint(new Point(0, anchor.Bounds.Height), this);
+        if (origin is null) return;
+
+        double top = origin.Value.Y + 6;
+        panel.Margin = alignRight
+            ? new Thickness(0, top, Math.Max(0, Bounds.Width - (origin.Value.X + anchor.Bounds.Width)), 0)
+            : new Thickness(origin.Value.X, top, 0, 0);
+    }
+
+    private void OpenMerchantDropdown()
+    {
+        RenderMerchantDropdownList();
+        PositionOverlayUnder(btnMerchantSelector, merchantDropdownPanel, alignRight: false);
+        panelMerchantDropdown.IsVisible = true;
+    }
+
+    private void CloseMerchantDropdown() => panelMerchantDropdown.IsVisible = false;
+
+    private void btnMerchantSelector_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_isLoggedIn)
+        {
+            ToastInfo("Merchant đã khóa", "Đăng xuất để chọn merchant khác — merchant hiện tại gắn với phiên đăng nhập.");
+            return;
+        }
+
+        if (panelMerchantDropdown.IsVisible) CloseMerchantDropdown();
+        else OpenMerchantDropdown();
+    }
+
+    private void MerchantDropdownBackdrop_PointerPressed(object? sender, PointerPressedEventArgs e) => CloseMerchantDropdown();
+
+    private void btnSession_Click(object? sender, RoutedEventArgs e)
+    {
+        if (panelSessionFlyout.IsVisible) CloseSessionFlyout();
+        else OpenSessionFlyout(focusCredentials: !_isLoggedIn);
+    }
+
+    private void SessionFlyoutBackdrop_PointerPressed(object? sender, PointerPressedEventArgs e) => CloseSessionFlyout();
+
+    private void CloseSessionFlyout() => panelSessionFlyout.IsVisible = false;
+
+    /// <summary>Closes whichever header overlay is open; Escape is the expected dismissal key.</summary>
+    private void MainWindow_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+
+        if (panelMerchantDropdown.IsVisible) CloseMerchantDropdown();
+        if (panelSessionFlyout.IsVisible) CloseSessionFlyout();
+        if (panelPlacementDialog.IsVisible) panelPlacementDialog.IsVisible = false;
+        if (panelConfigGuard.IsVisible) panelConfigGuard.IsVisible = false;
+    }
+    #endregion
+
+    private void ResetSessionState(bool clearCredentials)
+    {
+        _bearerToken = null;
+        _activeUserName = null;
+        _activeMerchantId = null;
+        ClearCertificateControls();
+
+        if (clearCredentials)
+        {
+            txtUserName.Text = "";
+            txtPassword.Text = "";
+        }
+
+        ApplyLoggedOutUi();
+        UpdateSigningActionStates();
+    }
+
+    private void OpenSessionFlyout(bool focusCredentials)
+    {
+        PositionOverlayUnder(btnSession, sessionFlyoutPanel, alignRight: true);
+        panelSessionFlyout.IsVisible = true;
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (focusCredentials)
+                {
+                    if (txtUserName.IsEnabled)
+                        txtUserName.Focus();
+                    else
+                        txtPassword.Focus();
+                }
+                else
+                {
+                    btnSyncCertificates.Focus();
+                }
+            },
+            DispatcherPriority.Input);
+    }
+
+    private bool EnsureSigningSession()
+    {
+        if (!HasActiveSessionForCurrentMerchant())
+        {
+            LogWarning("Vui lòng đăng nhập đúng merchant trước khi ký. Vùng ký hiện tại vẫn được giữ lại.");
+            OpenSessionFlyout(focusCredentials: true);
+            return false;
+        }
+
+        if (cboCerts.SelectedItem is not ComboboxItem<string>)
+        {
+            LogWarning("Phiên đăng nhập chưa có chứng thư được chọn. Vui lòng tải chứng thư trước khi ký.");
+            OpenSessionFlyout(focusCredentials: false);
+            return false;
+        }
+
+        return true;
+    }
+
     private async void btnLogin_Click(object? sender, RoutedEventArgs e)
     {
+        string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+        bool isLocalOrUsb = UsesLocalIdentity(merchantId);
+        string userName = isLocalOrUsb ? "" : (txtUserName.Text ?? "").Trim();
+        string password = isLocalOrUsb ? "" : (txtPassword.Text ?? "");
+
+        if (string.IsNullOrWhiteSpace(merchantId))
+        {
+            LogError("Vui lòng chọn merchant trước khi đăng nhập.");
+            return;
+        }
+
+        if (!isLocalOrUsb && string.IsNullOrWhiteSpace(userName))
+        {
+            ToastWarning("Thiếu thông tin", "Vui lòng nhập tài khoản trước khi đăng nhập.");
+            OpenSessionFlyout(focusCredentials: true);
+            return;
+        }
+
+        // A new login attempt must never inherit a token or certificate from a
+        // previous account/merchant.
+        ResetSessionState(clearCredentials: false);
+        cboMerchant.IsEnabled = false;
+        btnLogin.IsEnabled = false;
+        if (btnLoginXml != null) btnLoginXml.IsEnabled = false;
+
         try
         {
-            string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
-            bool isLocalOrUsb = merchantId.Equals("LOCAL", StringComparison.OrdinalIgnoreCase)
-                             || merchantId.Equals("USB",   StringComparison.OrdinalIgnoreCase)
-                             || merchantId.Equals("SELF",  StringComparison.OrdinalIgnoreCase);
-
-            string userName = isLocalOrUsb ? "" : (txtUserName.Text ?? "");
-            string password = isLocalOrUsb ? "" : (txtPassword.Text ?? "");
-
             LogSystem($"Attempting authentication with [{merchantId}] as {(isLocalOrUsb ? "local cert" : userName)}...");
-            btnLogin.IsEnabled = false;
-            if (btnLoginXml != null) btnLoginXml.IsEnabled = false;
-
             var result = await _signClient.LoginAsync(userName, password, merchantId, "", "");
 
             if (result.Success)
             {
+                var resolvedUserName = string.IsNullOrWhiteSpace(result.UserName)
+                    ? userName
+                    : result.UserName;
+                LogSystem("Retrieving merchant registration certificates...");
+                var certs = await _signClient.GetCertificatesAsync(
+                    resolvedUserName,
+                    result.BearerToken ?? "",
+                    merchantId: merchantId);
+
                 _bearerToken = result.BearerToken;
-                _activeUserName = string.IsNullOrWhiteSpace(result.UserName) ? userName : result.UserName;
+                _activeUserName = resolvedUserName;
+                _activeMerchantId = merchantId;
+                PopulateCertificatesControls(certs, resolvedUserName, merchantId);
+                ApplyLoggedInUi();
+                UpdateSigningActionStates();
+
                 LogSuccess("Authentication Successful. Session established.");
                 if (isLocalOrUsb && !string.IsNullOrWhiteSpace(_activeUserName))
                     LogSystem($"Resolved token identity (serial): {_activeUserName}");
+                ToastSuccess("Đăng nhập thành công", $"Phiên ký đã thiết lập cho {resolvedUserName} ({merchantId}).");
 
-                lblSessionStatus.Text = $"Active Session: {_activeUserName} ({merchantId})";
-                lblSessionStatus.Foreground = Avalonia.Media.Brushes.Green;
-                panelStatusDot.Fill = Avalonia.Media.Brushes.Green;
-
-                LogSystem("Retrieving merchant registration certificates...");
-                var certs = await _signClient.GetCertificatesAsync(_activeUserName, _bearerToken ?? "", merchantId: merchantId);
-
-                PopulateCertificatesControls(certs, _activeUserName, merchantId);
+                CloseSessionFlyout();
             }
             else
             {
-                LogError($"Authentication Failed: {result.ErrorMessage}");
-                lblSessionStatus.Text = "Status: Authentication Failed";
-                lblSessionStatus.Foreground = Avalonia.Media.Brushes.Red;
-                panelStatusDot.Fill = Avalonia.Media.Brushes.Red;
+                ToastError("Đăng nhập thất bại", result.ErrorMessage ?? "Kiểm tra lại thông tin.");
+                ResetSessionState(clearCredentials: false);
+                OpenSessionFlyout(focusCredentials: true);
             }
         }
         catch (Exception ex)
         {
-            LogError($"Runtime Authentication Error: {ex.Message}");
+            ToastError("Lỗi kết nối", ex.Message);
+            ResetSessionState(clearCredentials: false);
+            OpenSessionFlyout(focusCredentials: true);
         }
         finally
         {
-            btnLogin.IsEnabled = true;
-            if (btnLoginXml != null) btnLoginXml.IsEnabled = true;
+            if (!_isLoggedIn)
+            {
+                cboMerchant.IsEnabled = true;
+                btnLogin.IsEnabled = true;
+                if (btnLoginXml != null) btnLoginXml.IsEnabled = true;
+            }
         }
     }
 
     private async void btnSyncCertificates_Click(object? sender, RoutedEventArgs e)
     {
+        if (!HasActiveSessionForCurrentMerchant()
+            || string.IsNullOrWhiteSpace(_activeUserName)
+            || string.IsNullOrWhiteSpace(_activeMerchantId))
+        {
+            LogWarning("Vui lòng đăng nhập trước khi tải lại chứng thư.");
+            OpenSessionFlyout(focusCredentials: true);
+            return;
+        }
+
         try
         {
-            string userName = txtUserName.Text ?? "";
-            string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
-
-            LogWarning($"Bypassing caches. Requesting direct certificate registration retrieval from {merchantId} server...");
+            LogWarning($"Bypassing caches. Requesting direct certificate registration retrieval from {_activeMerchantId} server...");
             btnSyncCertificates.IsEnabled = false;
             if (btnSyncCertificatesXml != null) btnSyncCertificatesXml.IsEnabled = false;
 
-            var certs = await _signClient.DownloadCertificatesAsync(userName, merchantId);
-            PopulateCertificatesControls(certs, userName, merchantId);
+            var certs = await _signClient.DownloadCertificatesAsync(
+                _activeUserName,
+                _activeMerchantId);
+            PopulateCertificatesControls(certs, _activeUserName, _activeMerchantId);
+            UpdateSigningActionStates();
             LogSuccess("Direct bypass certificate refresh completed.");
+            ToastSuccess("Đã tải chứng thư", "Danh sách chứng thư số đã được làm mới.");
         }
         catch (Exception ex)
         {
-            LogError($"Bypass Certificates Sync Error: {ex.Message}");
+            ToastError("Lỗi tải chứng thư", ex.Message);
+            ResetSessionState(clearCredentials: false);
+            OpenSessionFlyout(focusCredentials: true);
         }
         finally
         {
-            btnSyncCertificates.IsEnabled = true;
-            if (btnSyncCertificatesXml != null) btnSyncCertificatesXml.IsEnabled = true;
+            if (_isLoggedIn)
+            {
+                btnSyncCertificates.IsEnabled = true;
+                if (btnSyncCertificatesXml != null) btnSyncCertificatesXml.IsEnabled = true;
+            }
         }
+    }
+
+    private void btnLogout_Click(object? sender, RoutedEventArgs e)
+    {
+        ResetSessionState(clearCredentials: true);
+        CloseSessionFlyout();
+        ToastInfo("Đã đăng xuất", "Phiên ký đã kết thúc.");
     }
 
     private void btnLoginXml_Click(object? sender, RoutedEventArgs e)
@@ -302,6 +1005,7 @@ public partial class MainWindow : Window
     {
         cboCerts.ItemsSource = null;
         if (cboCertsXml != null) cboCertsXml.ItemsSource = null;
+        _certSubjectsByCredentialId.Clear();
 
         if (certs != null && certs.Count > 0)
         {
@@ -311,6 +1015,7 @@ public partial class MainWindow : Window
             {
                 comboItems.Add(new ComboboxItem<string>(CertDisplayText(cert), cert.credentialID));
                 comboItemsXml.Add(new ComboboxItem<string>(CertDisplayText(cert), cert.credentialID));
+                _certSubjectsByCredentialId[cert.credentialID] = cert.subjectDN;
             }
 
             cboCerts.ItemsSource = comboItems;
@@ -323,6 +1028,7 @@ public partial class MainWindow : Window
             }
 
             LogSuccess($"Parsed and loaded {certs.Count} verified certificates into local registry.");
+            RefreshSessionInfoRows();
         }
         else
         {
@@ -332,10 +1038,35 @@ public partial class MainWindow : Window
 
     private void cboMerchant_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (_isRestoringMerchantSelection) return;
         if (cboMerchant.SelectedItem == null) return;
         string selectedMerchant = cboMerchant.SelectedItem.ToString()!;
-        
+
+        if (_isLoggedIn
+            && !string.Equals(
+                selectedMerchant,
+                _activeMerchantId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            ToastInfo("Merchant đã khóa", "Đăng xuất để chọn merchant khác — merchant hiện tại gắn với phiên đăng nhập.");
+            _isRestoringMerchantSelection = true;
+            try
+            {
+                cboMerchant.SelectedItem = _activeMerchantId;
+            }
+            finally
+            {
+                _isRestoringMerchantSelection = false;
+            }
+            return;
+        }
+
+        RefreshMerchantHeaderDisplay();
+        RenderMerchantDropdownList();
+        RenderLoginMerchantGrid();
+
         bool isBcy = string.Equals(selectedMerchant, "BCY", StringComparison.OrdinalIgnoreCase);
+        panelSignAlgorithm.IsVisible = isBcy;
         lblSignAlgorithm.IsVisible = isBcy;
         cboSignAlgorithm.IsVisible = isBcy;
 
@@ -349,6 +1080,11 @@ public partial class MainWindow : Window
         {
             txtUserName.Text = "";
         }
+        if (!_isLoggedIn)
+        {
+            txtPassword.Text = "";
+            ClearCertificateControls();
+        }
 
         if (selectedMerchant.Equals("USB", StringComparison.OrdinalIgnoreCase))
         {
@@ -358,16 +1094,104 @@ public partial class MainWindow : Window
         {
             StopAgent();
         }
+
+        UpdateSigningActionStates();
     }
     #endregion
 
     #region PDF Signing Canvas & Preview
+    private string? CurrentPdfPath => lstFilePath?.SelectedItem?.ToString();
+
+    private static bool PathsEqual(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            return false;
+
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(left),
+                Path.GetFullPath(right),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private void BindSignaturePlacementToCurrentContext()
+    {
+        _signaturePlacementFilePath = CurrentPdfPath;
+        _signaturePlacementPage = _activePageNum;
+    }
+
+    private void BindNotePlacementToCurrentContext()
+    {
+        _notePlacementFilePath = CurrentPdfPath;
+        _notePlacementPage = _activePageNum;
+    }
+
+    private bool IsSignaturePlacementForCurrentContext() =>
+        _sigW >= 10
+        && _sigH >= 10
+        && PathsEqual(_signaturePlacementFilePath, CurrentPdfPath)
+        && _signaturePlacementPage == _activePageNum;
+
+    private bool IsNotePlacementForCurrentContext() =>
+        _noteX.HasValue
+        && _noteY.HasValue
+        && _noteW.HasValue
+        && _noteH.HasValue
+        && PathsEqual(_notePlacementFilePath, CurrentPdfPath)
+        && _notePlacementPage == _activePageNum;
+
+    private void ClearPlacementState()
+    {
+        _sigX = 0;
+        _sigY = 0;
+        _sigW = 0;
+        _sigH = 0;
+        _selectedSignatureFieldId = null;
+        _signaturePlacementFilePath = null;
+        _signaturePlacementPage = null;
+        _noteX = null;
+        _noteY = null;
+        _noteW = null;
+        _noteH = null;
+        _notePlacementFilePath = null;
+        _notePlacementPage = null;
+        panelPlacementDialog.IsVisible = false;
+
+        // Per-document multi-placement state — a newly loaded/selected document starts clean.
+        _placedFieldIds.Clear();
+        _signedFieldIds.Clear();
+        _drawnPlacements.Clear();
+        _detectedFieldRects.Clear();
+        _fieldButtons.Clear();
+        ClearDrawnPlacementOverlays();
+    }
+
+    private void UpdateSigningActionStates()
+    {
+        UpdateSignButtonState();
+
+        if (btnSignXml != null)
+        {
+            var xmlFiles = lstXmlFilePath?.ItemsSource as IEnumerable<string>;
+            bool hasSingleXml = xmlFiles?.Count(File.Exists) == 1;
+            btnSignXml.IsEnabled = hasSingleXml
+                && HasActiveSessionForCurrentMerchant()
+                && cboCertsXml?.SelectedItem is ComboboxItem<string>;
+        }
+    }
+
     private async void btnBrowse_Click(object? sender, RoutedEventArgs e)
     {
         var options = new FilePickerOpenOptions
         {
-            Title = "Select PDF Documents",
-            AllowMultiple = true,
+            Title = "Select PDF Document",
+            AllowMultiple = false,
             FileTypeFilter = new[] { new FilePickerFileType("PDF Documents") { Patterns = new[] { "*.pdf" } } }
         };
 
@@ -394,7 +1218,52 @@ public partial class MainWindow : Window
     private void lstFilePath_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         _activePageNum = 1;
+
+        // Match sign-web: loading a document does not implicitly create a signature
+        // placement. The user must choose an AcroField or draw a box first.
+        ClearPlacementState();
+        UpdatePlacementRects();
+
+        string pdfPath = lstFilePath.SelectedItem?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(pdfPath) && File.Exists(pdfPath) && chkAutoCreateAcroField.IsChecked == true)
+        {
+            try
+            {
+                var labelsJson = _appSettings?.InternalSetting?.SignerLabels;
+                if (!string.IsNullOrEmpty(labelsJson))
+                {
+                    var labels = Newtonsoft.Json.JsonConvert.DeserializeObject<List<TextSearchFieldCreator.SignerLabel>>(labelsJson);
+                    if (labels != null && labels.Count > 0)
+                    {
+                        LogSystem($"[AutoPlace] Scanning and auto-creating signature fields in {Path.GetFileName(pdfPath)}...");
+                        var created = TextSearchFieldCreator.CreateFieldsFromLabels(pdfPath, labels);
+                        if (created.Count > 0)
+                        {
+                            LogSuccess($"[AutoPlace] Successfully created {created.Count} signature field(s) in PDF: " +
+                                string.Join(", ", created.Select(c => c.FieldName)));
+                        }
+                        else
+                        {
+                            LogSystem("[AutoPlace] No new signature fields created (they might already exist).");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogWarning($"[AutoPlace] Failed to auto-create fields: {ex.Message}");
+            }
+        }
+
         RenderPdfPage();
+
+        // Fire-and-forget: AI vision alignment runs in the background and re-renders
+        // the page if it finds and creates additional fields — mirrors sign-web's
+        // triggerBackgroundVisualAlignment() call right after the initial upload render.
+        if (!string.IsNullOrEmpty(pdfPath) && File.Exists(pdfPath) && chkAutoCreateAcroField.IsChecked == true)
+        {
+            _ = AlignFieldsVisuallyAsync(pdfPath);
+        }
     }
 
     private void RenderPdfPage()
@@ -486,6 +1355,8 @@ public partial class MainWindow : Window
                 .Where(b => b.Tag is string s && s == "FormField")
                 .ToList();
             foreach (var c in children) panelSigPlacementMock.Children.Remove(c);
+            _fieldButtons.Clear();
+            _detectedFieldRects.Clear();
 
             using var reader = new iText.Kernel.Pdf.PdfReader(pdfPath);
             using var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader);
@@ -521,44 +1392,33 @@ public partial class MainWindow : Window
                     float h = rect.GetHeight();
 
                     string fieldName = kvp.Key ?? "Signature";
-                    bool isSigned = sigField.GetValue() != null;
+                    bool isSignedInPdf = sigField.GetValue() != null;
+
+                    _detectedFieldRects[fieldName] = (fieldPage, (int)x, (int)rect.GetBottom(), (int)w, (int)h);
 
                     var btn = new Avalonia.Controls.Button
                     {
-                        Content = isSigned ? $"✅ {fieldName}" : $"✍️ Ký tại đây: {fieldName}",
                         Width = w,
                         Height = h,
                         FontSize = Math.Min(11, h * 0.4),
                         Tag = "FormField",
                         Opacity = 0.85,
-                        Background = isSigned
-                            ? Avalonia.Media.Brushes.LightGreen
-                            : Avalonia.Media.Brushes.LightYellow,
-                        BorderBrush = isSigned
-                            ? Avalonia.Media.Brushes.Green
-                            : Avalonia.Media.Brushes.Orange,
                         BorderThickness = new Thickness(2),
                         HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                         VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
                     };
 
-                    if (!isSigned)
+                    if (!isSignedInPdf)
                     {
                         float capturedX = x, capturedY = rect.GetBottom(), capturedW = w, capturedH = h;
-                        btn.Click += (s, e) =>
-                        {
-                            _sigX = (int)capturedX;
-                            _sigY = (int)capturedY;
-                            _sigW = (int)capturedW;
-                            _sigH = (int)capturedH;
-                            UpdatePlacementRects();
-                            LogSystem($"Đã chọn vùng ký từ form field '{fieldName}': X={_sigX}, Y={_sigY}, W={_sigW}, H={_sigH}");
-                        };
+                        btn.Click += (s, e) => OpenPlacementDialogForField(fieldName, pageNum, (int)capturedX, (int)capturedY, (int)capturedW, (int)capturedH);
                     }
 
                     Avalonia.Controls.Canvas.SetLeft(btn, x);
                     Avalonia.Controls.Canvas.SetTop(btn, y);
                     panelSigPlacementMock.Children.Add(btn);
+                    _fieldButtons[fieldName] = btn;
+                    ApplyFieldButtonStyle(fieldName, btn, isSignedInPdf);
                 }
             }
         }
@@ -567,6 +1427,93 @@ public partial class MainWindow : Window
             // Silently ignore — form field detection is optional
             LogWarning($"Form field detection: {ex.Message}");
         }
+
+        RefreshDrawnPlacementOverlays();
+    }
+
+    /// <summary>
+    /// Colors/labels a field button by its 3-state status — mirrors sign-web's
+    /// renderFieldOverlays: signed (green) &gt; placed/pending (blue) &gt; available (orange).
+    /// </summary>
+    private void ApplyFieldButtonStyle(string fieldName, Button btn, bool isSignedInPdf)
+    {
+        bool isSigned = isSignedInPdf || _signedFieldIds.Contains(fieldName);
+        bool isPlaced = !isSigned && _placedFieldIds.Contains(fieldName);
+
+        if (isSigned)
+        {
+            btn.Content = $"✅ {fieldName}";
+            btn.Background = Avalonia.Media.Brushes.LightGreen;
+            btn.BorderBrush = Avalonia.Media.Brushes.Green;
+        }
+        else if (isPlaced)
+        {
+            btn.Content = $"● Đã đặt: {fieldName}";
+            btn.Background = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1E1E5FD4"));
+            btn.BorderBrush = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1E5FD4"));
+        }
+        else
+        {
+            btn.Content = $"✍️ Ký tại đây: {fieldName}";
+            btn.Background = Avalonia.Media.Brushes.LightYellow;
+            btn.BorderBrush = Avalonia.Media.Brushes.Orange;
+        }
+    }
+
+    private void UpdateFieldButtonVisual(string fieldName)
+    {
+        if (_fieldButtons.TryGetValue(fieldName, out var btn))
+        {
+            ApplyFieldButtonStyle(fieldName, btn, isSignedInPdf: false);
+        }
+    }
+
+    private void ClearDrawnPlacementOverlays()
+    {
+        foreach (var overlay in _drawnPlacementOverlays) panelSigPlacementMock.Children.Remove(overlay);
+        _drawnPlacementOverlays.Clear();
+    }
+
+    /// <summary>Renders a persistent blue box for every queued (not-yet-signed) drawn placement.</summary>
+    private void RefreshDrawnPlacementOverlays()
+    {
+        ClearDrawnPlacementOverlays();
+        int i = 1;
+        foreach (var box in _drawnPlacements.Where(b => b.Page == _activePageNum))
+        {
+            var overlay = new Border
+            {
+                Width = box.W,
+                Height = box.H,
+                Background = new Avalonia.Media.SolidColorBrush(ColorFromHex("#221E5FD4")),
+                BorderBrush = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1E5FD4")),
+                BorderThickness = new Thickness(2),
+                Child = new TextBlock { Text = $"● Ô ký vẽ tay #{i}", Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#1E5FD4")), FontSize = 10, FontWeight = Avalonia.Media.FontWeight.SemiBold, Margin = new Thickness(5) }
+            };
+            Avalonia.Controls.Canvas.SetLeft(overlay, box.X);
+            Avalonia.Controls.Canvas.SetTop(overlay, _pageH - box.Y - box.H);
+            panelSigPlacementMock.Children.Add(overlay);
+            _drawnPlacementOverlays.Add(overlay);
+            i++;
+        }
+    }
+
+    private void OpenPlacementDialogForField(string fieldName, int page, int x, int y, int w, int h)
+    {
+        _selectedSignatureFieldId = fieldName;
+        _sigX = x;
+        _sigY = y;
+        _sigW = w;
+        _sigH = h;
+        UpdatePlacementRects();
+        LogSystem($"Đã chọn vùng ký từ form field '{fieldName}': X={_sigX}, Y={_sigY}, W={_sigW}, H={_sigH}");
+
+        bool alreadyPlaced = _placedFieldIds.Contains(fieldName);
+        btnConfirmPlace.Content = alreadyPlaced
+            ? "Bỏ chọn ô chữ ký (hủy đặt)"
+            : "Đặt ô ký (ký sau)";
+        lblPlacementCoords.Text = $"Trang {_activePageNum}, X={_sigX}, Y={_sigY}, W={_sigW}, H={_sigH} (Field: {fieldName})";
+        panelPlacementDialog.IsVisible = true;
     }
 
     private void UpdatePlacementRects()
@@ -605,6 +1552,21 @@ public partial class MainWindow : Window
             txtNoteW.Text = "";
             txtNoteH.Text = "";
         }
+
+        UpdateSignButtonState();
+    }
+
+    private void UpdateSignButtonState()
+    {
+        if (btnSign == null) return;
+
+        var files = lstFilePath?.ItemsSource as IEnumerable<string>;
+        bool hasDocument = files?.Any(File.Exists) == true;
+        int placedCount = _placedFieldIds.Count + _drawnPlacements.Count;
+        btnSign.IsEnabled = hasDocument && placedCount > 0;
+        btnSign.Content = placedCount > 0
+            ? $"KÝ SỐ TÀI LIỆU PDF ({placedCount} vị trí)"
+            : "KÝ SỐ TÀI LIỆU PDF";
     }
 
     private void Canvas_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -652,6 +1614,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            _selectedSignatureFieldId = null;
             _sigX = pdfX;
             _sigY = pdfY;
             _sigW = pdfW;
@@ -677,9 +1640,68 @@ public partial class MainWindow : Window
             if (_sigW < 10) _sigW = 100;
             if (_sigH < 10) _sigH = 100;
             LogSystem($"Canvas Box Selection Captured: X:{_sigX}, Y:{_sigY}, W:{_sigW}, H:{_sigH} (PDF points)");
+
+            btnConfirmPlace.Content = "Đặt ô ký (ký sau)";
+            lblPlacementCoords.Text = $"Trang {_activePageNum}, X={_sigX}, Y={_sigY}, W={_sigW}, H={_sigH}";
+            panelPlacementDialog.IsVisible = true;
         }
 
         UpdatePlacementRects();
+    }
+
+    private async void btnConfirmSignNow_Click(object? sender, RoutedEventArgs e)
+    {
+        panelPlacementDialog.IsVisible = false;
+        await SignImmediateAsync();
+    }
+
+    private void btnConfirmPlace_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedSignatureFieldId != null)
+        {
+            var fieldId = _selectedSignatureFieldId;
+            if (!_placedFieldIds.Remove(fieldId))
+            {
+                _placedFieldIds.Add(fieldId);
+                LogSystem($"Đặt ô ký: {fieldId}");
+            }
+            else
+            {
+                LogSystem($"Bỏ đặt ô ký: {fieldId}");
+            }
+            UpdateFieldButtonVisual(fieldId);
+        }
+        else if (_sigW >= 10 && _sigH >= 10)
+        {
+            _drawnPlacements.Add(new DrawnPlacement { Page = _activePageNum, X = _sigX, Y = _sigY, W = _sigW, H = _sigH });
+            LogSystem($"Đặt ô ký vẽ tay: X={_sigX}, Y={_sigY}, W={_sigW}, H={_sigH}");
+            RefreshDrawnPlacementOverlays();
+        }
+
+        _sigX = 0;
+        _sigY = 0;
+        _sigW = 0;
+        _sigH = 0;
+        _selectedSignatureFieldId = null;
+        panelPlacementDialog.IsVisible = false;
+        UpdatePlacementRects();
+        UpdateSignButtonState();
+    }
+
+    private void btnCancelPlacement_Click(object? sender, RoutedEventArgs e)
+    {
+        _sigX = 0;
+        _sigY = 0;
+        _sigW = 0;
+        _sigH = 0;
+        _selectedSignatureFieldId = null;
+        panelPlacementDialog.IsVisible = false;
+        UpdatePlacementRects();
+    }
+
+    private void Background_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        panelPlacementDialog.IsVisible = false;
     }
 
     private void SwitchTab(int index, string viewName)
@@ -773,88 +1795,69 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void btnSign_Click(object? sender, RoutedEventArgs e)
+    private List<PendingPlacement> BuildAccumulatedPlacements()
     {
-        btnSign.IsEnabled = false;
-        try
+        var result = new List<PendingPlacement>();
+        foreach (var fieldId in _placedFieldIds)
         {
-            var files = lstFilePath.ItemsSource as List<string>;
-            if (files == null || files.Count == 0)
+            if (_detectedFieldRects.TryGetValue(fieldId, out var rect))
             {
-                LogError("No PDF file selected or specified.");
-                return;
-            }
-
-            string? lastSignedPath = null;
-            int successCount = 0;
-            var allSignedPaths = new List<string>();
-
-            foreach (var filePath in files)
-            {
-                LogSystem($"Processing signing for: {Path.GetFileName(filePath)}");
-                string? signedPath = await SignSingleFile(filePath);
-                if (!string.IsNullOrEmpty(signedPath) && File.Exists(signedPath))
-                {
-                    successCount++;
-                    lastSignedPath = signedPath;
-                    allSignedPaths.Add(signedPath);
-                }
-            }
-
-            if (successCount > 0 && !string.IsNullOrEmpty(lastSignedPath))
-            {
-                LogSuccess($"Signature execution finished successfully for {successCount} file(s).");
-                _sigW = 0;
-                _sigH = 0;
-                _noteW = 0;
-                _noteH = 0;
-
-                int currentPage = _activePageNum;
-
-                // Temporarily detach selection changed to prevent it from resetting page index to 1
-                lstFilePath.SelectionChanged -= lstFilePath_SelectionChanged;
-
-                lstFilePath.ItemsSource = allSignedPaths;
-                lstFilePath.SelectedIndex = 0;
-
-                lstFilePath.SelectionChanged += lstFilePath_SelectionChanged;
-
-                _activePageNum = currentPage;
-                RenderPdfPage();
+                result.Add(new PendingPlacement { FieldId = fieldId, Page = rect.page, X = rect.x, Y = rect.y, W = rect.w, H = rect.h });
             }
         }
-        finally
+        foreach (var box in _drawnPlacements)
         {
-            btnSign.IsEnabled = true;
+            result.Add(new PendingPlacement { FieldId = null, Page = box.Page, X = box.X, Y = box.Y, W = box.W, H = box.H });
         }
+        return result;
     }
 
-    private async Task<string?> SignSingleFile(string filePath)
+    private string ResolveOutputFolder(string filePath)
     {
-        try
+        if (!string.IsNullOrEmpty(txtPdfOutputDir.Text)) return txtPdfOutputDir.Text;
+
+        var parentDir = Path.GetDirectoryName(filePath)!;
+        return string.Equals(Path.GetFileName(parentDir), "Signed", StringComparison.OrdinalIgnoreCase)
+            ? parentDir
+            : Path.Combine(parentDir, "Signed");
+    }
+
+    private static byte[] ResolveSignedBytes(string? signedFileUrl)
+    {
+        if (!string.IsNullOrEmpty(signedFileUrl) && File.Exists(signedFileUrl))
+            return File.ReadAllBytes(signedFileUrl);
+
+        if (!string.IsNullOrWhiteSpace(signedFileUrl))
         {
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-            {
-                LogError("Invalid operation: Target PDF file is missing.");
-                return null;
-            }
+            string base64Data = signedFileUrl.Contains(",") ? signedFileUrl.Split(',').Last() : signedFileUrl;
+            return Convert.FromBase64String(base64Data);
+        }
 
-            if (cboCerts.SelectedItem == null)
-            {
-                LogError("Invalid operation: No certificate selected in the registry.");
-                return null;
-            }
+        throw new InvalidOperationException("MySign returned success without signed PDF data.");
+    }
 
-            var selectedCert = cboCerts.SelectedItem as ComboboxItem<string>;
-            string credentialId = selectedCert!.Value;
-            string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
-            string userName = _activeUserName ?? (txtUserName.Text ?? "");
+    /// <summary>
+    /// Signs one or more placements onto the same PDF, one SDK call per placement,
+    /// re-uploading the progressively-signed bytes each time so multiple signatures
+    /// stack onto a single output file — mirrors sign-web's WebSigningService.SignPdfAsync.
+    /// </summary>
+    private async Task<(bool success, int signedCount, string? outputPath, string? error)> SignPlacementsSequentially(
+        string filePath, string credentialId, List<PendingPlacement> placements)
+    {
+        string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+        string userName = _activeUserName ?? (txtUserName.Text ?? "");
 
-            LogSystem($"Constructing signature request for {Path.GetFileName(filePath)}...");
-            
-            var fileBytes = await File.ReadAllBytesAsync(filePath);
-            var base64 = Convert.ToBase64String(fileBytes);
+        var fileBytes = await File.ReadAllBytesAsync(filePath);
+        var base64 = Convert.ToBase64String(fileBytes);
 
+        var outFolder = ResolveOutputFolder(filePath);
+        if (!Directory.Exists(outFolder)) Directory.CreateDirectory(outFolder);
+        var ts = DateTime.Now.ToString("yyMMddHHmmss");
+        var outPath = Path.Combine(outFolder, $"{ts}_{Path.GetFileNameWithoutExtension(filePath)}_signed{Path.GetExtension(filePath)}");
+
+        int signed = 0;
+        foreach (var placement in placements)
+        {
             var request = new SignDocumentRequest
             {
                 FileName = Path.GetFileName(filePath),
@@ -866,11 +1869,12 @@ public partial class MainWindow : Window
                 DisplayNameMode = (cboDisplayNameMode.SelectedItem as ComboboxItem<DisplayNameMode>)?.Value ?? DisplayNameMode.SignerWithImage,
                 IsShowSignatureTime = chkShowSignatureTime.IsChecked == true,
                 SignerPosition = "Visual Placement",
-                Page = _activePageNum,
-                X = _sigX,
-                Y = _sigY,
-                Width = _sigW,
-                Height = _sigH,
+                Page = placement.Page,
+                X = placement.X,
+                Y = placement.Y,
+                Width = placement.W,
+                Height = placement.H,
+                SignatureId = placement.FieldId,
                 NotePointX = _noteX,
                 NotePointY = _noteY,
                 SignatureImage = _customSignatureImageBase64,
@@ -888,61 +1892,210 @@ public partial class MainWindow : Window
 
             LogSystem($"[BEFORE SIGN] Request → Page={request.Page}, X={request.X}, Y={request.Y}, W={request.Width}, H={request.Height}");
             LogSystem("Invoking SignSDK client signing workflow...");
-            
             var results = await _signClient.SignDocumentsAsync(batchRequest);
             var result = results?.FirstOrDefault();
+
             if (result == null)
+                return (signed > 0, signed, signed > 0 ? outPath : null, "No response from server.");
+
+            if (!result.Success)
             {
-                LogError("Signature failed: No response from server.");
-                return null;
+                LogError($"Signature Rejected by Remote Gateway: {result.ErrorMessage}");
+                return (signed > 0, signed, signed > 0 ? outPath : null, result.ErrorMessage);
             }
 
-            if (result.Success)
+            byte[] signedBytes;
+            try
             {
-                LogSuccess($"Signature Registered! Server Transaction ID: {result.TransactionId}");
-                
-                string outFolder;
-                if (!string.IsNullOrEmpty(txtPdfOutputDir.Text))
-                {
-                    outFolder = txtPdfOutputDir.Text;
-                }
-                else
-                {
-                    var parentDir = Path.GetDirectoryName(filePath)!;
-                    outFolder = string.Equals(Path.GetFileName(parentDir), "Signed", StringComparison.OrdinalIgnoreCase)
-                        ? parentDir
-                        : Path.Combine(parentDir, "Signed");
-                }
-                if (!Directory.Exists(outFolder)) Directory.CreateDirectory(outFolder);
-                
-                var ts = DateTime.Now.ToString("yyMMddHHmmss");
-                var outPath = Path.Combine(outFolder, $"{ts}_{Path.GetFileNameWithoutExtension(filePath)}_signed{Path.GetExtension(filePath)}");
-                byte[] signedBytes;
-                
-                if (!string.IsNullOrEmpty(result.SignedFileUrl) && File.Exists(result.SignedFileUrl))
-                {
-                    signedBytes = await File.ReadAllBytesAsync(result.SignedFileUrl);
-                }
-                else
-                {
-                    string base64Data = result.SignedFileUrl.Contains(",") ? result.SignedFileUrl.Split(',').Last() : result.SignedFileUrl;
-                    signedBytes = Convert.FromBase64String(base64Data);
-                }
-                
-                await File.WriteAllBytesAsync(outPath, signedBytes);
-                LogSuccess($"Signed output deployed successfully to: {outPath}");
-                return outPath;
+                signedBytes = ResolveSignedBytes(result.SignedFileUrl);
+            }
+            catch (Exception ex)
+            {
+                return (signed > 0, signed, signed > 0 ? outPath : null, ex.Message);
+            }
+
+            await File.WriteAllBytesAsync(outPath, signedBytes);
+            base64 = Convert.ToBase64String(signedBytes);
+            LogSuccess($"Signature Registered! Server Transaction ID: {result.TransactionId}");
+            signed++;
+
+            if (placement.FieldId != null)
+            {
+                _placedFieldIds.Remove(placement.FieldId);
+                _signedFieldIds.Add(placement.FieldId);
+            }
+        }
+
+        LogSuccess($"Signed output deployed successfully to: {outPath}");
+        return (true, signed, outPath, null);
+    }
+
+    /// <summary>Points the active file list at the freshly-signed output and re-renders in place.</summary>
+    private void ReplaceActiveFileWithSignedOutput(string outputPath)
+    {
+        _sigX = 0;
+        _sigY = 0;
+        _sigW = 0;
+        _sigH = 0;
+        _selectedSignatureFieldId = null;
+        _noteW = 0;
+        _noteH = 0;
+
+        int currentPage = _activePageNum;
+
+        // Temporarily detach selection changed to prevent it from resetting page index to 1
+        lstFilePath.SelectionChanged -= lstFilePath_SelectionChanged;
+        lstFilePath.ItemsSource = new List<string> { outputPath };
+        lstFilePath.SelectedIndex = 0;
+        lstFilePath.SelectionChanged += lstFilePath_SelectionChanged;
+
+        _activePageNum = currentPage;
+        RenderPdfPage();
+    }
+
+    /// <summary>"Ký ngay vị trí này" — signs only the just-selected/drawn placement immediately,
+    /// independent of any other placements already queued for the batch sign button.</summary>
+    private async Task SignImmediateAsync()
+    {
+        if (_sigW < 10 || _sigH < 10) return;
+
+        var filePath = CurrentPdfPath;
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            ToastError("Không thể ký", "Không tìm thấy tệp PDF hiện tại.");
+            return;
+        }
+
+        string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+        if (!IsMerchantConfigured(merchantId))
+        {
+            ShowConfigGuard(merchantId);
+            return;
+        }
+
+        var credentialId = await ResolveCredentialIdAsync();
+        if (credentialId == null)
+        {
+            LogWarning("Đã hủy chọn chứng thư ký.");
+            return;
+        }
+
+        var placement = new PendingPlacement { FieldId = _selectedSignatureFieldId, Page = _activePageNum, X = _sigX, Y = _sigY, W = _sigW, H = _sigH };
+
+        btnSign.IsEnabled = false;
+        ShowSigningProgress(true, merchantId);
+        try
+        {
+            var (success, _, outputPath, error) = await SignPlacementsSequentially(filePath, credentialId, new List<PendingPlacement> { placement });
+            if (success && outputPath != null)
+            {
+                ToastSuccess("Ký số thành công", $"Đã ký tại vị trí X={placement.X}, Y={placement.Y}.");
+                ReplaceActiveFileWithSignedOutput(outputPath);
             }
             else
             {
-                LogError($"Signature Rejected by Remote Gateway: {result.ErrorMessage}");
-                return null;
+                ToastError("Ký số thất bại", error ?? "Đã xảy ra lỗi không xác định.");
             }
         }
         catch (Exception ex)
         {
-            LogError($"Signature Generation Exception: {ex.Message}");
-            return null;
+            ToastError("Lỗi ký số", ex.Message);
+        }
+        finally
+        {
+            ShowSigningProgress(false);
+            _sigX = 0;
+            _sigY = 0;
+            _sigW = 0;
+            _sigH = 0;
+            _selectedSignatureFieldId = null;
+            UpdateSignButtonState();
+        }
+    }
+
+    private async void btnSign_Click(object? sender, RoutedEventArgs e)
+    {
+        var files = lstFilePath.ItemsSource as List<string>;
+        if (files == null || files.Count == 0)
+        {
+            LogError("No PDF file selected or specified.");
+            UpdateSignButtonState();
+            return;
+        }
+
+        var placements = BuildAccumulatedPlacements();
+        if (placements.Count == 0)
+        {
+            ToastWarning("Chưa chọn vị trí ký", "Vui lòng chọn AcroField hoặc vẽ một vùng ký trước khi ký số.");
+            UpdateSignButtonState();
+            return;
+        }
+
+        string signMerchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+        if (!IsMerchantConfigured(signMerchantId))
+        {
+            ShowConfigGuard(signMerchantId);
+            return;
+        }
+
+        var credentialId = await ResolveCredentialIdAsync();
+        if (credentialId == null)
+        {
+            LogWarning("Đã hủy chọn chứng thư ký.");
+            return;
+        }
+
+        btnSign.IsEnabled = false;
+        try
+        {
+            string? lastSignedPath = null;
+            int totalSigned = 0;
+
+            ShowSigningProgress(true, signMerchantId);
+            try
+            {
+                foreach (var filePath in files)
+                {
+                    LogSystem($"Processing signing for: {Path.GetFileName(filePath)} ({placements.Count} vị trí)...");
+                    try
+                    {
+                        var (success, signedCount, outputPath, error) = await SignPlacementsSequentially(filePath, credentialId, placements);
+                        totalSigned += signedCount;
+                        if (outputPath != null && File.Exists(outputPath))
+                        {
+                            lastSignedPath = outputPath;
+                        }
+                        if (!success)
+                        {
+                            LogError($"Signature failed for {Path.GetFileName(filePath)}: {error}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogError($"Signature Generation Exception: {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                ShowSigningProgress(false);
+            }
+
+            if (!string.IsNullOrEmpty(lastSignedPath))
+            {
+                LogSuccess($"Signature execution finished successfully. {totalSigned} placement(s) signed.");
+                ToastSuccess("Ký số thành công", $"Đã ký {totalSigned} vị trí trên tài liệu.");
+                _drawnPlacements.Clear();
+                ReplaceActiveFileWithSignedOutput(lastSignedPath);
+            }
+            else
+            {
+                ToastError("Ký số thất bại", "Không có tệp nào được ký thành công. Xem chi tiết trong Nhật ký hệ thống.");
+            }
+        }
+        finally
+        {
+            UpdateSignButtonState();
         }
     }
 
@@ -1226,13 +2379,21 @@ public partial class MainWindow : Window
             return;
         }
 
+        string xmlMerchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+        if (!IsMerchantConfigured(xmlMerchantId))
+        {
+            ShowConfigGuard(xmlMerchantId);
+            return;
+        }
+
         try
         {
             btnSignXml.IsEnabled = false;
+            ShowSigningProgress(true, xmlMerchantId);
 
             string userName = _activeUserName ?? (txtUserNameXml.Text ?? "");
             string credentialId = (cboCertsXml.SelectedItem as ComboboxItem<string>)!.Value;
-            string merchantId = cboMerchant.SelectedItem?.ToString() ?? "";
+            string merchantId = xmlMerchantId;
 
             string signTag = cboXmlSignTag.SelectedItem?.ToString() ?? "";
             string? referenceId = string.IsNullOrWhiteSpace(cboXmlReferenceId.SelectedItem?.ToString()) ? null : cboXmlReferenceId.SelectedItem.ToString();
@@ -1310,14 +2471,19 @@ public partial class MainWindow : Window
             }
 
             LogSuccess($"Signed {successCount} XML documents successfully.");
+            if (successCount > 0)
+                ToastSuccess("Ký XML thành công", $"Đã ký {successCount} tệp XML thành công.");
+            else
+                ToastError("Ký XML thất bại", "Không có tệp nào được ký thành công. Xem chi tiết trong Nhật ký hệ thống.");
         }
         catch (Exception ex)
         {
-            LogError($"Lỗi ký XML: {ex.Message}");
+            ToastError("Lỗi ký XML", ex.Message);
         }
         finally
         {
             btnSignXml.IsEnabled = true;
+            ShowSigningProgress(false);
         }
     }
     #endregion
@@ -1494,11 +2660,70 @@ public partial class MainWindow : Window
         txtSmartCAClientId.Text = _appSettings.SmartCASetting?.ClientId ?? "";
         txtSmartCASecret.Text = _appSettings.SmartCASetting?.ClientSecret ?? "";
 
+        // BCY
+        txtBcyUrl.Text = _appSettings.TerminalSetting?.BaseUrl ?? "";
+        txtBcyRelyingParty.Text = _appSettings.TerminalSetting?.RelyingParty ?? "";
+        txtBcySignAlgorithm.Text = _appSettings.TerminalSetting?.SignAlgorithm ?? "ECDSA";
+
+        // CMC
+        txtCmcUrl.Text = _appSettings.CmcSetting?.BaseUrl ?? "";
+        txtCmcProfileId.Text = _appSettings.CmcSetting?.SigningProfileId ?? "";
+        txtCmcKeyAuth.Text = _appSettings.CmcSetting?.KeyAuth ?? "";
+
+        // InTrust
+        txtInTrustUrl.Text = _appSettings.InTrustSetting?.BaseUrl ?? "";
+        txtInTrustBasicAuth.Text = _appSettings.InTrustSetting?.BasicAuthorization ?? "";
+
+        // SIM (MSSP)
+        txtSimApId.Text = _appSettings.MsspSetting?.ApId ?? "";
+        txtSimApPassword.Text = _appSettings.MsspSetting?.ApPassword ?? "";
+        txtSimMsspId.Text = _appSettings.MsspSetting?.MsspId ?? "";
+
         // USB
         txtUsbAgentIp.Text = _appSettings.UsbSetting?.UsbAgentIp ?? "127.0.0.1";
         txtUsbAgentPort.Text = _appSettings.UsbSetting?.UsbAgentPort.ToString() ?? "9999";
         txtUsbAgentExePath.Text = _appSettings.UsbSetting?.UsbAgentExePath ?? "";
     }
+
+    /// <summary>
+    /// Real HTTP connectivity probe for a merchant's Base URL — mirrors sign-web's
+    /// SettingsController.TestConnection (GET, headers-only, report the status code).
+    /// </summary>
+    private async void TestConnectionClicked(TextBox urlBox, TextBlock statusLabel)
+    {
+        string url = urlBox.Text ?? "";
+        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            statusLabel.Text = "URL không hợp lệ.";
+            statusLabel.Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#CC4238"));
+            return;
+        }
+
+        statusLabel.Text = "Đang kiểm tra kết nối...";
+        statusLabel.Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#64748B"));
+        try
+        {
+            using var response = await _testConnectionHttp.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+            var msg = $"Kết nối thành công (HTTP {(int)response.StatusCode}).";
+            statusLabel.Text = msg;
+            statusLabel.Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#0F9D6E"));
+            ToastSuccess("Kết nối thành công", msg);
+        }
+        catch (Exception ex)
+        {
+            var msg = $"Không thể kết nối: {ex.Message}";
+            statusLabel.Text = msg;
+            statusLabel.Foreground = new Avalonia.Media.SolidColorBrush(ColorFromHex("#CC4238"));
+            ToastError("Kết nối thất bại", msg);
+        }
+    }
+
+    private void btnTestMySign_Click(object? sender, RoutedEventArgs e) => TestConnectionClicked(txtMySignUrl, lblMySignTestStatus);
+    private void btnTestSmartCA_Click(object? sender, RoutedEventArgs e) => TestConnectionClicked(txtSmartCAUrl, lblSmartCATestStatus);
+    private void btnTestBcy_Click(object? sender, RoutedEventArgs e) => TestConnectionClicked(txtBcyUrl, lblBcyTestStatus);
+    private void btnTestCmc_Click(object? sender, RoutedEventArgs e) => TestConnectionClicked(txtCmcUrl, lblCmcTestStatus);
+    private void btnTestInTrust_Click(object? sender, RoutedEventArgs e) => TestConnectionClicked(txtInTrustUrl, lblInTrustTestStatus);
+    private void btnTestSim_Click(object? sender, RoutedEventArgs e) => TestConnectionClicked(txtSimApId, lblSimTestStatus);
 
     private void btnSaveSettings_Click(object? sender, RoutedEventArgs e)
     {
@@ -1517,32 +2742,37 @@ public partial class MainWindow : Window
             _appSettings.SmartCASetting.ClientId = txtSmartCAClientId.Text;
             _appSettings.SmartCASetting.ClientSecret = txtSmartCASecret.Text;
 
+            if (_appSettings.TerminalSetting == null) _appSettings.TerminalSetting = new();
+            _appSettings.TerminalSetting.BaseUrl = txtBcyUrl.Text;
+            _appSettings.TerminalSetting.RelyingParty = txtBcyRelyingParty.Text;
+            _appSettings.TerminalSetting.SignAlgorithm = txtBcySignAlgorithm.Text;
+
+            if (_appSettings.CmcSetting == null) _appSettings.CmcSetting = new();
+            _appSettings.CmcSetting.BaseUrl = txtCmcUrl.Text;
+            _appSettings.CmcSetting.SigningProfileId = txtCmcProfileId.Text;
+            _appSettings.CmcSetting.KeyAuth = txtCmcKeyAuth.Text;
+
+            if (_appSettings.InTrustSetting == null) _appSettings.InTrustSetting = new();
+            _appSettings.InTrustSetting.BaseUrl = txtInTrustUrl.Text;
+            _appSettings.InTrustSetting.BasicAuthorization = txtInTrustBasicAuth.Text;
+
+            if (_appSettings.MsspSetting == null) _appSettings.MsspSetting = new();
+            _appSettings.MsspSetting.ApId = txtSimApId.Text;
+            _appSettings.MsspSetting.ApPassword = txtSimApPassword.Text;
+            _appSettings.MsspSetting.MsspId = txtSimMsspId.Text;
+
             if (_appSettings.UsbSetting == null) _appSettings.UsbSetting = new();
             _appSettings.UsbSetting.UsbAgentIp = txtUsbAgentIp.Text;
             if (int.TryParse(txtUsbAgentPort.Text, out int port)) _appSettings.UsbSetting.UsbAgentPort = port;
             _appSettings.UsbSetting.UsbAgentExePath = txtUsbAgentExePath.Text;
 
-            // Merge into appsettings.json
-            string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-            if (!File.Exists(configPath)) configPath = "appsettings.json";
+            // Persist to the same higher-precedence user config that Program loads.
+            // VMSIGN_CONFIG_DIR lets E2E/portable runs isolate this state safely.
+            string configPath = Program.UserConfigFilePath;
+            Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+            if (!File.Exists(configPath)) File.WriteAllText(configPath, "{}");
 
             var pathsToSave = new List<string> { configPath };
-
-            // Also check project root directory if running in Dev/Debug environment (bin/Debug/net8.0)
-            try
-            {
-                var dir = AppDomain.CurrentDomain.BaseDirectory;
-                var parent = Directory.GetParent(dir)?.Parent?.Parent;
-                if (parent != null)
-                {
-                    var projSettings = Path.Combine(parent.FullName, "appsettings.json");
-                    if (File.Exists(projSettings) && Path.GetFullPath(projSettings) != Path.GetFullPath(configPath))
-                    {
-                        pathsToSave.Add(projSettings);
-                    }
-                }
-            }
-            catch {}
 
             foreach (var path in pathsToSave)
             {
@@ -1572,10 +2802,11 @@ public partial class MainWindow : Window
                     LogError($"Cannot find appsettings.json file to write settings: {path}");
                 }
             }
+            ToastSuccess("Đã lưu cài đặt", "Cấu hình nhà cung cấp ký số đã được lưu.");
         }
         catch (Exception ex)
         {
-            LogError($"Failed to save settings: {ex.Message}");
+            ToastError("Lưu thất bại", ex.Message);
         }
     }
     #endregion
@@ -1667,6 +2898,197 @@ public partial class MainWindow : Window
             await clipboard.SetTextAsync(txtLogs.Text ?? "");
             LogSystem("Logs copied to clipboard.");
         }
+    }
+    #endregion
+
+    #region AI Vision Field Alignment (Gemini)
+    /// <summary>
+    /// Background pass that visually re-scans the rendered page image with Gemini vision
+    /// and creates any missing signature fields the text-search pass couldn't find —
+    /// mirrors sign-web's WebSigningService.AlignFieldsVisually / GeminiLayoutService.
+    /// Opt-in via InternalSetting.VertexAiVerification, same gate as the web sample.
+    /// </summary>
+    private async Task AlignFieldsVisuallyAsync(string pdfPath)
+    {
+        try
+        {
+            if (_appSettings?.InternalSetting?.VertexAiVerification != 1) return;
+
+            var apiKey = _configuration?["GeminiSetting:ApiKey"] ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+            if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("YOUR_GEMINI_API_KEY"))
+            {
+                LogSystem("[AI Align] Bỏ qua: chưa cấu hình GeminiSetting:ApiKey.");
+                return;
+            }
+
+            var labelsJson = _appSettings?.InternalSetting?.SignerLabels;
+            if (string.IsNullOrEmpty(labelsJson)) return;
+            var labels = JsonConvert.DeserializeObject<List<TextSearchFieldCreator.SignerLabel>>(labelsJson);
+            if (labels == null || labels.Count == 0) return;
+
+            if (_renderedPageImage == null) return;
+
+            LogSystem("[AI Align] Đang chạy AI căn chỉnh vị trí ký tự động ở nền...");
+
+            var model = _configuration?["GeminiSetting:Model"] ?? "gemini-2.5-flash";
+            byte[] imageBytes;
+            using (var ms = new MemoryStream())
+            {
+                // Encode the already-rendered page via Avalonia/Skia (cross-platform,
+                // no System.Drawing dependency) instead of re-rendering to BMP.
+                _renderedPageImage.Save(ms);
+                imageBytes = ms.ToArray();
+            }
+            if (imageBytes.Length == 0) return;
+
+            var blocks = await DetectSignatureBlocksWithGeminiAsync(imageBytes, apiKey, model);
+            if (blocks == null || blocks.Count == 0)
+            {
+                LogSystem("[AI Align] AI không phát hiện thêm vùng ký nào.");
+                return;
+            }
+
+            int created = CreateMissingFieldsFromAiBlocks(pdfPath, labels, blocks);
+            if (created > 0)
+            {
+                LogSuccess($"[AI Align] Đã tự động tạo thêm {created} vùng ký từ AI.");
+                ToastSuccess("Layout hoàn tất", "Đã tự động căn chỉnh vị trí ký bằng AI.");
+                if (PathsEqual(pdfPath, CurrentPdfPath)) RenderPdfPage();
+            }
+            else
+            {
+                LogSystem("[AI Align] AI quét xong, không có vùng ký mới cần tạo.");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWarning($"[AI Align] Bỏ qua do lỗi: {ex.Message}");
+        }
+    }
+
+    private sealed class GeminiDetectionResult
+    {
+        [Newtonsoft.Json.JsonProperty("label")]
+        public string Label { get; set; } = "";
+
+        // [ymin, xmin, ymax, xmax], normalized 0–1000 from top-left
+        [Newtonsoft.Json.JsonProperty("box_2d")]
+        public int[] Box2d { get; set; } = Array.Empty<int>();
+    }
+
+    private static async Task<List<GeminiDetectionResult>> DetectSignatureBlocksWithGeminiAsync(byte[] imageBytes, string apiKey, string model)
+    {
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+        var base64Image = Convert.ToBase64String(imageBytes);
+
+        var payload = new
+        {
+            contents = new[]
+            {
+                new
+                {
+                    role = "user",
+                    parts = new object[]
+                    {
+                        new
+                        {
+                            text = "You are an expert document layout analysis engine. Analyze this page from a Vietnamese document.\n" +
+                                   "Locate all signature areas (the blank spaces where signatures/stamps are placed, usually below signer titles like 'NGƯỜI LẬP BẢNG', 'KẾ TOÁN', 'GIÁM ĐỐC', etc.).\n" +
+                                   "For each signature area, output a JSON object with 'label' (the title/role) and 'box_2d' (bounding box [ymin, xmin, ymax, xmax] normalized on a scale of 0 to 1000 from top-left [0,0]).\n" +
+                                   "Respond ONLY with a valid JSON array, do not include markdown blocks or explanation."
+                        },
+                        new { inlineData = new { mimeType = "image/png", data = base64Image } }
+                    }
+                }
+            },
+            generationConfig = new { responseMimeType = "application/json" }
+        };
+
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        var jsonPayload = JsonConvert.SerializeObject(payload);
+        using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+        var response = await httpClient.PostAsync(url, content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode) return new List<GeminiDetectionResult>();
+
+        dynamic? respObj = JsonConvert.DeserializeObject(responseBody);
+        string rawText = respObj?.candidates[0].content.parts[0].text ?? "[]";
+        rawText = rawText.Trim();
+        if (rawText.StartsWith("```json")) rawText = rawText.Substring(7);
+        if (rawText.EndsWith("```")) rawText = rawText.Substring(0, rawText.Length - 3);
+        rawText = rawText.Trim();
+
+        return JsonConvert.DeserializeObject<List<GeminiDetectionResult>>(rawText) ?? new List<GeminiDetectionResult>();
+    }
+
+    /// <summary>
+    /// Creates AcroFields for AI-detected blocks that don't already match a text-search-created
+    /// field, with the same collision-avoidance nudging as TextSearchFieldCreator.
+    /// </summary>
+    private int CreateMissingFieldsFromAiBlocks(string pdfPath, List<TextSearchFieldCreator.SignerLabel> labels, List<GeminiDetectionResult> blocks)
+    {
+        string tmpPath = pdfPath + ".ai.tmp";
+        int createdCount = 0;
+        try
+        {
+            using (var reader = new iText.Kernel.Pdf.PdfReader(pdfPath))
+            using (var writer = new iText.Kernel.Pdf.PdfWriter(tmpPath))
+            using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader, writer))
+            {
+                var acroForm = iText.Forms.PdfAcroForm.GetAcroForm(pdfDoc, true);
+                int lastPage = pdfDoc.GetNumberOfPages();
+                var pageObj = pdfDoc.GetPage(lastPage);
+                double pageWidth = pageObj.GetPageSize().GetWidth();
+                double pageHeight = pageObj.GetPageSize().GetHeight();
+                var textRects = TextSearchFieldCreator.ExtractAllTextRects(pageObj);
+
+                foreach (var block in blocks)
+                {
+                    if (block.Box2d == null || block.Box2d.Length < 4) continue;
+
+                    var matchedLabel = labels.Find(l =>
+                        l.Label.ToLower().Contains(block.Label.ToLower())
+                        || block.Label.ToLower().Contains(l.Label.ToLower()));
+
+                    string fieldName = matchedLabel?.FieldName ?? $"sig_ai_{Guid.NewGuid().ToString().Substring(0, 4)}";
+                    float desiredWidth = matchedLabel?.Width ?? 150f;
+                    float desiredHeight = matchedLabel?.Height ?? 60f;
+
+                    if (acroForm.GetField(fieldName) != null) continue;
+
+                    float ymin = block.Box2d[0], xmin = block.Box2d[1], ymax = block.Box2d[2], xmax = block.Box2d[3];
+                    float aiCenterX = (float)((xmin + xmax) / 2000f * pageWidth);
+                    float aiCenterY = (float)((1000f - (ymin + ymax) / 2f) / 1000f * pageHeight);
+                    float fieldX = aiCenterX - (desiredWidth / 2f);
+                    float fieldY = aiCenterY - (desiredHeight / 2f);
+
+                    var (nudgedX, nudgedY) = TextSearchFieldCreator.NudgeToAvoidCollision(
+                        fieldX, fieldY, desiredWidth, desiredHeight, textRects, (float)pageWidth, (float)pageHeight);
+
+                    var sigField = iText.Forms.Fields.PdfFormField.CreateSignature(pdfDoc,
+                        new iText.Kernel.Geom.Rectangle(nudgedX, nudgedY, desiredWidth, desiredHeight));
+                    sigField.SetFieldName(fieldName);
+                    acroForm.AddField(sigField, pageObj);
+                    createdCount++;
+                }
+            }
+
+            if (createdCount > 0)
+            {
+                File.Delete(pdfPath);
+                File.Move(tmpPath, pdfPath);
+            }
+            else if (File.Exists(tmpPath))
+            {
+                File.Delete(tmpPath);
+            }
+        }
+        catch
+        {
+            if (File.Exists(tmpPath)) { try { File.Delete(tmpPath); } catch { } }
+            throw;
+        }
+        return createdCount;
     }
     #endregion
 

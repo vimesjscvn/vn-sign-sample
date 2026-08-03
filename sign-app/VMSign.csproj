@@ -21,8 +21,8 @@
 
   <PropertyGroup>
     <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
-    <SdkSrc>..\..\vn-sign-sdk\src</SdkSrc>
-    <SdkPkgVersion>1.0.24</SdkPkgVersion>
+    <SdkSrc>..\..\signsdk\src</SdkSrc>
+    <SdkPkgVersion>1.0.25</SdkPkgVersion>
   </PropertyGroup>
 
   <!-- Development: direct source references -->
@@ -60,6 +60,10 @@
     <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\sign-shared\sign-shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

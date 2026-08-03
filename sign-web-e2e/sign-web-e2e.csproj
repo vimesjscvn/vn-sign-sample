@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\sign-shared\sign-shared.csproj" />
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 

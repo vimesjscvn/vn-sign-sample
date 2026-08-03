@@ -12,7 +12,11 @@
 *.log
 *.tmp
 logs/
-**/wwwroot/
+
+# Keep static UI assets under source control; ignore only generated/private web data.
+**/wwwroot/export/
+**/wwwroot/certs/
+**/wwwroot/screenshots/
 
 # Local secrets — real credentials live here; use appsettings.example.json as the template
 **/appsettings.json
