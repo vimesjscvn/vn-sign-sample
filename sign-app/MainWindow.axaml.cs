@@ -704,6 +704,7 @@ public partial class MainWindow : Window
             var chip = new Border
             {
                 Padding = new Thickness(8, 5),
+                Margin = new Thickness(0, 0, 6, 6),
                 CornerRadius = new CornerRadius(7),
                 BorderThickness = new Thickness(1.5),
                 BorderBrush = new Avalonia.Media.SolidColorBrush(ColorFromHex(isSelected ? "#1E5FD4" : "#CDD3DC")),
@@ -1444,9 +1445,15 @@ public partial class MainWindow : Window
 
         if (isSigned)
         {
-            btn.Content = $"✅ {fieldName}";
-            btn.Background = Avalonia.Media.Brushes.LightGreen;
+            // Transparent + corner badge instead of a full opaque fill: a signed field's
+            // area now shows the real embedded signature image underneath, and a solid
+            // LightGreen box at 0.85 opacity was hiding it entirely.
+            btn.Content = "✅";
+            btn.Background = Avalonia.Media.Brushes.Transparent;
             btn.BorderBrush = Avalonia.Media.Brushes.Green;
+            btn.HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Right;
+            btn.VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Top;
+            ToolTip.SetTip(btn, fieldName);
         }
         else if (isPlaced)
         {
@@ -1870,7 +1877,7 @@ public partial class MainWindow : Window
                 SignatureType = (cboSignatureType.SelectedItem as ComboboxItem<SignatureType>)?.Value ?? SignatureType.DEFAULT,
                 DisplayNameMode = (cboDisplayNameMode.SelectedItem as ComboboxItem<DisplayNameMode>)?.Value ?? DisplayNameMode.SignerWithImage,
                 IsShowSignatureTime = chkShowSignatureTime.IsChecked == true,
-                SignerPosition = "Visual Placement",
+                SignerPosition = txtSignerPosition.Text ?? "",
                 Page = placement.Page,
                 X = placement.X,
                 Y = placement.Y,

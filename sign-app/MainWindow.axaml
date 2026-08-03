@@ -1002,7 +1002,7 @@
             <StackPanel Name="panelSessionLoginForm" Spacing="10" Margin="18,10,18,0">
               <StackPanel Spacing="4">
                 <TextBlock Text="Nhà cung cấp ký số:" FontSize="10" Foreground="#64748B"/>
-                <StackPanel Name="panelLoginMerchantGrid" Orientation="Horizontal" Spacing="6"/>
+                <WrapPanel Name="panelLoginMerchantGrid"/>
               </StackPanel>
 
               <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,2">
