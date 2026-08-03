@@ -82,3 +82,7 @@ sign-app/
 ├── appsettings.example.json   # Template cấu hình
 └── nuget.config               # NuGet source
 ```
+
+## Phiên bản SDK
+
+Sử dụng [Vimes SignSDK](https://www.nuget.org/packages/Vimes.SignSDK/) `1.0.29` từ NuGet.org.
