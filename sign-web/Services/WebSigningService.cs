@@ -704,19 +704,12 @@ public class WebSigningService
             foreach (var placement in request.Placements)
             {
                 float pageHeight = pageHeights.TryGetValue(placement.Page, out var h) ? h : 842f;
-                // Convert screen Y (top-left) to PDF Y (bottom-left)
-                float convertedY = pageHeight - placement.Y - placement.Height;
+                // Convert screen Y (top-left) to PDF Y (bottom-left). SignSDKClient.SignDocumentsAsync
+                // already converts this bottom-left X/Y into the engine's center-based PointX/PointY
+                // (PointX = X + Width/2, PointY = Y + Height/2) — do NOT add that offset again here,
+                // it would double-compensate and land the signature off by half its own size.
                 float finalX = placement.X;
-                float finalY = convertedY;
-
-                // Only compensate if this is a custom drawn position (no pre-existing fieldId)
-                if (string.IsNullOrEmpty(placement.FieldId))
-                {
-                    // SignPdfAsynchronous shifts the coordinates by -Width/2 and -Height/2.
-                    // We add them here to compensate so the signature lands exactly on the drawn box bounds.
-                    finalX = placement.X + (placement.Width / 2f);
-                    finalY = convertedY + (placement.Height / 2f);
-                }
+                float finalY = pageHeight - placement.Y - placement.Height;
 
                 var sdkRequest = new SignDocumentRequest
                 {
