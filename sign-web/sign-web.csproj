@@ -14,7 +14,7 @@
   <PropertyGroup>
     <UseSdkSource Condition="'$(UseSdkSource)' == ''">false</UseSdkSource>
     <SdkSrc>..\..\signsdk\src</SdkSrc>
-    <SdkPkgVersion>1.0.26</SdkPkgVersion>
+    <SdkPkgVersion>1.0.27</SdkPkgVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(UseSdkSource)' == 'true'">
