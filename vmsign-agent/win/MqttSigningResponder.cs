@@ -229,10 +229,16 @@ public sealed class MqttSigningResponder
         try   { digest = Convert.FromBase64String(req.HashBase64); }
         catch { return MqttSignResponse.Fail(req.CorrelationId, "hashBase64 is not valid base64"); }
 
+        // No fallback to the agent's locally-cached PIN here: this handler answers requests
+        // arriving over the network (MQTT), so the caller must prove it knows the PIN on every
+        // request. The cached PIN is only for the loopback-bound local HTTP path (Program.cs),
+        // which is already physically trusted.
+        if (string.IsNullOrEmpty(req.Pin))
+            return MqttSignResponse.Fail(req.CorrelationId, "pin is required");
+
         try
         {
-            var pin = !string.IsNullOrEmpty(req.Pin) ? req.Pin : _tokenPin;
-            var r = TokenSigner.SignDigestPreferred(cert, digest, pin, _pkcs11ModulePath);
+            var r = TokenSigner.SignDigestPreferred(cert, digest, req.Pin, _pkcs11ModulePath);
             _onSignSuccess?.Invoke(cert.SerialNumber);
             return new MqttSignResponse(req.CorrelationId, true,
                 Convert.ToBase64String(r.Signature),

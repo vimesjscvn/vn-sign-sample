@@ -15,7 +15,9 @@ namespace VMSignAgent;
 public static class TokenSigner
 {
     /// <summary>
-    /// Finds a signing certificate in CurrentUser\My.
+    /// Finds a signing certificate in CurrentUser\My, falling back to certificates read
+    /// directly off a PKCS#11 token when not (yet) found in the Windows store — see
+    /// <see cref="ListCerts()"/> for why that gap exists.
     /// Priority: exact serial, then CN/email subject match, then first cert only if no identifier.
     /// Never blindly falls back when an identifier was supplied (wrong-key safety).
     /// </summary>
@@ -25,9 +27,31 @@ public static class TokenSigner
         store.Open(OpenFlags.ReadOnly);
         var all = store.Certificates.Cast<X509Certificate2>().Where(c => c.HasPrivateKey).ToList();
 
+        var found = FindInList(all, serial, userName);
+        if (found != null) return found;
+
+        // Not in the Windows store yet (Certificate Propagation lag/failure) — try the token
+        // directly. These X509Certificate2 instances are parsed from raw DER (no CAPI/CNG key
+        // handle attached), which is fine: signing always goes through Pkcs11Signer when a PIN
+        // is supplied, and that locates the private key on-token by matching RawData bytes.
+        var pkcs11Certs = Pkcs11Signer.ListCerts()
+            .Select(info => new X509Certificate2(Convert.FromBase64String(info.Certificate)))
+            .ToList();
+
+        found = FindInList(pkcs11Certs, serial, userName);
+        if (found != null) return found;
+
+        if (string.IsNullOrWhiteSpace(serial) && string.IsNullOrWhiteSpace(userName))
+            return all.FirstOrDefault() ?? pkcs11Certs.FirstOrDefault();
+
+        return null;
+    }
+
+    private static X509Certificate2? FindInList(List<X509Certificate2> certs, string? serial, string? userName)
+    {
         if (!string.IsNullOrWhiteSpace(serial))
         {
-            var bySerial = all.FirstOrDefault(c =>
+            var bySerial = certs.FirstOrDefault(c =>
                 string.Equals(c.SerialNumber, serial, StringComparison.OrdinalIgnoreCase));
             if (bySerial != null) return bySerial;
         }
@@ -35,27 +59,44 @@ public static class TokenSigner
         if (!string.IsNullOrWhiteSpace(userName))
         {
             var lower = userName.ToLowerInvariant();
-            var byName = all.FirstOrDefault(c =>
+            var byName = certs.FirstOrDefault(c =>
                 c.Subject.ToLowerInvariant().Contains("cn=" + lower) ||
                 c.Subject.ToLowerInvariant().Contains("e=" + lower));
             if (byName != null) return byName;
         }
 
-        if (string.IsNullOrWhiteSpace(serial) && string.IsNullOrWhiteSpace(userName))
-            return all.FirstOrDefault();
-
         return null;
     }
 
-    /// <summary>Lists every certificate in CurrentUser\My that has a usable private key.</summary>
+    /// <summary>
+    /// Lists every certificate with a usable private key, merging CurrentUser\My (Windows
+    /// Certificate Store) with whatever a connected PKCS#11 token reports directly.
+    ///
+    /// Windows only learns about a smart card's certificates via its own Certificate
+    /// Propagation service, which fires on card-insertion and can lag behind or simply not
+    /// run — the vendor middleware (e.g. bit4id) and this PKCS#11 module always see the
+    /// token's certificates immediately. Without this merge, a freshly (re)inserted token
+    /// can be fully functional for signing yet invisible in this list / the Settings UI
+    /// dropdown until Windows catches up (which may never happen without a service restart).
+    /// Windows-store entries win on duplicate serials.
+    /// </summary>
     public static List<CertInfo> ListCerts()
     {
         using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
         store.Open(OpenFlags.ReadOnly);
-        return store.Certificates.Cast<X509Certificate2>()
+        var certs = store.Certificates.Cast<X509Certificate2>()
             .Where(c => c.HasPrivateKey)
             .Select(ToInfo)
             .ToList();
+
+        var seen = new HashSet<string>(certs.Select(c => c.Serial), StringComparer.OrdinalIgnoreCase);
+        foreach (var pkcs11Cert in Pkcs11Signer.ListCerts())
+        {
+            if (seen.Add(pkcs11Cert.Serial))
+                certs.Add(pkcs11Cert);
+        }
+
+        return certs;
     }
 
     public static List<CertInfo> ListCerts(string? selectedSerial)

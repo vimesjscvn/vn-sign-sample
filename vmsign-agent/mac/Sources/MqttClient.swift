@@ -243,7 +243,10 @@ class MqttSigningResponder {
         let correlationId = json["correlationId"] as? String ?? ""
         let hashBase64 = json["hashBase64"] as? String ?? ""
         let serial = json["serial"] as? String ?? ""
-        let pin = json["pin"] as? String ?? config.tokenPin ?? ""
+        // No fallback to config.tokenPin here: this handler answers requests arriving over the
+        // network (MQTT), so the caller must prove it knows the PIN on every request. The cached
+        // PIN is only used for the loopback-bound local HTTP path, which is already trusted.
+        let pin = json["pin"] as? String ?? ""
 
         delegate?.recordActivity()
 

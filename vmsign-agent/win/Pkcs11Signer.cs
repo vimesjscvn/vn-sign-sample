@@ -32,6 +32,42 @@ public static class Pkcs11Signer
         0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20
     };
 
+    // ── Process-lifetime library handle ─────────────────────────────────────────────
+    // The bit4id module (like several vendor PKCS#11 libraries) is not safe to
+    // C_Initialize/C_Finalize more than once per process: doing so — e.g. once for a sign
+    // operation, then again later for a separate listing call — crashed the whole agent with
+    // an unrecoverable AccessViolationException inside C_Finalize. Loading the library once
+    // and keeping the handle alive for the process lifetime (never explicitly disposing it)
+    // avoids a second Finalize call entirely. Sessions (opened per operation below) remain
+    // short-lived and are still properly closed each time; only the library-level handle is
+    // cached.
+    private static readonly object LibLock = new();
+    private static Pkcs11InteropFactories? _sharedFactories;
+    private static IPkcs11Library? _sharedLib;
+    private static string? _sharedLibModulePath;
+
+    private static Pkcs11InteropFactories SharedFactories => _sharedFactories!;
+
+    private static IPkcs11Library GetSharedLibrary(string? modulePath)
+    {
+        modulePath = ResolveModulePath(modulePath);
+        lock (LibLock)
+        {
+            if (_sharedLib != null && string.Equals(_sharedLibModulePath, modulePath, StringComparison.OrdinalIgnoreCase))
+                return _sharedLib;
+
+            if (!File.Exists(modulePath))
+                throw new FileNotFoundException($"PKCS#11 module not found: {modulePath}");
+
+            var factories = new Pkcs11InteropFactories();
+            var lib = factories.Pkcs11LibraryFactory.LoadPkcs11Library(factories, modulePath, AppType.MultiThreaded);
+            _sharedFactories = factories;
+            _sharedLib = lib;
+            _sharedLibModulePath = modulePath;
+            return lib;
+        }
+    }
+
     /// <summary>
     /// Signs <paramref name="digest"/> on the token via PKCS#11, authenticating with
     /// <paramref name="pin"/> (no interactive dialog). The signing key is selected by matching
@@ -39,15 +75,11 @@ public static class Pkcs11Signer
     /// </summary>
     public static SignResult SignDigest(X509Certificate2 cert, byte[] digest, string pin, string? modulePath = null)
     {
-        modulePath = ResolveModulePath(modulePath);
-        if (!File.Exists(modulePath))
-            throw new FileNotFoundException($"PKCS#11 module not found: {modulePath}");
         if (string.IsNullOrEmpty(pin))
             throw new ArgumentException("PKCS#11 signing requires a PIN", nameof(pin));
 
-        var factories = new Pkcs11InteropFactories();
-        using var lib = factories.Pkcs11LibraryFactory.LoadPkcs11Library(
-            factories, modulePath, AppType.MultiThreaded);
+        var lib = GetSharedLibrary(modulePath);
+        var factories = SharedFactories;
 
         // Pick the first slot that has a token present.
         var slots = lib.GetSlotList(SlotsType.WithTokenPresent);
@@ -97,6 +129,86 @@ public static class Pkcs11Signer
 
         throw new InvalidOperationException(
             $"No PKCS#11 private key found matching certificate serial {cert.SerialNumber}.");
+    }
+
+    /// <summary>
+    /// Lists X.509 certificates that have a usable signing key present on any connected
+    /// PKCS#11 token, read directly from the token (no Windows Certificate Store involved).
+    ///
+    /// Windows only projects a smart card's certificates into CurrentUser\My via its own
+    /// Certificate Propagation service, which fires on card-insertion events and can lag or
+    /// simply not run (e.g. service not elevated, missed PnP event). The vendor middleware
+    /// (bit4id) and this PKCS#11 module see the token's certificates immediately regardless —
+    /// this method lets certificate *listing* be as robust as the *signing* path already is
+    /// (<see cref="SignDigest"/> already talks to the token directly, bypassing Windows CAPI).
+    ///
+    /// A token also carries CA/root certs (its own issuer chain) as plain CKO_CERTIFICATE
+    /// objects with no corresponding private key — those aren't something the user could ever
+    /// sign with, so they're excluded via Basic Constraints (see inline comment below),
+    /// mirroring the Windows-store side's `HasPrivateKey` filter in intent.
+    ///
+    /// Reading CKO_CERTIFICATE objects does not require C_Login: certificates are public data
+    /// on essentially all PKCS#11 tokens, so no PIN is needed just to enumerate them.
+    /// Best-effort: any failure (module missing, no token, unreadable object) yields an empty
+    /// list rather than throwing, since callers merge this with the Windows-store result.
+    /// </summary>
+    public static List<CertInfo> ListCerts(string? modulePath = null)
+    {
+        var results = new List<CertInfo>();
+        try
+        {
+            var lib = GetSharedLibrary(modulePath);
+
+            foreach (var slot in lib.GetSlotList(SlotsType.WithTokenPresent))
+            {
+                using var session = slot.OpenSession(SessionType.ReadOnly);
+
+                var certTemplate = new List<IObjectAttribute>
+                {
+                    session.Factories.ObjectAttributeFactory.Create(CKA.CKA_CLASS, CKO.CKO_CERTIFICATE),
+                };
+                foreach (var co in session.FindAllObjects(certTemplate))
+                {
+                    var attrs = session.GetAttributeValue(co, new List<CKA> { CKA.CKA_VALUE });
+                    var raw = attrs[0].GetValueAsByteArray();
+                    if (raw == null || raw.Length == 0) continue;
+
+                    try
+                    {
+                        using var cert = new X509Certificate2(raw);
+
+                        // Private-key objects are CKA_PRIVATE and only enumerable after C_Login,
+                        // which isn't available at listing time — so a CKA_ID correlation to
+                        // CKO_PRIVATE_KEY isn't possible here. Filter out CA/root certs (which a
+                        // token also carries as plain CKO_CERTIFICATE objects, its own issuer
+                        // chain) via Basic Constraints instead: RFC 5280 requires CA certs to set
+                        // cA=TRUE, so anything without that extension is treated as end-entity.
+                        var basicConstraints = cert.Extensions
+                            .OfType<X509BasicConstraintsExtension>()
+                            .FirstOrDefault();
+                        if (basicConstraints?.CertificateAuthority == true)
+                            continue;
+
+                        results.Add(new CertInfo(
+                            Serial: cert.SerialNumber,
+                            SubjectDN: cert.Subject,
+                            IssuerDN: cert.Issuer,
+                            ValidFrom: cert.NotBefore.ToString("O"),
+                            ValidTo: cert.NotAfter.ToString("O"),
+                            Thumbprint: cert.Thumbprint,
+                            Certificate: Convert.ToBase64String(cert.RawData),
+                            Algorithm: cert.GetECDsaPublicKey() != null ? "ECDSA" : "RSA"));
+                    }
+                    catch { /* CKA_VALUE wasn't a parseable X.509 DER cert; skip it */ }
+                }
+            }
+        }
+        catch
+        {
+            // Module missing/unloadable, no token, etc. — return whatever was found so far.
+        }
+
+        return results;
     }
 
     /// <summary>
