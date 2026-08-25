@@ -77,7 +77,7 @@ class TrayApplication : ApplicationContext
 
     private void ShowStatus()
     {
-        var selectedSerial = ConfigurationManager.AppSettings["Token:SelectedCertificateSerial"];
+        var selectedSerial = AgentConfig.Get("Token:SelectedCertificateSerial");
         var certs = TokenSigner.ListCerts(selectedSerial);
         var msg = $"VMSignAgent\n" +
                   $"---------------------\n" +
@@ -89,7 +89,7 @@ class TrayApplication : ApplicationContext
 
     private void ShowCerts()
     {
-        var selectedSerial = ConfigurationManager.AppSettings["Token:SelectedCertificateSerial"];
+        var selectedSerial = AgentConfig.Get("Token:SelectedCertificateSerial");
         var certs = TokenSigner.ListCerts(selectedSerial);
         if (certs.Count == 0)
         {
@@ -120,7 +120,7 @@ class TrayApplication : ApplicationContext
 
     private bool PromptForEndUserSettingsIfNeeded()
     {
-        string Cfg(string key) => ConfigurationManager.AppSettings[key] ?? string.Empty;
+        string Cfg(string key) => AgentConfig.Get(key);
         var mqttEnabled = !string.IsNullOrWhiteSpace(Cfg("Mqtt:BrokerHost"));
         var missingEndUser = string.IsNullOrWhiteSpace(Cfg("EndUser:PhoneNumber")) ||
             string.IsNullOrWhiteSpace(Cfg("Token:Pin"));
@@ -138,7 +138,7 @@ class TrayApplication : ApplicationContext
 
         using var form = new SettingsForm(requireEndUser: true);
         form.ShowDialog();
-        ConfigurationManager.RefreshSection("appSettings");
+        AgentConfig.Reload();
 
         missingEndUser = string.IsNullOrWhiteSpace(Cfg("EndUser:PhoneNumber")) ||
             string.IsNullOrWhiteSpace(Cfg("Token:Pin"));
@@ -168,7 +168,7 @@ class TrayApplication : ApplicationContext
     {
         try
         {
-            string Cfg(string key) => ConfigurationManager.AppSettings[key] ?? string.Empty;
+            string Cfg(string key) => AgentConfig.Get(key);
             string? Opt(string key) { var v = Cfg(key); return string.IsNullOrWhiteSpace(v) ? null : v; }
             bool CfgBool(string key) => Cfg(key).Equals("true", StringComparison.OrdinalIgnoreCase);
 
@@ -265,7 +265,7 @@ class TrayApplication : ApplicationContext
 
     private static bool CfgBool(string key, bool defaultValue)
     {
-        var value = ConfigurationManager.AppSettings[key];
+        var value = AgentConfig.Get(key);
         return string.IsNullOrWhiteSpace(value)
             ? defaultValue
             : value.Equals("true", StringComparison.OrdinalIgnoreCase);

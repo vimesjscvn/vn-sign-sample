@@ -279,28 +279,25 @@ public sealed class SettingsForm : Form
                 return;
             }
 
-            var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-            var settings = config.AppSettings.Settings;
-
-            SetCfg(settings, "EndUser:PhoneNumber", txtEndUserPhoneNumber.Text.Trim());
-            SetCfg(settings, "Token:Pin", txtTokenPin.Text);
-            SetCfg(settings, "Token:SelectedCertificateSerial", (cboCertificates.SelectedItem as CertificateComboItem)?.Serial ?? string.Empty);
-            SetCfg(settings, "Ui:ShowSignSuccessToast", chkShowSignSuccessToast.Checked ? "true" : "false");
-            SetCfg(settings, "Port", txtPort.Text);
-            SetCfg(settings, "DiscoveryPort", txtDiscoveryPort.Text);
-            SetCfg(settings, "Mqtt:BrokerHost", txtMqttHost.Text);
-            SetCfg(settings, "Mqtt:BrokerPort", txtMqttPort.Text);
-            SetCfg(settings, "Mqtt:Username", txtMqttUsername.Text);
-            SetCfg(settings, "Mqtt:Password", txtMqttPassword.Text);
-            SetCfg(settings, "Mqtt:AgentId", txtMqttAgentId.Text);
-            SetCfg(settings, "Mqtt:UseTls", chkMqttUseTls.Checked ? "true" : "false");
-            SetCfg(settings, "Mqtt:CaCertPath", txtMqttCaCertPath.Text);
-            SetCfg(settings, "Mqtt:ClientPfxPath", txtMqttClientPfxPath.Text);
-            SetCfg(settings, "Mqtt:ClientPfxPassword", txtMqttClientPfxPassword.Text);
-            SetCfg(settings, "Mqtt:AllowUntrusted", chkMqttAllowUntrusted.Checked ? "true" : "false");
-
-            config.Save(ConfigurationSaveMode.Modified);
-            ConfigurationManager.RefreshSection("appSettings");
+            AgentConfig.Save(settings =>
+            {
+                SetCfg(settings, "EndUser:PhoneNumber", txtEndUserPhoneNumber.Text.Trim());
+                SetCfg(settings, "Token:Pin", txtTokenPin.Text);
+                SetCfg(settings, "Token:SelectedCertificateSerial", (cboCertificates.SelectedItem as CertificateComboItem)?.Serial ?? string.Empty);
+                SetCfg(settings, "Ui:ShowSignSuccessToast", chkShowSignSuccessToast.Checked ? "true" : "false");
+                SetCfg(settings, "Port", txtPort.Text);
+                SetCfg(settings, "DiscoveryPort", txtDiscoveryPort.Text);
+                SetCfg(settings, "Mqtt:BrokerHost", txtMqttHost.Text);
+                SetCfg(settings, "Mqtt:BrokerPort", txtMqttPort.Text);
+                SetCfg(settings, "Mqtt:Username", txtMqttUsername.Text);
+                SetCfg(settings, "Mqtt:Password", txtMqttPassword.Text);
+                SetCfg(settings, "Mqtt:AgentId", txtMqttAgentId.Text);
+                SetCfg(settings, "Mqtt:UseTls", chkMqttUseTls.Checked ? "true" : "false");
+                SetCfg(settings, "Mqtt:CaCertPath", txtMqttCaCertPath.Text);
+                SetCfg(settings, "Mqtt:ClientPfxPath", txtMqttClientPfxPath.Text);
+                SetCfg(settings, "Mqtt:ClientPfxPassword", txtMqttClientPfxPassword.Text);
+                SetCfg(settings, "Mqtt:AllowUntrusted", chkMqttAllowUntrusted.Checked ? "true" : "false");
+            });
 
             var result = MessageBox.Show(
                 "Settings saved successfully.\n\nRestart agent to apply changes?",
@@ -349,7 +346,7 @@ public sealed class SettingsForm : Form
 
     private static string Cfg(string key, string defaultValue)
     {
-        var v = ConfigurationManager.AppSettings[key];
+        var v = AgentConfig.Get(key);
         return string.IsNullOrEmpty(v) ? defaultValue : v;
     }
 
