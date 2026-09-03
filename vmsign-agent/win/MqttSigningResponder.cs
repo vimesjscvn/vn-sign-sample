@@ -37,6 +37,12 @@ public sealed class MqttSigningResponder
     private readonly string? _pkcs11ModulePath;
     private readonly Action<string?>? _onSignSuccess;
 
+    // How often the token is re-read to keep the retained presence honest — see
+    // RefreshPresenceLoopAsync. Nothing is published unless the certificate list changed.
+    private static readonly TimeSpan PresenceRefreshInterval = TimeSpan.FromSeconds(15);
+    private readonly SemaphoreSlim _presenceGate = new(1, 1);
+    private string? _publishedCerts;
+
     private string StatusTopic  => $"usbagent/{_agentId}/status";
     private string SignReqTopic => $"usbagent/{_agentId}/sign/req";
     private string SignResTopic => $"usbagent/{_agentId}/sign/res";
@@ -94,6 +100,10 @@ public sealed class MqttSigningResponder
 
         var options = BuildOptions();
 
+        // Dispatched through Task.Run for the same reason as the message handler above: the
+        // agent is hosted by a WinForms message loop, and the loop below blocks on the token.
+        var presenceRefresh = Task.Run(() => RefreshPresenceLoopAsync(client, ct));
+
         while (!ct.IsCancellationRequested)
         {
             try
@@ -106,6 +116,9 @@ public sealed class MqttSigningResponder
             try { await Task.Delay(TimeSpan.FromSeconds(5), ct); }
             catch (OperationCanceledException) { break; }
         }
+
+        // Let the refresh loop finish before the offline notice, so it cannot overwrite it.
+        try { await presenceRefresh; } catch { /* best effort */ }
 
         try
         {
@@ -142,22 +155,73 @@ public sealed class MqttSigningResponder
         return builder.Build();
     }
 
-    private async Task PublishPresenceAsync(IMqttClient client, bool online, CancellationToken ct)
+    /// <param name="onlyIfChanged">
+    /// Skip the publish when the certificate list is identical to the one already on the broker.
+    /// Used by the refresh loop; the connect and shutdown paths always publish.
+    /// </param>
+    private async Task PublishPresenceAsync(IMqttClient client, bool online, CancellationToken ct, bool onlyIfChanged = false)
     {
-        var certs = online
-            ? TokenSigner.ListCerts(_selectedCertificateSerial)
-                .Select(c => new PresenceCert(c.Serial, c.SubjectDN, c.Algorithm, c.Certificate))
-                .ToList()
-            : new List<PresenceCert>();
-        var payload = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
-            new MqttPresence("vmsign-agent", _agentId, Dns.GetHostName(),
-                _httpPort, online, _phoneNumber, certs, DateTimeOffset.UtcNow)));
-        await client.PublishAsync(new MqttApplicationMessageBuilder()
-            .WithTopic(StatusTopic)
-            .WithPayload(payload)
-            .WithRetainFlag(true)
-            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-            .Build(), ct);
+        await _presenceGate.WaitAsync(ct);
+        try
+        {
+            var certs = online
+                ? TokenSigner.ListCerts(_selectedCertificateSerial)
+                    .Select(c => new PresenceCert(c.Serial, c.SubjectDN, c.Algorithm, c.Certificate))
+                    .ToList()
+                : new List<PresenceCert>();
+
+            // Compared over the certificates alone — the presence timestamp changes every call.
+            // Ordered by serial because neither the Windows store nor PKCS#11 promises an order.
+            var fingerprint = online
+                ? JsonConvert.SerializeObject(certs.OrderBy(c => c.Serial, StringComparer.OrdinalIgnoreCase))
+                : null;
+            if (onlyIfChanged && fingerprint == _publishedCerts) return;
+
+            var payload = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
+                new MqttPresence("vmsign-agent", _agentId, Dns.GetHostName(),
+                    _httpPort, online, _phoneNumber, certs, DateTimeOffset.UtcNow)));
+            await client.PublishAsync(new MqttApplicationMessageBuilder()
+                .WithTopic(StatusTopic)
+                .WithPayload(payload)
+                .WithRetainFlag(true)
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build(), ct);
+
+            // Recorded only once the publish went out, so a failed one is retried next tick.
+            _publishedCerts = fingerprint;
+            if (onlyIfChanged)
+                Console.WriteLine($"[MQTT] Presence updated: {certs.Count} certificate(s)");
+        }
+        finally
+        {
+            _presenceGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Keeps the retained presence message in step with the token that is actually plugged in.
+    ///
+    /// Presence is published once on connect and is retained, so whatever was sent then stays on
+    /// the broker indefinitely. If the token was not readable at that moment — plugged in later,
+    /// or Windows' Certificate Propagation service had not caught up yet — an empty certificate
+    /// list sticks until the agent is restarted, and the app has no way to recover: the only
+    /// topics are sign/req|res, auth/req|res and +/status, so presence is its sole source of
+    /// certificates. Unplugging the token is the mirror problem, a list still advertised as
+    /// available. Re-published only on an actual change, so an idle agent stays silent.
+    /// </summary>
+    private async Task RefreshPresenceLoopAsync(IMqttClient client, CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try { await Task.Delay(PresenceRefreshInterval, ct); }
+            catch (OperationCanceledException) { break; }
+
+            if (!client.IsConnected) continue;
+
+            try { await PublishPresenceAsync(client, online: true, ct, onlyIfChanged: true); }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex) { Console.WriteLine($"[MQTT] Presence refresh failed: {ex.Message}"); }
+        }
     }
 
     private Task OnMqttMessageAsync(IMqttClient client, MqttApplicationMessageReceivedEventArgs e)
