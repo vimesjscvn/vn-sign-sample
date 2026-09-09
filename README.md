@@ -211,4 +211,4 @@ Mặc định cả hai app dùng gói NuGet `Vimes.SignSDK.*` đã publish. Mu�
 
 ## Phiên bản SDK
 
-Sử dụng [Vimes SignSDK](https://www.nuget.org/packages/Vimes.SignSDK/) `1.0.29` từ NuGet.org (nguồn: [tamnguyendev/vn-sign-sdk](https://github.com/tamnguyendev/vn-sign-sdk)).
+Sử dụng [Vimes SignSDK](https://www.nuget.org/packages/Vimes.SignSDK/) `1.0.29` từ NuGet.org
