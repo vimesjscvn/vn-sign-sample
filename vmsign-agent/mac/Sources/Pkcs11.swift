@@ -55,6 +55,11 @@ class Pkcs11 {
         try enumerateRawCerts(modulePath: modulePath).map { $0.1 }
     }
 
+    /// Every certificate on the token with its DER bytes, which `signDigest` needs.
+    static func listRawCerts(modulePath: String) throws -> [(Data, CertInfo)] {
+        try enumerateRawCerts(modulePath: modulePath)
+    }
+
     static func findCert(serial: String?, userName: String?, modulePath: String) throws -> (Data, CertInfo)? {
         let certs = try enumerateRawCerts(modulePath: modulePath)
 

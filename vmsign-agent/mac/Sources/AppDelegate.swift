@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var idleTimer: Timer?
     private var lastActivity = Date()
     private var settingsController = SettingsWindowController()
+    private lazy var signTestController = SignTestWindowController(config: config)
 
     init(config: AppConfig) {
         self.config = config
@@ -63,6 +64,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(refreshItem)
 
         menu.addItem(.separator())
+
+        let signTestItem = NSMenuItem(title: "🧪 Test Sign PDF...", action: #selector(openSignTest), keyEquivalent: "t")
+        signTestItem.target = self
+        menu.addItem(signTestItem)
 
         let settingsItem = NSMenuItem(title: "⚙ Settings...", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -131,6 +136,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func openSettings() {
         settingsController.show()
+    }
+
+    @objc func openSignTest() {
+        signTestController.show()
     }
 
     @objc func quit() {

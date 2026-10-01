@@ -10,6 +10,11 @@ Agent chạy nền trên thanh menu macOS, cung cấp HTTP API để ký số qu
 - **UDP Discovery** — tự phát hiện agent trên mạng LAN
 - **Menu bar** — chạy nền, không Dock icon
 - **Cửa sổ cài đặt** — cấu hình MQTT, PIN, PKCS#11 module, phone number
+- **Ký thử (Test Sign PDF)** — menu bar → 🧪 Test Sign PDF: ký thử token, đăng nhập API, server → MQTT → agent, rồi ký một PDF mẫu qua server; báo khâu nào hỏng (giống bản Windows, xem `../win/README.md`)
+
+## Ký thử
+
+Cần `SignApi.BaseUrl` (Settings → Signing Server → API URL), `EndUser.PhoneNumber`, MQTT, và PIN qua biến môi trường `TOKEN__PIN`. Lấy chứng thư ký đầu tiên trên token (bỏ qua chứng thư CA). File đã ký lưu ở `~/Library/Application Support/VMSignAgent/test-signed/` (không dùng `~/Documents` để khỏi bật hộp thoại xin quyền) và tự mở. Mỗi lần ký thử tạo một dòng log ký thật trên server, `trans_id` bắt đầu bằng `VMSIGN-TEST-`.
 
 ## Yêu cầu
 
@@ -55,6 +60,9 @@ File `Resources/appsettings.json` (hoặc copy sang `~/.config/vimes-sign/`):
   "EndUser": {
     "PhoneNumber": "0912345678"
   },
+  "SignApi": {
+    "BaseUrl": "http://10.0.0.5:8081"
+  },
   "Mqtt": {
     "BrokerHost": "mqtt.example.com",
     "BrokerPort": 8883,
@@ -76,6 +84,9 @@ vmsign-agent/mac/
 │   ├── MqttClient.swift       # MQTT transport
 │   ├── UdpDiscovery.swift     # UDP broadcast discovery
 │   ├── SettingsWindow.swift   # Cửa sổ cài đặt
+│   ├── SignTest.swift         # Ký thử: token → API → MQTT → PDF đã ký
+│   ├── SignTestWindow.swift   # Cửa sổ ký thử
+│   ├── SamplePdf.swift        # PDF mẫu một trang gửi khi ký thử
 │   └── AppConfig.swift        # Đọc/ghi config
 ├── CPkcs11/                   # C bridge header cho PKCS#11
 ├── Resources/

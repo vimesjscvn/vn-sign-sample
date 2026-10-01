@@ -32,6 +32,7 @@ struct SettingsView: View {
     @State private var discoveryPort: String = "9998"
     @State private var idleTimeout: String = "0"
     @State private var endUserPhone: String = ""
+    @State private var signApiUrl: String = ""
 
     @State private var mqttEnabled: Bool = false
     @State private var mqttHost: String = ""
@@ -74,6 +75,21 @@ struct SettingsView: View {
                             TextField("0912345678", text: $endUserPhone)
                             Spacer()
                         }
+                    }
+                    .padding(.top, 4)
+                }
+
+                // Signing server section
+                GroupBox(label: Text("Signing Server (for Test Sign)").fontWeight(.semibold)) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("API URL:").frame(width: 120, alignment: .trailing)
+                            TextField("http://10.0.0.5:8081", text: $signApiUrl)
+                        }
+                        Text("The address the hospital software signs through.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 128)
                     }
                     .padding(.top, 4)
                 }
@@ -165,6 +181,10 @@ struct SettingsView: View {
             endUserPhone = endUser["PhoneNumber"] as? String ?? ""
         }
 
+        if let signApi = json["SignApi"] as? [String: Any] {
+            signApiUrl = signApi["BaseUrl"] as? String ?? ""
+        }
+
         if let mqtt = json["Mqtt"] as? [String: Any] {
             let host = mqtt["BrokerHost"] as? String ?? ""
             mqttEnabled = !host.isEmpty
@@ -181,6 +201,12 @@ struct SettingsView: View {
     }
 
     private func save() {
+        let apiUrl = signApiUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !apiUrl.isEmpty && SignTestRunner.normalizeApiUrl(apiUrl) == nil {
+            statusMessage = "❌ API URL must start with http:// or https://, e.g. http://10.0.0.5:8081"
+            return
+        }
+
         let json: [String: Any] = [
             "Port": Int(port) ?? 9999,
             "DiscoveryPort": Int(discoveryPort) ?? 9998,
@@ -191,6 +217,9 @@ struct SettingsView: View {
             ] as [String: Any],
             "EndUser": [
                 "PhoneNumber": endUserPhone,
+            ] as [String: Any],
+            "SignApi": [
+                "BaseUrl": apiUrl,
             ] as [String: Any],
             "Mqtt": [
                 "BrokerHost": mqttEnabled ? mqttHost : "",
