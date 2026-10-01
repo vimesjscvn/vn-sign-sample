@@ -71,6 +71,7 @@ class TrayApplication : ApplicationContext
         var menu = new ContextMenuStrip();
         menu.Items.Add("Status", null, (_, __) => ShowStatus());
         menu.Items.Add("Certificates", null, (_, __) => ShowCerts());
+        menu.Items.Add("Test Sign PDF...", null, (_, __) => ShowSignTest());
         menu.Items.Add("Settings", null, (_, __) => ShowSettings());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, __) => ExitApp());
@@ -118,6 +119,12 @@ class TrayApplication : ApplicationContext
     private void ShowSettings()
     {
         var form = new SettingsForm();
+        form.ShowDialog();
+    }
+
+    private void ShowSignTest()
+    {
+        using var form = new SignTestForm(() => _mqttConnected);
         form.ShowDialog();
     }
 

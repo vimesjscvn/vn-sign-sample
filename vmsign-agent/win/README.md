@@ -63,6 +63,21 @@ For SignSDK USB API over MQTT, call with `mid = USB`, `user_name = EndUser:Phone
 
 To check the broker link: **Settings → Test Connection** tries the values on screen (before saving). While running, the tray tooltip shows `MQTT connected` / `MQTT disconnected`, a balloon pops up when the link comes up, fails or drops, and **Status** shows the last reason (e.g. `Broker refused the connection: NotAuthorized`).
 
+## Ký thử (Test Sign PDF)
+
+Tray menu → **Test Sign PDF...** ký một PDF mẫu đúng như phần mềm bệnh viện ký, và báo khâu nào hỏng:
+
+| Bước | Kiểm tra | Hỏng thường là |
+|------|----------|----------------|
+| 1/4 USB token | ký một digest ngẫu nhiên ngay trên máy rồi verify bằng chứng thư | sai PIN, token chưa cắm, chọn nhầm chứng thư |
+| 2/4 Signing server | `POST /api/v1/Signature/login` (mid=USB) | sai API URL, máy không tới được server |
+| 3/4 Server → MQTT → agent | `credentials/list`: server tìm agent theo SĐT qua broker, kiểm tra SĐT+PIN | server không tới broker, agent và server khác broker, sai SĐT |
+| 4/4 Sign | `sign/multi` với PDF mẫu, server gửi hash về chính agent này qua MQTT | lỗi phía server khi đính chữ ký |
+
+Cần điền **Settings → Signing Server → API URL** (địa chỉ phần mềm bệnh viện ký qua; dán cả dạng `.../api/v1/Signature` cũng được). SĐT, PIN, chứng thư lấy từ Settings đã lưu — đổi xong phải restart agent thì phần MQTT mới dùng giá trị mới. Nếu bước 1 báo sai PIN thì dừng ngay, không gửi lên server, để không tốn thêm một lần thử PIN của token.
+
+File đã ký lưu ở `Documents\VMSignAgent\test-signed-<giờ>.pdf` và tự mở ra. Mỗi lần ký thử tạo một dòng log ký thật trên server, `trans_id` bắt đầu bằng `VMSIGN-TEST-`.
+
 For USB token signing, install the token vendor driver normally. If you need to ship a local driver DLL for testing, place `bit4xpki.dll` beside `VMSignAgent.exe`; the app will use that local DLL first, then fall back to `C:\Windows\System32\bit4xpki.dll`. Do not commit this vendor DLL to git.
 
 ## Cấu trúc
@@ -75,6 +90,9 @@ vmsign-agent/win/
 ├── Pkcs11Signer.cs            # PKCS#11 wrapper (Pkcs11Interop)
 ├── MqttSigningResponder.cs    # MQTT transport
 ├── MqttTlsConfig.cs           # MQTT TLS configuration
+├── SignTest.cs                # Test Sign: token → API → MQTT → signed PDF
+├── SignTestForm.cs            # Test Sign window
+├── SamplePdf.cs               # one-page PDF sent by Test Sign
 ├── app.config                 # Cấu hình
 └── installer/setup.iss        # InnoSetup script
 ```
