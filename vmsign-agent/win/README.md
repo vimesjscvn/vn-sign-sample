@@ -61,6 +61,8 @@ File `app.config`:
 
 For SignSDK USB API over MQTT, call with `mid = USB`, `user_name = EndUser:PhoneNumber`, and `password = Token:Pin`. Leave MQTT username/password blank when the broker allows anonymous connections.
 
+To check the broker link: **Settings → Test Connection** tries the values on screen (before saving). While running, the tray tooltip shows `MQTT connected` / `MQTT disconnected`, a balloon pops up when the link comes up, fails or drops, and **Status** shows the last reason (e.g. `Broker refused the connection: NotAuthorized`).
+
 For USB token signing, install the token vendor driver normally. If you need to ship a local driver DLL for testing, place `bit4xpki.dll` beside `VMSignAgent.exe`; the app will use that local DLL first, then fall back to `C:\Windows\System32\bit4xpki.dll`. Do not commit this vendor DLL to git.
 
 ## Cấu trúc

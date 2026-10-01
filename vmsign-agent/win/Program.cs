@@ -39,6 +39,8 @@ class TrayApplication : ApplicationContext
     private HttpListener? _listener;
     private string _status = "Starting...";
     private int _signCount = 0;
+    private string? _mqttStatus;     // null when MQTT is not configured
+    private bool? _mqttConnected;    // null until the first connect attempt settles
 
     public TrayApplication()
     {
@@ -82,6 +84,7 @@ class TrayApplication : ApplicationContext
         var msg = $"VMSignAgent\n" +
                   $"---------------------\n" +
                   $"Status: {_status}\n" +
+                  (_mqttStatus == null ? "" : $"MQTT: {_mqttStatus}\n") +
                   $"Certificates: {certs.Count}\n" +
                   $"Signs completed: {_signCount}\n";
         MessageBox.Show(msg, "VMSignAgent", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -206,12 +209,14 @@ class TrayApplication : ApplicationContext
                     ClientPfxPassword = Opt("Mqtt:ClientPfxPassword"),
                     AllowUntrusted = CfgBool("Mqtt:AllowUntrusted"),
                 };
+                _mqttStatus = $"Connecting to {mqttHost}:{mqttPort}...";
                 var mqtt = new MqttSigningResponder(
                     mqttHost, mqttPort,
                     Opt("Mqtt:Username"), Opt("Mqtt:Password"),
                     tls.UseTls,
                     Opt("Mqtt:AgentId") ?? Dns.GetHostName(),
-                    port, tls, tokenPin, endUserPhoneNumber, selectedCertificateSerial, pkcs11Mod, NotifySignSuccess);
+                    port, tls, tokenPin, endUserPhoneNumber, selectedCertificateSerial, pkcs11Mod, NotifySignSuccess,
+                    OnMqttConnectionChanged);
                 _tasks.Add(mqtt.RunAsync(_cts.Token));
                 statusParts.Add($"MQTT {mqttHost}:{mqttPort}");
             }
@@ -231,14 +236,35 @@ class TrayApplication : ApplicationContext
     private void UpdateStatus(string status)
     {
         _status = status;
-        if (_trayIcon != null)
-        {
-            try
-            {
-                _trayIcon.Text = $"VMSignAgent: {(status.Length > 48 ? status.Substring(0, 48) + "..." : status)}";
-            }
-            catch { }
-        }
+        RefreshTrayText();
+    }
+
+    private void OnMqttConnectionChanged(bool connected, string detail)
+    {
+        var wasConnected = _mqttConnected;
+        _mqttConnected = connected;
+        _mqttStatus = connected ? detail : $"Not connected - {detail}";
+        RefreshTrayText();
+
+        // Balloon only on a change: the agent retries every 5s, and a broker that stays
+        // unreachable would otherwise pop a balloon on every attempt.
+        if (wasConnected == connected) return;
+        if (connected)
+            ShowBalloon("MQTT connected", detail, ToolTipIcon.Info);
+        else
+            ShowBalloon(wasConnected == true ? "MQTT connection lost" : "MQTT connect failed", detail, ToolTipIcon.Warning);
+    }
+
+    private void RefreshTrayText()
+    {
+        // With MQTT configured, the broker link is what users need to see at a glance.
+        var text = _mqttStatus == null
+            ? $"VMSignAgent: {_status}"
+            : $"VMSignAgent - MQTT {(_mqttConnected switch { true => "connected", false => "disconnected", null => "connecting..." })}";
+        // NotifyIcon.Text throws past 63 characters on .NET Framework.
+        if (text.Length > 63) text = text.Substring(0, 60) + "...";
+        try { _trayIcon.Text = text; }
+        catch { }
     }
 
     private void ShowBalloon(string title, string text, ToolTipIcon icon)

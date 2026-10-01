@@ -6,8 +6,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MQTTnet;
+using MQTTnet.Adapter;
 using MQTTnet.Client;
 using MQTTnet.Client.Options;
+using MQTTnet.Exceptions;
 using MQTTnet.Protocol;
 using Newtonsoft.Json;
 
@@ -37,6 +39,10 @@ public sealed class MqttSigningResponder
     private readonly string? _pkcs11ModulePath;
     private readonly Action<string?>? _onSignSuccess;
 
+    // (connected, detail). The agent is a WinExe, so Console output goes nowhere — this is the
+    // only way the tray learns whether the broker link is actually up.
+    private readonly Action<bool, string>? _onConnectionChanged;
+
     // How often the token is re-read to keep the retained presence honest — see
     // RefreshPresenceLoopAsync. Nothing is published unless the certificate list changed.
     private static readonly TimeSpan PresenceRefreshInterval = TimeSpan.FromSeconds(15);
@@ -50,7 +56,8 @@ public sealed class MqttSigningResponder
     private string AuthResTopic => $"usbagent/{_agentId}/auth/res";
 
     public MqttSigningResponder(string brokerHost, int brokerPort, string? username, string? password,
-        bool useTls, string agentId, int httpPort, MqttTlsConfig? tls = null, string? tokenPin = null, string? phoneNumber = null, string? selectedCertificateSerial = null, string? pkcs11ModulePath = null, Action<string?>? onSignSuccess = null)
+        bool useTls, string agentId, int httpPort, MqttTlsConfig? tls = null, string? tokenPin = null, string? phoneNumber = null, string? selectedCertificateSerial = null, string? pkcs11ModulePath = null, Action<string?>? onSignSuccess = null,
+        Action<bool, string>? onConnectionChanged = null)
     {
         _brokerHost = brokerHost;
         _brokerPort = brokerPort;
@@ -64,6 +71,7 @@ public sealed class MqttSigningResponder
         _selectedCertificateSerial = selectedCertificateSerial;
         _pkcs11ModulePath = pkcs11ModulePath;
         _onSignSuccess = onSignSuccess;
+        _onConnectionChanged = onConnectionChanged;
     }
 
     public async Task RunAsync(CancellationToken ct)
@@ -77,23 +85,37 @@ public sealed class MqttSigningResponder
         client.UseConnectedHandler(async _ =>
         {
             Console.WriteLine($"[MQTT] Connected to {_brokerHost}:{_brokerPort} as '{_agentId}'");
-            await PublishPresenceAsync(client, online: true, CancellationToken.None);
-            await client.SubscribeAsync(
-                new MqttTopicFilterBuilder()
-                    .WithTopic(SignReqTopic)
-                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                    .Build());
-            await client.SubscribeAsync(
-                new MqttTopicFilterBuilder()
-                    .WithTopic(AuthReqTopic)
-                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                    .Build());
+            try
+            {
+                await PublishPresenceAsync(client, online: true, CancellationToken.None);
+                await client.SubscribeAsync(
+                    new MqttTopicFilterBuilder()
+                        .WithTopic(SignReqTopic)
+                        .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                        .Build());
+                await client.SubscribeAsync(
+                    new MqttTopicFilterBuilder()
+                        .WithTopic(AuthReqTopic)
+                        .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                        .Build());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MQTT] Setup after connect failed: {ex.Message}");
+                _onConnectionChanged?.Invoke(false, $"Connected, but setup failed: {ex.Message}");
+                return;
+            }
             Console.WriteLine($"[MQTT] Subscribed to {SignReqTopic}");
             Console.WriteLine($"[MQTT] Subscribed to {AuthReqTopic}");
+            _onConnectionChanged?.Invoke(true, $"Connected to {_brokerHost}:{_brokerPort}");
         });
 
-        client.UseDisconnectedHandler(async _ =>
+        client.UseDisconnectedHandler(async e =>
         {
+            // Only a drop of an established link is reported here; failed attempts are
+            // reported by the connect loop below, and shutdown is not a failure.
+            if (e.ClientWasConnected && !ct.IsCancellationRequested)
+                _onConnectionChanged?.Invoke(false, $"Connection lost: {e.Exception?.GetBaseException().Message ?? e.Reason.ToString()}");
             Console.WriteLine("[MQTT] Disconnected; reconnecting in 5s...");
             await Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None);
         });
@@ -112,7 +134,12 @@ public sealed class MqttSigningResponder
                     await client.ConnectAsync(options, ct);
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Console.WriteLine($"[MQTT] Connect failed: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                var reason = DescribeConnectFailure(ex);
+                Console.WriteLine($"[MQTT] Connect failed: {reason}");
+                _onConnectionChanged?.Invoke(false, reason);
+            }
             try { await Task.Delay(TimeSpan.FromSeconds(5), ct); }
             catch (OperationCanceledException) { break; }
         }
@@ -128,31 +155,73 @@ public sealed class MqttSigningResponder
         catch { /* best effort */ }
     }
 
+    /// <summary>
+    /// One-off connect and disconnect against a broker, for the Settings form's Test button.
+    /// Sends no Last-Will and no presence, so it leaves a running agent's status topic alone.
+    /// </summary>
+    /// <returns>null when the broker accepted the connection, otherwise the reason it did not.</returns>
+    public static async Task<string?> TestConnectionAsync(string host, int port, string? username, string? password,
+        MqttTlsConfig tls, TimeSpan timeout)
+    {
+        using var client = new MqttFactory().CreateMqttClient();
+        using var cts = new CancellationTokenSource(timeout);
+        try
+        {
+            var options = CreateOptionsBuilder(host, port, username, password, tls, $"usbagent-test-{Guid.NewGuid():N}")
+                .WithCommunicationTimeout(timeout)
+                .Build();
+            await client.ConnectAsync(options, cts.Token);
+            await client.DisconnectAsync();
+            return null;
+        }
+        catch (OperationCanceledException) { return $"Timed out after {timeout.TotalSeconds:0}s"; }
+        catch (Exception ex) { return DescribeConnectFailure(ex); }
+    }
+
+    private static string DescribeConnectFailure(Exception ex)
+    {
+        if (ex is MqttConnectingFailedException refused)
+            return $"Broker refused the connection: {refused.ResultCode}";
+        if (ex is MqttCommunicationTimedOutException)
+            return "Timed out waiting for the broker";
+
+        // MQTTnet wraps socket and TLS errors; the outer message alone rarely says what went wrong.
+        var inner = ex.GetBaseException();
+        return inner == ex ? ex.Message : $"{ex.Message} ({inner.Message})";
+    }
+
     private IMqttClientOptions BuildOptions()
     {
         var offline = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
             new MqttPresence("vmsign-agent", _agentId, Dns.GetHostName(), _httpPort, false,
                 _phoneNumber, new List<PresenceCert>(), DateTimeOffset.UtcNow)));
 
-        var builder = new MqttClientOptionsBuilder()
-            .WithClientId($"usbagent-{_agentId}-{Guid.NewGuid():N}")
-            .WithTcpServer(_brokerHost, _brokerPort)
-            .WithCleanSession(true);
-
-        if (!string.IsNullOrWhiteSpace(_username))
-        {
-            builder.WithCredentials(_username, _password ?? string.Empty);
-        }
-
-        builder.WithWillMessage(new MqttApplicationMessageBuilder()
+        return CreateOptionsBuilder(_brokerHost, _brokerPort, _username, _password, _tls,
+                $"usbagent-{_agentId}-{Guid.NewGuid():N}")
+            .WithWillMessage(new MqttApplicationMessageBuilder()
                 .WithTopic(StatusTopic)
                 .WithPayload(offline)
                 .WithRetainFlag(true)
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                .Build());
+                .Build())
+            .Build();
+    }
 
-        _tls.Apply(builder);
-        return builder.Build();
+    private static MqttClientOptionsBuilder CreateOptionsBuilder(string host, int port, string? username, string? password,
+        MqttTlsConfig tls, string clientId)
+    {
+        var builder = new MqttClientOptionsBuilder()
+            .WithClientId(clientId)
+            .WithTcpServer(host, port)
+            .WithCleanSession(true);
+
+        if (!string.IsNullOrWhiteSpace(username))
+        {
+            builder.WithCredentials(username!, password ?? string.Empty);
+        }
+
+        tls.Apply(builder);
+        return builder;
     }
 
     /// <param name="onlyIfChanged">

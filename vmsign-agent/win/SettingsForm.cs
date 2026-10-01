@@ -133,6 +133,16 @@ public sealed class SettingsForm : Form
         chkMqttUseTls = new CheckBox { Text = "Use TLS", Location = new Point(120, y), AutoSize = true };
         chkMqttUseTls.CheckedChanged += (_, __) => UpdateTlsFieldsVisibility();
         panel.Controls.Add(chkMqttUseTls);
+
+        var btnTestMqtt = new Button
+        {
+            Text = "Test Connection",
+            Size = new Size(120, 26),
+            Location = new Point(360, y - 3),
+            FlatStyle = FlatStyle.Flat,
+        };
+        btnTestMqtt.Click += BtnTestMqtt_Click;
+        panel.Controls.Add(btnTestMqtt);
         y += 25;
 
         tlsPanel = new Panel
@@ -318,6 +328,58 @@ public sealed class SettingsForm : Form
             MessageBox.Show($"Failed to save settings:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
+
+    private async void BtnTestMqtt_Click(object? sender, EventArgs e)
+    {
+        var host = txtMqttHost.Text.Trim();
+        if (string.IsNullOrEmpty(host))
+        {
+            MessageBox.Show("Enter the broker host first.", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            txtMqttHost.Focus();
+            return;
+        }
+
+        if (!int.TryParse(txtMqttPort.Text.Trim(), out var port) || port < 1 || port > 65535)
+        {
+            MessageBox.Show("Broker port must be a number between 1 and 65535.", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            txtMqttPort.Focus();
+            return;
+        }
+
+        // Tests what is on screen rather than what is saved, so a value can be checked before Save.
+        var tls = new MqttTlsConfig
+        {
+            UseTls = chkMqttUseTls.Checked,
+            CaCertPath = NullIfBlank(txtMqttCaCertPath.Text),
+            ClientPfxPath = NullIfBlank(txtMqttClientPfxPath.Text),
+            ClientPfxPassword = NullIfBlank(txtMqttClientPfxPassword.Text),
+            AllowUntrusted = chkMqttAllowUntrusted.Checked,
+        };
+
+        var button = (Button)sender!;
+        button.Enabled = false;
+        button.Text = "Testing...";
+        UseWaitCursor = true;
+        string? error;
+        try
+        {
+            error = await MqttSigningResponder.TestConnectionAsync(host, port,
+                txtMqttUsername.Text, txtMqttPassword.Text, tls, TimeSpan.FromSeconds(10));
+        }
+        finally
+        {
+            button.Enabled = true;
+            button.Text = "Test Connection";
+            UseWaitCursor = false;
+        }
+
+        if (error == null)
+            MessageBox.Show($"Connected to {host}:{port} successfully.", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        else
+            MessageBox.Show($"Cannot connect to {host}:{port}.\n\n{error}", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+
+    private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private bool ValidateEndUserSettings()
     {
