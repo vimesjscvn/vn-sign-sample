@@ -278,9 +278,18 @@ final class SignTestRunner {
         finished.wait()
 
         if let error = reply.error {
-            if (error as? URLError)?.code == .timedOut {
+            let code = (error as? URLError)?.code
+            if code == .timedOut {
                 throw SignTestError("no answer from \(address) within \(Int(SignTestRunner.timeout))s",
                     hint: "The server may be waiting on the MQTT broker or on this agent. Check the agent's MQTT connection.")
+            }
+            // App Transport Security refuses plain http through URLSession unless the app's
+            // Info.plist allows it, as the release builds' Info.plist does. Reported as "cannot
+            // reach" below, this would send people to check a URL that is fine.
+            if code == .appTransportSecurityRequiresSecureConnection {
+                throw SignTestError("macOS refused plain http to \(address) (App Transport Security)",
+                    hint: "This copy of the agent has no Info.plist entry allowing http (NSAllowsArbitraryLoads) - "
+                        + "a binary run straight from .build has none. Install the release .pkg, or use an https:// API URL.")
             }
             throw SignTestError("cannot reach \(address): \(error.localizedDescription)",
                 hint: "Check Settings > Signing Server > API URL and that this Mac can reach the server.")

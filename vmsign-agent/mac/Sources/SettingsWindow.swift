@@ -46,6 +46,7 @@ struct SettingsView: View {
     @State private var mqttAllowUntrusted: Bool = false
 
     @State private var statusMessage: String = ""
+    @State private var mqttTesting: Bool = false
 
     var body: some View {
         ScrollView {
@@ -139,6 +140,23 @@ struct SettingsView: View {
                                 }
                                 Toggle("Allow Untrusted (⚠ insecure)", isOn: $mqttAllowUntrusted)
                             }
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                Divider()
+                                HStack {
+                                    Button(action: { testMqttConnection() }) {
+                                        Text(mqttTesting ? "Testing..." : "Test Connection")
+                                    }
+                                    .disabled(mqttTesting)
+                                    if mqttTesting {
+                                        ProgressView().controlSize(.small)
+                                    }
+                                    Spacer()
+                                }
+                                Text("Connects once with the values above, without saving them.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                     .padding(.top, 4)
@@ -206,6 +224,8 @@ struct SettingsView: View {
             statusMessage = "❌ API URL must start with http:// or https://, e.g. http://10.0.0.5:8081"
             return
         }
+        // Trimmed as Test Connection trims it, so the host that tested fine is the host saved.
+        let brokerHost = mqttEnabled ? mqttHost.trimmingCharacters(in: .whitespacesAndNewlines) : ""
 
         let json: [String: Any] = [
             "Port": Int(port) ?? 9999,
@@ -222,7 +242,7 @@ struct SettingsView: View {
                 "BaseUrl": apiUrl,
             ] as [String: Any],
             "Mqtt": [
-                "BrokerHost": mqttEnabled ? mqttHost : "",
+                "BrokerHost": brokerHost,
                 "BrokerPort": Int(mqttPort) ?? 8883,
                 "Username": mqttUsername,
                 "Password": mqttPassword,
@@ -251,6 +271,44 @@ struct SettingsView: View {
             }
         } catch {
             statusMessage = "❌ Save failed: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - MQTT Test
+
+    /// Test Connection: one connect and disconnect with the values on screen, so they can be
+    /// checked before Save & Restart. CA Cert, Client PFX and Allow Untrusted are left out
+    /// because the agent does not use them for its own connection either.
+    private func testMqttConnection() {
+        let brokerHost = mqttHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !brokerHost.isEmpty else {
+            statusMessage = "❌ Enter the broker host first."
+            return
+        }
+        // Parsed the way save() parses it, so the port that tested fine is the port saved.
+        guard let brokerPort = Int(mqttPort), brokerPort >= 1 && brokerPort <= 65535 else {
+            statusMessage = "❌ Broker port must be a number between 1 and 65535."
+            return
+        }
+        let username = mqttUsername
+        let password = mqttPassword
+        let useTls = mqttUseTls
+
+        mqttTesting = true
+        statusMessage = ""
+        // Blocking socket I/O - up to 10s to connect plus 10s for CONNACK - so off the main thread.
+        DispatchQueue.global(qos: .userInitiated).async {
+            let failure = MqttSigningResponder.testConnection(host: brokerHost, port: brokerPort,
+                                                              username: username, password: password,
+                                                              useTls: useTls)
+            DispatchQueue.main.async {
+                mqttTesting = false
+                if let reason = failure {
+                    statusMessage = "❌ MQTT test failed: \(reason)"
+                } else {
+                    statusMessage = "✅ Connected to \(brokerHost):\(brokerPort)."
+                }
+            }
         }
     }
 

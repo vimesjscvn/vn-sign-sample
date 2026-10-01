@@ -2,19 +2,33 @@ import AppKit
 import SwiftUI
 
 /// Window for Test Sign (menu bar). Runs `SignTestRunner` as soon as it opens and shows each
-/// step as it finishes. A fresh window each time, so reopening it always runs a new test.
+/// step as it finishes. A fresh window each time, so reopening it always runs a new test - unless
+/// the last run is still going, in which case its window comes back instead.
 class SignTestWindowController {
     private let config: AppConfig
     private var window: NSWindow?
+    private var model: SignTestModel?
 
     init(config: AppConfig) {
         self.config = config
     }
 
     func show() {
+        // A run cannot be stopped, so a new one would go alongside it: a second login to the
+        // token - a wrong PIN then costs two of its few retries - and two threads loading and
+        // finalising the same PKCS#11 module at once. Step 4 can take two minutes, plenty of time
+        // to lose the window behind another and pick Test Sign again. The Windows agent is safe
+        // because its Test Sign window is modal.
+        if let window = window, model?.running == true {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
         window?.close()
 
-        let view = SignTestView(model: SignTestModel(config: config))
+        let testModel = SignTestModel(config: config)
+        model = testModel
+        let view = SignTestView(model: testModel)
         let win = NSWindow(contentViewController: NSHostingController(rootView: view))
         win.title = "USB Token Agent — Test Sign PDF"
         win.setContentSize(NSSize(width: 640, height: 440))
@@ -64,7 +78,8 @@ final class SignTestModel: ObservableObject {
 }
 
 struct SignTestView: View {
-    @StateObject var model: SignTestModel
+    // Owned by SignTestWindowController, which needs to see whether a run is still going.
+    @ObservedObject var model: SignTestModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
