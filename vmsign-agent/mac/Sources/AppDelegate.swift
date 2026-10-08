@@ -4,12 +4,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let config: AppConfig
     private var statusItem: NSStatusItem!
     private var certsMenuItem: NSMenuItem!
+    private var mqttMenuItem: NSMenuItem?  // nil when MQTT is not configured
+    private var mqttConnected: Bool?       // nil until the first connect attempt settles
+    private var mqttDetail = ""
     private var httpServer: HttpServer!
     private var udpDiscovery: UdpDiscovery!
     private var mqttResponder: MqttSigningResponder?
     private var idleTimer: Timer?
     private var lastActivity = Date()
     private var settingsController = SettingsWindowController()
+    private lazy var signTestController = SignTestWindowController(config: config)
+
+    private var mqttConfigured: Bool {
+        return !(config.mqttBrokerHost ?? "").isEmpty
+    }
 
     init(config: AppConfig) {
         self.config = config
@@ -39,18 +47,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-
-        if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "USB Token Agent")
-            button.image?.size = NSSize(width: 18, height: 18)
-            button.image?.isTemplate = true // Adapts to dark/light menu bar
-        }
+        setStatusImage(linkDown: false)
 
         let menu = NSMenu()
 
         let statusItem = NSMenuItem(title: "✅ Running on port \(config.port)", action: nil, keyEquivalent: "")
         statusItem.isEnabled = false
         menu.addItem(statusItem)
+
+        if mqttConfigured {
+            let mqttItem = NSMenuItem(title: "MQTT: connecting...", action: nil, keyEquivalent: "")
+            mqttItem.isEnabled = false
+            menu.addItem(mqttItem)
+            mqttMenuItem = mqttItem
+            refreshMqttStatus()
+        }
 
         menu.addItem(.separator())
 
@@ -63,6 +74,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(refreshItem)
 
         menu.addItem(.separator())
+
+        let signTestItem = NSMenuItem(title: "🧪 Test Sign PDF...", action: #selector(openSignTest), keyEquivalent: "t")
+        signTestItem.target = self
+        menu.addItem(signTestItem)
 
         let settingsItem = NSMenuItem(title: "⚙ Settings...", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -77,6 +92,57 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusItem.menu = menu
     }
 
+    private func setStatusImage(linkDown: Bool) {
+        guard let button = statusItem.button else { return }
+        let symbol = linkDown ? "lock.slash" : "lock.fill"
+        let label = linkDown ? "USB Token Agent - MQTT not connected" : "USB Token Agent"
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
+        button.image?.size = NSSize(width: 18, height: 18)
+        button.image?.isTemplate = true // Adapts to dark/light menu bar
+    }
+
+    // MARK: - MQTT Status
+
+    /// Called by the MQTT responder, on the main queue, when the broker link comes up, fails to
+    /// come up or drops. Only changes arrive: a broker that stays down is not re-reported on
+    /// every retry.
+    func mqttConnectionChanged(connected: Bool, detail: String) {
+        mqttConnected = connected
+        mqttDetail = detail
+        refreshMqttStatus()
+    }
+
+    private func refreshMqttStatus() {
+        guard let item = mqttMenuItem else { return }
+        let text: String
+        let summary: String
+        if mqttConnected == true {
+            text = mqttDetail
+            summary = "connected"
+        } else if mqttConnected == false {
+            text = "not connected - \(mqttDetail)"
+            summary = "disconnected"
+        } else {
+            text = "connecting..."
+            summary = "connecting..."
+        }
+
+        // The reasons MqttClient composes stay under 200 characters even with a long host name,
+        // hint included; an unexpected system message could stretch the menu across the screen,
+        // so it is cut and the full text stays in the item's tooltip.
+        if text.count > 200 {
+            item.title = "MQTT: \(text.prefix(197))..."
+            item.toolTip = text
+        } else {
+            item.title = "MQTT: \(text)"
+            item.toolTip = nil
+        }
+
+        // A dead link shows in the menu bar itself, before anyone opens the menu.
+        setStatusImage(linkDown: mqttConnected == false)
+        statusItem.button?.toolTip = "USB Token Agent - MQTT \(summary)"
+    }
+
     // MARK: - Services
 
     private func startServices() {
@@ -87,7 +153,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         udpDiscovery.start()
 
         // MQTT (if configured)
-        if config.mqttBrokerHost != nil && !config.mqttBrokerHost!.isEmpty {
+        if mqttConfigured {
             mqttResponder = MqttSigningResponder(config: config, delegate: self)
             mqttResponder?.start()
             print("[USB Agent] MQTT  \(config.mqttBrokerHost!):\(config.mqttBrokerPort)")
@@ -131,6 +197,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func openSettings() {
         settingsController.show()
+    }
+
+    @objc func openSignTest() {
+        signTestController.show()
     }
 
     @objc func quit() {

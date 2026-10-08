@@ -106,7 +106,15 @@ jobs:
             cp -R Resources/pkcs11 "$APP_DIR/Contents/Resources/"
           fi
 
-          # Create Info.plist
+          # Create Info.plist. Keep it in step with the VMSignAgent copy in build-sign-app.yml.
+          # NSAllowsArbitraryLoads: Test Sign calls the signing server through URLSession, and App
+          # Transport Security refuses plain http there to a domain name - and, from macOS 14, to
+          # an IP address too. Hospital servers are plain http://host:port. Never add
+          # NSAllowsLocalNetworking, NSAllowsArbitraryLoadsForMedia or
+          # NSAllowsArbitraryLoadsInWebContent beside it: any of them makes macOS ignore
+          # NSAllowsArbitraryLoads. (MQTT uses sockets, which ATS skips.)
+          # NSLocalNetworkUsageDescription: from macOS 15 the user must let the app onto the local
+          # network (broker, signing server, UDP discovery); this is the text of that prompt.
           VERSION=$(echo "${{ steps.ver.outputs.VERSION }}" | sed 's/^v//')
           cat > "$APP_DIR/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -133,6 +141,13 @@ jobs:
             <true/>
             <key>NSHighResolutionCapable</key>
             <true/>
+            <key>NSAppTransportSecurity</key>
+            <dict>
+              <key>NSAllowsArbitraryLoads</key>
+              <true/>
+            </dict>
+            <key>NSLocalNetworkUsageDescription</key>
+            <string>Connects to the MQTT broker and the signing server on your network, and answers discovery requests from signing apps on it.</string>
           </dict>
           </plist>
           EOF

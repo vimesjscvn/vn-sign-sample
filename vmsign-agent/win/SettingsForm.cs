@@ -15,6 +15,7 @@ public sealed class SettingsForm : Form
     private TextBox txtTokenPin = null!;
     private ComboBox cboCertificates = null!;
     private CheckBox chkShowSignSuccessToast = null!;
+    private TextBox txtSignApiUrl = null!;
     private TextBox txtPort = null!;
     private TextBox txtDiscoveryPort = null!;
     private TextBox txtMqttHost = null!;
@@ -43,7 +44,7 @@ public sealed class SettingsForm : Form
     private void InitializeComponent()
     {
         Text = _requireEndUser ? "VMSignAgent - First Setup" : "VMSignAgent - Settings";
-        Size = new Size(560, 720);
+        Size = new Size(560, 790);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -116,6 +117,21 @@ public sealed class SettingsForm : Form
 
         y += 10;
 
+        AddSectionHeader(panel, ref y, "Signing Server (for Test Sign)");
+        txtSignApiUrl = AddField(panel, ref y, "API URL:", "");
+        var apiHint = new Label
+        {
+            Text = "e.g. http://10.0.0.5:8081 - the address the hospital software signs through.",
+            Location = new Point(120, y - 4),
+            Size = new Size(380, 18),
+            ForeColor = Color.FromArgb(100, 116, 139),
+            Font = new Font("Segoe UI", 8f),
+        };
+        panel.Controls.Add(apiHint);
+        y += 18;
+
+        y += 10;
+
         AddSectionHeader(panel, ref y, "HTTP Service");
         txtPort = AddField(panel, ref y, "Port:", "9999");
         txtDiscoveryPort = AddField(panel, ref y, "Discovery Port:", "9998");
@@ -133,6 +149,16 @@ public sealed class SettingsForm : Form
         chkMqttUseTls = new CheckBox { Text = "Use TLS", Location = new Point(120, y), AutoSize = true };
         chkMqttUseTls.CheckedChanged += (_, __) => UpdateTlsFieldsVisibility();
         panel.Controls.Add(chkMqttUseTls);
+
+        var btnTestMqtt = new Button
+        {
+            Text = "Test Connection",
+            Size = new Size(120, 26),
+            Location = new Point(360, y - 3),
+            FlatStyle = FlatStyle.Flat,
+        };
+        btnTestMqtt.Click += BtnTestMqtt_Click;
+        panel.Controls.Add(btnTestMqtt);
         y += 25;
 
         tlsPanel = new Panel
@@ -242,6 +268,7 @@ public sealed class SettingsForm : Form
         txtTokenPin.Text = Cfg("Token:Pin", "");
         LoadCertificatesIntoComboBox(Cfg("Token:SelectedCertificateSerial", ""), showMessage: false);
         chkShowSignSuccessToast.Checked = Cfg("Ui:ShowSignSuccessToast", "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+        txtSignApiUrl.Text = Cfg("SignApi:BaseUrl", "");
         txtPort.Text = Cfg("Port", "9999");
         txtDiscoveryPort.Text = Cfg("DiscoveryPort", "9998");
         txtMqttHost.Text = Cfg("Mqtt:BrokerHost", "");
@@ -279,12 +306,21 @@ public sealed class SettingsForm : Form
                 return;
             }
 
+            if (!string.IsNullOrWhiteSpace(txtSignApiUrl.Text) && SignTestRunner.NormalizeApiUrl(txtSignApiUrl.Text) == null)
+            {
+                MessageBox.Show("API URL must start with http:// or https://, e.g. http://10.0.0.5:8081",
+                    "Invalid API URL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtSignApiUrl.Focus();
+                return;
+            }
+
             AgentConfig.Save(settings =>
             {
                 SetCfg(settings, "EndUser:PhoneNumber", txtEndUserPhoneNumber.Text.Trim());
                 SetCfg(settings, "Token:Pin", txtTokenPin.Text);
                 SetCfg(settings, "Token:SelectedCertificateSerial", (cboCertificates.SelectedItem as CertificateComboItem)?.Serial ?? string.Empty);
                 SetCfg(settings, "Ui:ShowSignSuccessToast", chkShowSignSuccessToast.Checked ? "true" : "false");
+                SetCfg(settings, "SignApi:BaseUrl", txtSignApiUrl.Text.Trim());
                 SetCfg(settings, "Port", txtPort.Text);
                 SetCfg(settings, "DiscoveryPort", txtDiscoveryPort.Text);
                 SetCfg(settings, "Mqtt:BrokerHost", txtMqttHost.Text);
@@ -318,6 +354,58 @@ public sealed class SettingsForm : Form
             MessageBox.Show($"Failed to save settings:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
+
+    private async void BtnTestMqtt_Click(object? sender, EventArgs e)
+    {
+        var host = txtMqttHost.Text.Trim();
+        if (string.IsNullOrEmpty(host))
+        {
+            MessageBox.Show("Enter the broker host first.", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            txtMqttHost.Focus();
+            return;
+        }
+
+        if (!int.TryParse(txtMqttPort.Text.Trim(), out var port) || port < 1 || port > 65535)
+        {
+            MessageBox.Show("Broker port must be a number between 1 and 65535.", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            txtMqttPort.Focus();
+            return;
+        }
+
+        // Tests what is on screen rather than what is saved, so a value can be checked before Save.
+        var tls = new MqttTlsConfig
+        {
+            UseTls = chkMqttUseTls.Checked,
+            CaCertPath = NullIfBlank(txtMqttCaCertPath.Text),
+            ClientPfxPath = NullIfBlank(txtMqttClientPfxPath.Text),
+            ClientPfxPassword = NullIfBlank(txtMqttClientPfxPassword.Text),
+            AllowUntrusted = chkMqttAllowUntrusted.Checked,
+        };
+
+        var button = (Button)sender!;
+        button.Enabled = false;
+        button.Text = "Testing...";
+        UseWaitCursor = true;
+        string? error;
+        try
+        {
+            error = await MqttSigningResponder.TestConnectionAsync(host, port,
+                txtMqttUsername.Text, txtMqttPassword.Text, tls, TimeSpan.FromSeconds(10));
+        }
+        finally
+        {
+            button.Enabled = true;
+            button.Text = "Test Connection";
+            UseWaitCursor = false;
+        }
+
+        if (error == null)
+            MessageBox.Show($"Connected to {host}:{port} successfully.", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        else
+            MessageBox.Show($"Cannot connect to {host}:{port}.\n\n{error}", "MQTT Test", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+
+    private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private bool ValidateEndUserSettings()
     {

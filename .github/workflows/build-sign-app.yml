@@ -70,6 +70,8 @@ jobs:
           cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
           [ -d "Resources/pkcs11" ] && cp -R Resources/pkcs11 "$APP_DIR/Contents/Resources/"
 
+          # Same Info.plist as build-vmsign-agent-mac.yml, which explains NSAppTransportSecurity
+          # and NSLocalNetworkUsageDescription. Keep the two in step.
           cat > "$APP_DIR/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -85,6 +87,8 @@ jobs:
             <key>LSMinimumSystemVersion</key><string>14.0</string>
             <key>LSUIElement</key><true/>
             <key>NSHighResolutionCapable</key><true/>
+            <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+            <key>NSLocalNetworkUsageDescription</key><string>Connects to the MQTT broker and the signing server on your network, and answers discovery requests from signing apps on it.</string>
           </dict>
           </plist>
           EOF
