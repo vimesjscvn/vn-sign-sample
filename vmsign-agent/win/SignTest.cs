@@ -65,7 +65,7 @@ internal sealed class SignTestRunner
             _log($"2/4  Signing server  {apiUrl ?? "(not set)"}");
             if (apiUrl == null)
                 throw new SignTestException("no valid API URL in Settings",
-                    "Open Settings and fill in Signing Server > API URL, e.g. http://10.0.0.5:8081");
+                    "Open Settings and fill in Signing Server > API URL, e.g. http://<ip-server-ky>:8081");
             if (string.IsNullOrEmpty(mqttHost))
                 throw new SignTestException("MQTT is not configured in this agent",
                     "The server reaches USB tokens only over MQTT. Fill in the MQTT section of Settings.");

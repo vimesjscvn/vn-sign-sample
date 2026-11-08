@@ -81,13 +81,13 @@ struct SettingsView: View {
                 }
 
                 // Signing server section
-                GroupBox(label: Text("Signing Server (for Test Sign)").fontWeight(.semibold)) {
+                GroupBox(label: Text("Signing Server (Test Sign only - optional)").fontWeight(.semibold)) {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text("API URL:").frame(width: 120, alignment: .trailing)
-                            TextField("http://10.0.0.5:8081", text: $signApiUrl)
+                            TextField("http://<ip-server-ky>:8081", text: $signApiUrl)
                         }
-                        Text("The address the hospital software signs through.")
+                        Text("Optional. Only used by Test Sign to check the connection to the signing server; normal signing does not need it.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.leading, 128)
@@ -221,7 +221,7 @@ struct SettingsView: View {
     private func save() {
         let apiUrl = signApiUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         if !apiUrl.isEmpty && SignTestRunner.normalizeApiUrl(apiUrl) == nil {
-            statusMessage = "❌ API URL must start with http:// or https://, e.g. http://10.0.0.5:8081"
+            statusMessage = "❌ API URL must start with http:// or https://, e.g. http://<ip-server-ky>:8081"
             return
         }
         // Trimmed as Test Connection trims it, so the host that tested fine is the host saved.

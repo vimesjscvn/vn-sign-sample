@@ -16,7 +16,7 @@ struct AppConfig {
     var mqttAgentId: String? = nil
     var mqttUseTls: Bool = true
 
-    // Signing API used by Test Sign, e.g. http://10.0.0.5:8081
+    // Signing API used by Test Sign, e.g. http://<ip-server-ky>:8081
     var signApiBaseUrl: String? = nil
 
     static func load() -> AppConfig {

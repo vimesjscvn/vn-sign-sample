@@ -43,7 +43,7 @@ final class SignTestRunner {
             report("2/4  Signing server  \(apiUrl ?? "(not set)")")
             guard let api = apiUrl else {
                 throw SignTestError("no valid API URL in Settings",
-                    hint: "Open Settings and fill in Signing Server > API URL, e.g. http://10.0.0.5:8081")
+                    hint: "Open Settings and fill in Signing Server > API URL, e.g. http://<ip-server-ky>:8081")
             }
             guard let broker = config.mqttBrokerHost, !broker.isEmpty else {
                 throw SignTestError("MQTT is not configured in this agent",
