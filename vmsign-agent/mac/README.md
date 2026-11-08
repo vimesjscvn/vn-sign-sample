@@ -74,7 +74,7 @@ File `Resources/appsettings.json` (hoặc copy sang `~/.config/vimes-sign/`):
     "PhoneNumber": "0912345678"
   },
   "SignApi": {
-    "BaseUrl": "http://10.0.0.5:8081"
+    "BaseUrl": "http://<ip-server-ky>:8081"
   },
   "Mqtt": {
     "BrokerHost": "mqtt.example.com",

@@ -117,18 +117,19 @@ public sealed class SettingsForm : Form
 
         y += 10;
 
-        AddSectionHeader(panel, ref y, "Signing Server (for Test Sign)");
+        AddSectionHeader(panel, ref y, "Signing Server (Test Sign only - optional)");
         txtSignApiUrl = AddField(panel, ref y, "API URL:", "");
         var apiHint = new Label
         {
-            Text = "e.g. http://10.0.0.5:8081 - the address the hospital software signs through.",
+            Text = "Optional. Only used by Test Sign to check the connection to the signing server; " +
+                   "normal signing does not need it. e.g. http://<ip-server-ky>:8081",
             Location = new Point(120, y - 4),
-            Size = new Size(380, 18),
+            Size = new Size(380, 32),
             ForeColor = Color.FromArgb(100, 116, 139),
             Font = new Font("Segoe UI", 8f),
         };
         panel.Controls.Add(apiHint);
-        y += 18;
+        y += 32;
 
         y += 10;
 
@@ -308,7 +309,7 @@ public sealed class SettingsForm : Form
 
             if (!string.IsNullOrWhiteSpace(txtSignApiUrl.Text) && SignTestRunner.NormalizeApiUrl(txtSignApiUrl.Text) == null)
             {
-                MessageBox.Show("API URL must start with http:// or https://, e.g. http://10.0.0.5:8081",
+                MessageBox.Show("API URL must start with http:// or https://, e.g. http://<ip-server-ky>:8081",
                     "Invalid API URL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 txtSignApiUrl.Focus();
                 return;
